@@ -37,6 +37,8 @@ local Window = Halcyon:CreateWindow({
 	Folder = "HalcyonExample",
 	Theme = "Midnight",
 	TabStyle = "Sidebar",
+	-- Ctrl+K opens a search over every tab and setting.
+	CommandPalette = true,
 	Profile = { Avatar = "Headshot", ShowClock = true },
 	KeySystem = {
 		Title = "Halcyon example",
@@ -466,6 +468,37 @@ Pickers:Tiles({
 	},
 })
 Pickers:Rating({ Title = "Rating", Default = 4 })
+
+local NoticeLooks = Looks:Section({ Title = "Notices", Icon = "bell", Badge = #Halcyon:GetStyles("Notification") })
+for _, name in Halcyon:GetStyles("Notification") do
+	NoticeLooks:Button({
+		Title = name,
+		Description = 'Style = "' .. name .. '"',
+		Tooltip = { Title = name, Text = "Press to show this notice look.", Key = "Click" },
+		Callback = function()
+			local notice = Window:Notify({
+				Title = if name == "Achievement" then "Level 10 reached" else name .. " notice",
+				Content = "Shows how this look sits on screen.",
+				Kind = if name == "Snackbar" then "info" else "success",
+				Style = name,
+				Duration = 5,
+				Actions = if name == "Snackbar" then { { Title = "Undo" } } else nil,
+			})
+			if name == "Progress" then
+				task.spawn(function()
+					for step = 1, 10 do
+						task.wait(0.25)
+						notice.SetProgress(step / 10)
+					end
+					notice.Done("Finished")
+				end)
+			end
+		end,
+	})
+end
+NoticeLooks:Button({ Title = "Open the command palette", Variant = "Soft", Icon = "search", Spotlight = { Title = "New", Text = "Press Ctrl+K anywhere to jump to any setting.", Id = "palette" }, Callback = function()
+	Window:OpenPalette()
+end })
 
 local Boxed = Looks:Section({ Title = "Tabs in a section", Icon = "layers", Tabs = { "Aim", "Visuals", "Misc" }, Side = "Right" })
 Boxed:Toggle({ Title = "Silent aim" })

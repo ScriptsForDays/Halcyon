@@ -12,6 +12,277 @@ loading[name] = nil
 loaded[name] = result
 return result
 end
+modules["Components/CommandPalette"] = function()
+local UserInputService = game:GetService("UserInputService")
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local Mount = import("Core/Mount")
+local WIDTH, RESULTS = 460, 8
+local CommandPalette = {}
+local function catalogue(window)
+local items = {}
+for _, tab in window.tabs do
+table.insert(items, { kind = "tab", tab = tab, title = tab.Title, path = "Tab", icon = tab.Icon or "layout-grid" })
+for _, entry in tab.entries do
+local handle = entry.handle
+if not handle.Hidden and handle.Title and handle.Title ~= "" then
+local section = entry.section and entry.section.Title
+table.insert(items, {
+kind = "row",
+tab = tab,
+handle = handle,
+title = handle.Title,
+path = if section then `{tab.Title}  \u{203A}  {section}` else tab.Title,
+icon = tab.Icon or "circle",
+words = handle.SearchText or string.lower(handle.Title),
+})
+end
+end
+end
+return items
+end
+local function search(items, query)
+query = string.lower(query)
+local starts, contains = {}, {}
+for _, item in items do
+local title = string.lower(item.title)
+if query == "" then
+if item.kind == "tab" then
+table.insert(starts, item)
+end
+elseif string.sub(title, 1, #query) == query then
+table.insert(starts, item)
+elseif string.find(item.words or title, query, 1, true) then
+table.insert(contains, item)
+end
+end
+for _, item in contains do
+table.insert(starts, item)
+end
+return starts
+end
+local function reveal(window, item)
+window:Show()
+if window.minimized then
+window:Minimize(false)
+end
+if window.query ~= "" then
+window:Search("")
+end
+window:SelectTab(item.tab)
+local handle = item.handle
+if not handle then
+return
+end
+task.delay(0.05, function()
+local page, frame = item.tab.page, handle.Frame
+if not frame.Parent then
+return
+end
+local offset = (frame.AbsolutePosition.Y - page.AbsolutePosition.Y) / window.scale
+page.CanvasPosition = Vector2.new(0, math.max(page.CanvasPosition.Y + offset - 24, 0))
+local ring = Create.new("UIStroke", { Thickness = 2, Theme = { Color = "accent" }, Parent = frame })
+Motion.tween(ring, "slow", { Transparency = 0 })
+task.delay(1.2, function()
+Motion.tween(ring, "slow", { Transparency = 1 })
+task.delay(0.4, function()
+ring:Destroy()
+end)
+end)
+end)
+end
+function CommandPalette.open(window)
+local library = window.library
+if library.palette then
+library.palette.close()
+end
+local overlay = Mount.overlay(library)
+local scope = window.scope:child()
+local palette = {}
+library.palette = palette
+local scrim = Create.new("TextButton", {
+Name = "Palette",
+Size = UDim2.fromScale(1, 1),
+BackgroundColor3 = Color3.new(0, 0, 0),
+BackgroundTransparency = 1,
+Parent = overlay.dialogs,
+})
+scope:add(scrim)
+Motion.tween(scrim, "fast", { BackgroundTransparency = 0.55 })
+local card = Create.new("Frame", {
+Name = "Card",
+Size = UDim2.fromOffset(WIDTH, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+AnchorPoint = Vector2.new(0.5, 0),
+Position = UDim2.new(0.5, 0, 0.16, 0),
+Active = true,
+Theme = { BackgroundColor3 = "surface" },
+Parent = scrim,
+})
+Create.new("UIScale", { Scale = library.scale, Parent = card })
+Create.new("UISizeConstraint", { MaxSize = Vector2.new(math.max(overlay.gui.AbsoluteSize.X / library.scale - 24, 240), math.huge), Parent = card })
+Create.corner(12, card)
+Create.stroke("stroke", card)
+Create.list(card, "Vertical", 0)
+local bar = Create.new("Frame", { Name = "Bar", Size = UDim2.new(1, 0, 0, 48), Parent = card })
+Create.padding(bar, 16, 0)
+Create.list(bar, "Horizontal", 10)
+Create.icon("search", 16, "textMuted", bar)
+local box = Create.new("TextBox", {
+Name = "Query",
+Size = UDim2.fromScale(0, 1),
+PlaceholderText = "Jump to a tab or setting",
+TextSize = 15,
+LayoutOrder = 1,
+Theme = { TextColor3 = "text" },
+Parent = bar,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+local hint = Create.new("TextLabel", {
+Size = UDim2.fromOffset(0, 20),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = "Esc",
+TextSize = 11,
+Weight = "bold",
+LayoutOrder = 2,
+Theme = { BackgroundColor3 = "raised", TextColor3 = "textMuted" },
+Parent = bar,
+})
+Create.corner(4, hint)
+Create.padding(hint, 6, 0)
+local list = Create.new("Frame", { Name = "Results", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = card })
+Create.padding(list, 6)
+Create.list(list, "Vertical", 2)
+local items = catalogue(window)
+local shown, buttons, chosen = {}, {}, 1
+local function paint()
+for index, button in buttons do
+local on = index == chosen
+button.BackgroundTransparency = if on then 0 else 1
+end
+end
+function palette.close()
+if library.palette ~= palette then
+return
+end
+library.palette = nil
+window.scope:release(scope)
+end
+local function jump(item)
+palette.close()
+if item then
+reveal(window, item)
+end
+end
+local function draw()
+for _, button in buttons do
+button:Destroy()
+end
+table.clear(buttons)
+shown = search(items, box.Text)
+chosen = 1
+for index = 1, math.min(#shown, RESULTS) do
+local item = shown[index]
+local button = Create.new("TextButton", {
+Name = "Result",
+Size = UDim2.new(1, 0, 0, if library.touch then 48 else 42),
+LayoutOrder = index,
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = "raised" },
+Parent = list,
+})
+Create.corner(8, button)
+Create.padding(button, 10, 0)
+Create.list(button, "Horizontal", 10)
+Create.icon(if item.kind == "tab" then item.icon else "chevron-right", 16, if item.kind == "tab" then "accent" else "textMuted", button)
+local text = Create.new("Frame", { Size = UDim2.fromScale(0, 1), LayoutOrder = 1, Parent = button }, {
+Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
+})
+Create.list(text, "Vertical", 0, { VerticalAlignment = Enum.VerticalAlignment.Center })
+Create.new("TextLabel", {
+Size = UDim2.new(1, 0, 0, 17),
+Text = item.title,
+TextSize = 14,
+Weight = "medium",
+TextTruncate = Enum.TextTruncate.AtEnd,
+Theme = { TextColor3 = "text" },
+Parent = text,
+})
+Create.new("TextLabel", {
+Size = UDim2.new(1, 0, 0, 14),
+Text = item.path,
+TextSize = 11,
+TextTruncate = Enum.TextTruncate.AtEnd,
+LayoutOrder = 1,
+Theme = { TextColor3 = "textMuted" },
+Parent = text,
+})
+scope:connect(button.MouseEnter, function()
+chosen = index
+paint()
+end)
+scope:connect(button.Activated, function()
+jump(item)
+end)
+buttons[index] = button
+end
+if #buttons == 0 then
+local empty = Create.new("TextLabel", {
+Name = "Result",
+Size = UDim2.new(1, 0, 0, 40),
+Text = `Nothing matches "{box.Text}"`,
+TextSize = 13,
+TextXAlignment = Enum.TextXAlignment.Center,
+Theme = { TextColor3 = "textMuted" },
+Parent = list,
+})
+table.insert(buttons, empty)
+end
+paint()
+end
+scope:connect(box:GetPropertyChangedSignal("Text"), draw)
+scope:connect(scrim.Activated, palette.close)
+scope:connect(UserInputService.InputBegan, function(input)
+local key = input.KeyCode
+if key == Enum.KeyCode.Escape then
+palette.close()
+elseif key == Enum.KeyCode.Down then
+chosen = math.min(chosen + 1, math.min(#shown, RESULTS))
+paint()
+elseif key == Enum.KeyCode.Up then
+chosen = math.max(chosen - 1, 1)
+paint()
+end
+end)
+scope:connect(box.FocusLost, function(entered)
+if entered then
+jump(shown[chosen])
+end
+end)
+draw()
+task.defer(function()
+if library.palette == palette then
+box:CaptureFocus()
+end
+end)
+palette.box, palette.items, palette.jump = box, items, jump
+palette.results = function()
+return shown
+end
+return palette
+end
+function CommandPalette.bind(window)
+local key = window.options.PaletteKey or Enum.KeyCode.K
+window.scope:connect(UserInputService.InputBegan, function(input, processed)
+if processed or input.KeyCode ~= key or window.library.listeningForKey then
+return
+end
+if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then
+CommandPalette.open(window)
+end
+end)
+end
+return CommandPalette
+end
 modules["Components/ConfigSection"] = function()
 local Env = import("Core/Env")
 local ConfigSection = {}
@@ -259,7 +530,15 @@ local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Env = import("Core/Env")
 local Profile = import("Components/Profile")
+local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
+Styles.register("Watermark", "Card", { fill = true, corner = 8, separator = "  |  " })
+Styles.register("Watermark", "Pill", { fill = true, corner = -1, separator = "  \u{2022}  " })
+Styles.register("Watermark", "Accent", { fill = true, corner = 6, separator = "  |  ", edge = true })
+Styles.register("Watermark", "Minimal", { separator = "  /  ", outline = true })
+Styles.register("KeybindList", "Card", { fill = true })
+Styles.register("KeybindList", "Glass", { fill = true, transparency = 0.25 })
+Styles.register("KeybindList", "Minimal", { outline = true })
 local Hud = {}
 local function handleFor(window, scope, frame)
 local handle = { Frame = frame }
@@ -276,18 +555,27 @@ options = options or {}
 local scope = window.scope:child()
 local fields = options.Fields or { "Title", "Executor", "Time" }
 local frames, rate = 0, 0
+local look = Styles.pick("Watermark", options.Style, window)
 local pill = Create.new("Frame", {
 Name = "Watermark",
 AutomaticSize = Enum.AutomaticSize.XY,
 Position = options.Position or UDim2.fromOffset(12, 12),
 Active = true,
+BackgroundTransparency = if look.fill then 0 else 1,
 Theme = { BackgroundColor3 = "surface" },
 Parent = window.gui,
 })
 scope:add(pill)
-Create.corner(8, pill)
+if look.fill then
+Create.corner(look.corner or 8, pill)
 Create.stroke("stroke", pill)
-Create.padding(pill, 10, 7)
+end
+if look.edge then
+local stroke = pill:FindFirstChildOfClass("UIStroke")
+Theme.bind(stroke, "Color", "accent")
+stroke.Transparency = 0.35
+end
+Create.padding(pill, if look.corner == -1 then 14 else 10, 7, 10, 7)
 Create.list(pill, "Horizontal", 8)
 if window.Icon then
 Create.icon(window.Icon, 14, "accent", pill)
@@ -300,6 +588,9 @@ LayoutOrder = 1,
 Theme = { TextColor3 = "text" },
 Parent = pill,
 })
+if look.outline then
+Create.new("UIStroke", { ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual, Transparency = 0.4, Color = Color3.new(0, 0, 0), Parent = label })
+end
 local function text(field)
 if type(field) == "function" then
 local ok, value = pcall(field)
@@ -326,7 +617,7 @@ local parts = {}
 for index, field in fields do
 parts[index] = text(field)
 end
-label.Text = table.concat(parts, "  |  ")
+label.Text = table.concat(parts, look.separator or "  |  ")
 end
 if table.find(fields, "FPS") then
 scope:connect(RunService.Heartbeat, function()
@@ -344,18 +635,22 @@ end
 function Hud.keybindList(window, options)
 options = options or {}
 local scope = window.scope:child()
+local look = Styles.pick("KeybindList", options.Style, window)
 local panel = Create.new("Frame", {
 Name = "Keybinds",
 Size = UDim2.fromOffset(200, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 Position = options.Position or UDim2.new(0, 12, 0.4, 0),
 Active = true,
+BackgroundTransparency = if look.fill then look.transparency or 0 else 1,
 Theme = { BackgroundColor3 = "surface" },
 Parent = window.gui,
 })
 scope:add(panel)
+if look.fill then
 Create.corner(10, panel)
 Create.stroke("stroke", panel)
+end
 Create.padding(panel, 12, 10)
 Create.list(panel, "Vertical", 6)
 Create.new("TextLabel", {
@@ -948,12 +1243,14 @@ return KeySystem
 end
 modules["Components/Notifications"] = function()
 local GuiService = game:GetService("GuiService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local Create = import("Core/Create")
 local Icons = import("Core/Icons")
 local Env = import("Core/Env")
 local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
+local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local WIDTH, NARROW = 320, 480
 local KINDS = {
@@ -963,9 +1260,14 @@ warning = { icon = "triangle-alert", role = "warning" },
 danger = { icon = "circle-alert", role = "danger" },
 }
 local POSITIONS = { TopLeft = true, TopCenter = true, TopRight = true, BottomLeft = true, BottomCenter = true, BottomRight = true }
-local STYLES = { Default = true, Timer = true, Compact = true, Banner = true, Progress = true }
+local STYLES = {}
+for _, name in { "Default", "Timer", "Compact", "Banner", "Progress", "Accent", "Glass", "Achievement", "Snackbar", "Island" } do
+STYLES[name] = true
+Styles.register("Notification", name, {})
+end
+local CHIME = "rbxasset://sounds/electronicpingshort.wav"
 local Notifications = {
-Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4, Style = "Default" },
+Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4, Style = "Default", Sound = false },
 }
 function Notifications.configure(library, settings)
 if type(settings) ~= "table" then
@@ -980,6 +1282,9 @@ defaults.Position = settings.Position
 end
 if type(settings.Progress) == "boolean" then
 defaults.Progress = settings.Progress
+end
+if type(settings.Sound) == "boolean" or type(settings.Sound) == "string" then
+defaults.Sound = settings.Sound
 end
 if STYLES[settings.Style] then
 defaults.Style = settings.Style
@@ -998,7 +1303,16 @@ end
 local overlay = Mount.overlay(library)
 local holder = Create.new("Frame", { Name = "Holder", Parent = overlay.toasts })
 local layout = Create.list(holder, "Vertical", 8)
-local state = { holder = holder, active = {}, queue = {}, order = 0, side = 1 }
+local island = Create.new("Frame", {
+Name = "Island",
+Size = UDim2.new(0, 360, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+AnchorPoint = Vector2.new(0.5, 0),
+Position = UDim2.new(0.5, 0, 0, GuiService:GetGuiInset().Y + 8),
+Parent = overlay.toasts,
+})
+Create.list(island, "Vertical", 6, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
+local state = { holder = holder, island = island, active = {}, queue = {}, order = 0, side = 1 }
 library.toasts = state
 function state.place()
 local narrow = overlay.gui.AbsoluteSize.X < NARROW
@@ -1023,30 +1337,59 @@ local function show(library, state, toast)
 local options = toast.options
 local kind = KINDS[toast.kind] or KINDS.info
 local style = toast.style
-local compact = style == "Compact"
+local snack, isle = style == "Snackbar", style == "Island"
+local compact = style == "Compact" or isle
 local scope = library.scope:child()
 toast.scope = scope
 state.order += 1
+local sound = if options.Sound ~= nil then options.Sound else Notifications.Defaults.Sound
+if sound then
+local chime = Create.new("Sound", { SoundId = if type(sound) == "string" then sound else CHIME, Volume = 0.35 })
+pcall(SoundService.PlayLocalSound, SoundService, chime)
+task.delay(3, function()
+chime:Destroy()
+end)
+end
 local slot = Create.new("Frame", {
 Name = "Toast",
-Size = UDim2.new(1, 0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.Y,
+Size = if isle then UDim2.fromOffset(0, 0) else UDim2.new(1, 0, 0, 0),
+AutomaticSize = if isle then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y,
 LayoutOrder = state.order,
-Parent = state.holder,
+Parent = if isle then state.island else state.holder,
 })
 scope:add(slot)
 local card = Create.new("TextButton", {
 Name = "Card",
 Text = "",
-Size = UDim2.new(1, 0, 0, 0),
-AutomaticSize = Enum.AutomaticSize.Y,
-Position = UDim2.fromOffset(28 * state.side, 0),
+Size = if isle then UDim2.fromOffset(0, 0) else UDim2.new(1, 0, 0, 0),
+AutomaticSize = if isle then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y,
+Position = if isle then UDim2.fromOffset(0, -16) else UDim2.fromOffset(28 * state.side, 0),
 ClipsDescendants = true,
-Theme = { BackgroundColor3 = "surface" },
+BackgroundTransparency = if style == "Glass" then 0.2 else 0,
+Theme = { BackgroundColor3 = if snack or isle then "text" else "surface" },
 Parent = slot,
 })
-Create.corner(if compact then -1 else 10, card)
-Create.stroke("stroke", card)
+Create.corner(if compact or snack then -1 else 10, card)
+local edge = Create.stroke(if style == "Glass" then "text" else "stroke", card)
+if style == "Glass" then
+edge.Transparency = 0.82
+elseif snack or isle then
+edge.Transparency = 1
+end
+if isle then
+Create.new("UISizeConstraint", { MaxSize = Vector2.new(360, math.huge), Parent = card })
+end
+if style == "Accent" then
+local stripe = Create.new("Frame", {
+Name = "Edge",
+Size = UDim2.new(0, 3, 1, -16),
+Position = UDim2.fromOffset(0, 8),
+ZIndex = 2,
+Theme = { BackgroundColor3 = kind.role },
+Parent = card,
+})
+Create.corner(-1, stripe)
+end
 if style == "Banner" then
 local strip = Create.new("Frame", {
 Name = "Strip",
@@ -1064,8 +1407,26 @@ Create.padding(body, 14, 9)
 else
 Create.padding(body, 12, if style == "Banner" then 15 else 12, 12, 12)
 end
-Create.list(body, "Horizontal", 10, { VerticalAlignment = if compact then Enum.VerticalAlignment.Center else Enum.VerticalAlignment.Top })
+if isle then
+body.Size = UDim2.fromOffset(0, 0)
+body.AutomaticSize = Enum.AutomaticSize.XY
+end
+Create.list(body, "Horizontal", 10, { VerticalAlignment = if compact or snack then Enum.VerticalAlignment.Center else Enum.VerticalAlignment.Top })
+if style == "Accent" or style == "Achievement" then
+local big = style == "Achievement"
+local disc = Create.new("Frame", {
+Name = "Disc",
+Size = UDim2.fromOffset(if big then 44 else 30, if big then 44 else 30),
+BackgroundTransparency = if big then 0 else 0.82,
+Theme = { BackgroundColor3 = kind.role },
+Parent = body,
+})
+Create.corner(-1, disc)
+toast.icon = Create.icon(options.Icon or (if big then "trophy" else kind.icon), if big then 22 else 16, if big then "onAccent" else kind.role, disc)
+toast.icon.AnchorPoint, toast.icon.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+else
 toast.icon = Create.icon(options.Icon or kind.icon, if compact then 16 else 18, kind.role, body)
+end
 local text = Create.new("Frame", { Name = "Text", AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = body }, {
 Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
 })
@@ -1077,12 +1438,23 @@ AutomaticSize = Enum.AutomaticSize.Y,
 TextWrapped = true,
 Weight = "medium",
 Text = toast.title,
-TextSize = if compact then 13 else 14,
-TextTruncate = if compact then Enum.TextTruncate.AtEnd else Enum.TextTruncate.None,
-Theme = { TextColor3 = "text" },
+TextSize = if compact or snack then 13 else (if style == "Achievement" then 15 else 14),
+TextTruncate = if compact or snack then Enum.TextTruncate.AtEnd else Enum.TextTruncate.None,
+Theme = { TextColor3 = if snack or isle then "background" else "text" },
 Parent = text,
 })
-if not compact and (toast.content ~= "" or style == "Progress") then
+if isle then
+text.AutomaticSize = Enum.AutomaticSize.XY
+text.Size = UDim2.fromOffset(0, 0)
+text:FindFirstChildOfClass("UIFlexItem"):Destroy()
+toast.titleLabel.Size = UDim2.fromOffset(0, 0)
+toast.titleLabel.AutomaticSize = Enum.AutomaticSize.XY
+toast.titleLabel.TextWrapped = false
+end
+if style == "Achievement" then
+toast.titleLabel.FontFace = Create.font("bold")
+end
+if not compact and not snack and (toast.content ~= "" or style == "Progress") then
 toast.contentLabel = Create.new("TextLabel", {
 Name = "Content",
 Size = UDim2.new(1, 0, 0, 0),
@@ -1113,7 +1485,25 @@ Parent = rail,
 })
 Create.corner(-1, toast.fill)
 end
-if not compact and type(options.Actions) == "table" and #options.Actions > 0 then
+if snack and type(options.Actions) == "table" and options.Actions[1] then
+local settings = options.Actions[1]
+local word = Create.new("TextButton", {
+Name = "Action",
+Size = UDim2.fromOffset(0, if library.touch then 40 else 24),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = string.upper(settings.Title or "OK"),
+TextSize = 12,
+Weight = "bold",
+LayoutOrder = 3,
+Theme = { TextColor3 = "accent" },
+Parent = body,
+})
+scope:connect(word.Activated, function()
+toast.Dismiss()
+Env.call(settings.Title or "Notification", settings.Callback)
+end)
+end
+if not compact and not snack and type(options.Actions) == "table" and #options.Actions > 0 then
 local actions = Create.new("Frame", {
 Name = "Actions",
 Size = UDim2.new(1, 0, 0, 0),
@@ -1146,6 +1536,10 @@ Env.call(settings.Title or "Notification", settings.Callback)
 end)
 end
 end
+if style == "Achievement" and not Motion.reduced then
+local grow = Create.new("UIScale", { Scale = 0.9, Parent = card })
+Motion.tween(grow, "spring", { Scale = 1 })
+end
 Motion.tween(card, "base", { Position = UDim2.fromOffset(0, 0) })
 scope:connect(card.Activated, toast.Dismiss)
 local duration = toast.duration
@@ -1170,7 +1564,7 @@ left -= 1
 end
 end))
 end
-if toast.progress and style ~= "Timer" and not compact and not Motion.reduced then
+if toast.progress and style ~= "Timer" and not compact and not snack and not Motion.reduced then
 local bar = Create.new("Frame", {
 Name = "Countdown",
 Size = UDim2.new(1, -20, 0, 2),
@@ -2204,6 +2598,151 @@ return tab
 end
 return SettingsTab
 end
+modules["Components/Spotlight"] = function()
+local Create = import("Core/Create")
+local Effects = import("Core/Effects")
+local Mount = import("Core/Mount")
+local Motion = import("Core/Motion")
+local GAP, MARGIN = 8, 8
+local Spotlight = {}
+function Spotlight.attach(window, handle, options)
+options = if type(options) == "table" then options else { Text = tostring(options) }
+local id = tostring(options.Id or handle.Title)
+if window.seenSpotlights[id] then
+return nil
+end
+local library, scope = window.library, handle.scope:child()
+local frame = handle.Frame
+local dot = Create.new("Frame", {
+Name = "Spotlight",
+Size = UDim2.fromOffset(8, 8),
+AnchorPoint = Vector2.new(0.5, 0.5),
+Position = UDim2.fromOffset(6, 6),
+ZIndex = 8,
+Theme = { BackgroundColor3 = "accent" },
+Parent = frame,
+})
+Create.corner(-1, dot)
+scope:add(dot)
+local ring = Create.new("UIStroke", { Theme = { Color = "accent" }, Parent = dot })
+Effects.pulse(scope, ring).start()
+local card
+local spot = {}
+function spot.dismiss()
+window.seenSpotlights[id] = true
+window:savePreferences()
+handle.scope:release(scope)
+end
+local function refresh()
+local visible = window.Visible and handle.Tab ~= nil and window.selected == handle.Tab and frame.Visible ~= false and not handle.Hidden
+local page = handle.Tab and handle.Tab.page
+if visible and page and page.AbsoluteSize.Y > 0 then
+local top, bottom = page.AbsolutePosition.Y, page.AbsolutePosition.Y + page.AbsoluteSize.Y
+visible = frame.AbsolutePosition.Y >= top and frame.AbsolutePosition.Y + frame.AbsoluteSize.Y <= bottom
+end
+if not visible then
+if card then
+card:Destroy()
+card = nil
+end
+return
+end
+if card then
+return
+end
+local overlay = Mount.overlay(library)
+card = Create.new("Frame", {
+Name = "Callout",
+Size = UDim2.fromOffset(240, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Theme = { BackgroundColor3 = "accent" },
+Parent = overlay.popups,
+})
+scope:add(card)
+Create.new("UIScale", { Scale = library.scale, Parent = card })
+Create.corner(10, card)
+Create.padding(card, 12, 10)
+Create.list(card, "Vertical", 4)
+if options.Title then
+Create.new("TextLabel", {
+Size = UDim2.new(1, 0, 0, 18),
+Text = tostring(options.Title),
+Weight = "bold",
+Theme = { TextColor3 = "onAccent" },
+Parent = card,
+})
+end
+if options.Text then
+Create.new("TextLabel", {
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+TextSize = 13,
+LayoutOrder = 1,
+Text = tostring(options.Text),
+TextTransparency = 0.1,
+Theme = { TextColor3 = "onAccent" },
+Parent = card,
+})
+end
+local button = Create.new("TextButton", {
+Name = "GotIt",
+Size = UDim2.fromOffset(0, if library.touch then 40 else 28),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = options.Button or "Got it",
+TextSize = 12,
+Weight = "bold",
+LayoutOrder = 2,
+BackgroundTransparency = 0.8,
+Theme = { BackgroundColor3 = "onAccent", TextColor3 = "onAccent" },
+Parent = card,
+})
+Create.corner(6, button)
+Create.padding(button, 12, 0)
+scope:connect(button.Activated, spot.dismiss)
+local function place()
+if not card then
+return
+end
+local view, origin = overlay.gui.AbsoluteSize, overlay.gui.AbsolutePosition
+local corner, size = frame.AbsolutePosition - origin, card.AbsoluteSize
+local y = corner.Y + frame.AbsoluteSize.Y + GAP
+if y + size.Y > view.Y - MARGIN then
+y = corner.Y - size.Y - GAP
+end
+card.Position = UDim2.fromOffset(
+math.round(math.clamp(corner.X + 12, MARGIN, math.max(view.X - size.X - MARGIN, MARGIN))),
+math.round(math.clamp(y, MARGIN, math.max(view.Y - size.Y - MARGIN, MARGIN)))
+)
+end
+scope:connect(card:GetPropertyChangedSignal("AbsoluteSize"), place)
+scope:connect(frame:GetPropertyChangedSignal("AbsolutePosition"), place)
+place()
+if not Motion.reduced then
+card.BackgroundTransparency = 1
+Motion.tween(card, "base", { BackgroundTransparency = 0 })
+end
+end
+scope:add(window.TabChanged:Connect(refresh))
+if handle.Tab then
+scope:connect(handle.Tab.page:GetPropertyChangedSignal("CanvasPosition"), refresh)
+end
+scope:connect(frame:GetPropertyChangedSignal("Visible"), refresh)
+window.visibilityHooks = window.visibilityHooks or {}
+table.insert(window.visibilityHooks, refresh)
+scope:add(function()
+local hooks = window.visibilityHooks
+local index = table.find(hooks, refresh)
+if index then
+table.remove(hooks, index)
+end
+end)
+task.defer(refresh)
+spot.refresh = refresh
+return spot
+end
+return Spotlight
+end
 modules["Components/Tab"] = function()
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
@@ -2601,8 +3140,175 @@ end
 end
 return Tab
 end
+modules["Components/Tooltip"] = function()
+local UserInputService = game:GetService("UserInputService")
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local Mount = import("Core/Mount")
+local Styles = import("Core/Styles")
+local DELAY, LONG_PRESS, TOUCH_TIME = 0.45, 0.5, 2.5
+local GAP, MARGIN, WIDTH = 8, 8, 240
+Styles.register("Tooltip", "Card", { card = true })
+Styles.register("Tooltip", "Plain", { inverted = true })
+Styles.register("Tooltip", "Follow", { card = true, follow = true })
+local Tooltip = {}
+local function build(library, spec, look)
+local overlay = Mount.overlay(library)
+local inverted = look.inverted == true
+local frame = Create.new("Frame", {
+Name = "Tooltip",
+Size = UDim2.fromOffset(0, 0),
+AutomaticSize = Enum.AutomaticSize.XY,
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = if inverted then "text" else "surface" },
+Parent = overlay.popups,
+})
+Create.new("UIScale", { Scale = library.scale, Parent = frame })
+Create.new("UISizeConstraint", { MaxSize = Vector2.new(WIDTH, math.huge), Parent = frame })
+Create.corner(if inverted then 6 else 8, frame)
+local edge = Create.stroke("stroke", frame)
+edge.Transparency = if inverted then 1 else 0
+Create.padding(frame, if inverted then 8 else 10, if inverted then 5 else 8)
+Create.list(frame, "Vertical", 3)
+if spec.Title or spec.Key then
+local head = Create.new("Frame", { Name = "Head", Size = UDim2.fromOffset(0, 16), AutomaticSize = Enum.AutomaticSize.X, Parent = frame })
+Create.list(head, "Horizontal", 6)
+if spec.Title then
+Create.new("TextLabel", {
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = tostring(spec.Title),
+TextSize = 13,
+Weight = "bold",
+Theme = { TextColor3 = if inverted then "background" else "text" },
+Parent = head,
+})
+end
+if spec.Key then
+local key = Create.new("TextLabel", {
+Size = UDim2.fromOffset(0, 16),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = tostring(spec.Key),
+TextSize = 11,
+Weight = "bold",
+LayoutOrder = 1,
+Theme = { BackgroundColor3 = "raised", TextColor3 = "textMuted" },
+Parent = head,
+})
+Create.corner(4, key)
+Create.padding(key, 5, 0)
+end
+end
+if spec.Text then
+Create.new("TextLabel", {
+Name = "Text",
+Size = UDim2.fromOffset(0, 0),
+AutomaticSize = Enum.AutomaticSize.XY,
+TextWrapped = true,
+RichText = true,
+TextSize = 12,
+LayoutOrder = 1,
+Text = tostring(spec.Text),
+Theme = { TextColor3 = if inverted then "background" else "textMuted" },
+Parent = frame,
+}, { Create.new("UISizeConstraint", { MaxSize = Vector2.new(WIDTH - 20, math.huge) }) })
+end
+return frame, overlay
+end
+local function place(frame, overlay, anchor)
+local view, origin = overlay.gui.AbsoluteSize, overlay.gui.AbsolutePosition
+local size = frame.AbsoluteSize
+local x, top, bottom
+if typeof(anchor) == "Vector2" then
+local point = anchor - origin
+x, top, bottom = point.X + 14, point.Y, point.Y + 18
+else
+local corner = anchor.AbsolutePosition - origin
+x, top, bottom = corner.X + 12, corner.Y, corner.Y + anchor.AbsoluteSize.Y
+end
+local y = if bottom + GAP + size.Y <= view.Y - MARGIN then bottom + GAP else top - GAP - size.Y
+x = math.clamp(x, MARGIN, math.max(view.X - size.X - MARGIN, MARGIN))
+y = math.clamp(y, MARGIN, math.max(view.Y - size.Y - MARGIN, MARGIN))
+frame.Position = UDim2.fromOffset(math.round(x), math.round(y))
+end
+function Tooltip.attach(row, spec)
+if type(spec) ~= "table" then
+spec = { Text = tostring(spec) }
+end
+local library, scope = row.library, row.scope
+local look = Styles.pick("Tooltip", spec.Style, row.window)
+local target = row.frame
+local shown, overlay
+local generation = 0
+local function hide()
+generation += 1
+if shown then
+shown:Destroy()
+shown = nil
+end
+end
+local function show(at)
+hide()
+local mine = generation
+local frame
+frame, overlay = build(library, spec, look)
+shown = frame
+place(frame, overlay, if look.follow and at then at else target)
+task.defer(function()
+if mine == generation and shown == frame then
+place(frame, overlay, if look.follow and at then at else target)
+Motion.tween(frame, "fast", { BackgroundTransparency = 0 })
+end
+end)
+end
+scope:connect(target.MouseEnter, function()
+generation += 1
+local mine = generation
+task.delay(DELAY, function()
+if mine == generation and not scope.cleaned and target.Visible ~= false then
+show(UserInputService:GetMouseLocation())
+end
+end)
+end)
+scope:connect(target.MouseLeave, hide)
+if look.follow then
+scope:connect(UserInputService.InputChanged, function(input)
+if shown and input.UserInputType == Enum.UserInputType.MouseMovement then
+place(shown, overlay, Vector2.new(input.Position.X, input.Position.Y))
+end
+end)
+end
+scope:connect(target.InputBegan, function(input)
+if input.UserInputType ~= Enum.UserInputType.Touch then
+return
+end
+generation += 1
+local mine = generation
+task.delay(LONG_PRESS, function()
+if mine == generation and not scope.cleaned then
+show(Vector2.new(input.Position.X, input.Position.Y))
+local current = generation
+task.delay(TOUCH_TIME, function()
+if current == generation then
+hide()
+end
+end)
+end
+end)
+end)
+scope:connect(target.InputEnded, function(input)
+if input.UserInputType == Enum.UserInputType.Touch and not shown then
+generation += 1
+end
+end)
+scope:add(hide)
+return { show = show, hide = hide }
+end
+return Tooltip
+end
 modules["Components/Window"] = function()
 local UserInputService = game:GetService("UserInputService")
+local CommandPalette = import("Components/CommandPalette")
 local Config = import("Core/Config")
 local Create = import("Core/Create")
 local Dialog = import("Components/Dialog")
@@ -2737,6 +3443,12 @@ self.profile = Profile.settings(options.Profile)
 if type(saved.anonymous) == "boolean" then
 self.profile.Anonymous = saved.anonymous
 end
+self.seenSpotlights = {}
+for _, id in if type(saved.seen) == "table" then saved.seen else {} do
+if type(id) == "string" then
+self.seenSpotlights[id] = true
+end
+end
 if type(saved.reducedMotion) == "boolean" then
 Motion.reduced = saved.reducedMotion
 end
@@ -2861,9 +3573,15 @@ end)
 self.scope:add(Theme.Changed:Connect(function()
 self:savePreferences()
 end))
+if options.CommandPalette then
+CommandPalette.bind(self)
+end
 self:layout()
 self:pop()
 return self
+end
+function Window:OpenPalette()
+return CommandPalette.open(self)
 end
 function Window:buildShadow()
 local root, scope, options = self.root, self.scope, self.options
@@ -3612,6 +4330,9 @@ end
 self:applyGates()
 end
 function Window:refreshVisibility()
+for _, hook in self.visibilityHooks or {} do
+task.defer(hook)
+end
 local docked = self.minimized and self.minimizeStyle ~= "Topbar"
 self.root.Visible = self.Visible and not docked
 self.pill.Visible = self.Visible and docked and self.minimizeStyle == "Pill"
@@ -3749,7 +4470,13 @@ for name in self.collapsedGroups do
 table.insert(collapsed, name)
 end
 table.sort(collapsed)
+local seen = {}
+for id in self.seenSpotlights do
+table.insert(seen, id)
+end
+table.sort(seen)
 local encoded, text = Env.encode({
+seen = seen,
 version = PREFERENCES_VERSION,
 collapsedGroups = collapsed,
 minimizeStyle = self.minimizeStyle,
@@ -7917,6 +8644,8 @@ end
 modules["Elements/Registry"] = function()
 local Choices = import("Elements/Choices")
 local Env = import("Core/Env")
+local Spotlight = import("Components/Spotlight")
+local Tooltip = import("Components/Tooltip")
 local MODULES = {
 Button = import("Elements/Button"),
 Toggle = import("Elements/Toggle"),
@@ -7995,6 +8724,16 @@ end
 end
 if handle.SetBlocked and ((container.section and container.section.switchedOff) or window.disabledAll) then
 handle:SetBlocked(true)
+end
+if (type(options.Tooltip) == "string" or type(options.Tooltip) == "table") and handle.row then
+Tooltip.attach(handle.row, options.Tooltip)
+end
+handle.Tab = container.tab or (container.section and container.section.tab)
+if options.Spotlight then
+Spotlight.attach(window, handle, options.Spotlight)
+end
+function handle.Spotlight(target, settings)
+return Spotlight.attach(window, target, settings)
 end
 function handle.ShowWhen(target, source, expected)
 Registry.follow(target, source, expected)
@@ -8281,6 +9020,7 @@ local state = { disabled = false, locked = false, reason = nil, description = op
 local handle = { Frame = frame, Title = options.Title or "", Changed = Signal.new(), Hidden = false, scope = scope }
 scope:add(handle.Changed)
 row.handle = handle
+handle.row = row
 function refresh()
 veil.Visible = state.disabled or state.locked or state.blocked
 lock.Visible = state.locked and not state.quiet

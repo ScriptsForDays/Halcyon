@@ -9,7 +9,23 @@ local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Env = require("../Core/Env")
 local Profile = require("./Profile")
+local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
+
+-- Watermark looks (kind "Watermark").
+--   Card     a rounded card
+--   Pill     a fully round pill with dots between fields
+--   Accent   a card with an accent outline
+--   Minimal  text alone, with a dark outline so it reads over any game
+Styles.register("Watermark", "Card", { fill = true, corner = 8, separator = "  |  " })
+Styles.register("Watermark", "Pill", { fill = true, corner = -1, separator = "  \u{2022}  " })
+Styles.register("Watermark", "Accent", { fill = true, corner = 6, separator = "  |  ", edge = true })
+Styles.register("Watermark", "Minimal", { separator = "  /  ", outline = true })
+
+-- Keybind list looks (kind "KeybindList").
+Styles.register("KeybindList", "Card", { fill = true })
+Styles.register("KeybindList", "Glass", { fill = true, transparency = 0.25 })
+Styles.register("KeybindList", "Minimal", { outline = true })
 
 local Hud = {}
 
@@ -25,25 +41,36 @@ local function handleFor(window, scope, frame)
 end
 
 -- Options: Fields, a list of "Title", "User", "Executor", "FPS", "Ping",
--- "Time", "Date", any other text, or functions returning text.
+-- "Time", "Date", any other text, or functions returning text; Style (a
+-- Watermark look); Position.
 function Hud.watermark(window, options)
 	options = options or {}
 	local scope = window.scope:child()
 	local fields = options.Fields or { "Title", "Executor", "Time" }
 	local frames, rate = 0, 0
+	local look = Styles.pick("Watermark", options.Style, window)
 
 	local pill = Create.new("Frame", {
 		Name = "Watermark",
 		AutomaticSize = Enum.AutomaticSize.XY,
 		Position = options.Position or UDim2.fromOffset(12, 12),
 		Active = true,
+		BackgroundTransparency = if look.fill then 0 else 1,
 		Theme = { BackgroundColor3 = "surface" },
 		Parent = window.gui,
 	})
 	scope:add(pill)
-	Create.corner(8, pill)
-	Create.stroke("stroke", pill)
-	Create.padding(pill, 10, 7)
+	if look.fill then
+		Create.corner(look.corner or 8, pill)
+		Create.stroke("stroke", pill)
+	end
+	if look.edge then
+		-- An accent outline instead of the plain one.
+		local stroke = pill:FindFirstChildOfClass("UIStroke")
+		Theme.bind(stroke, "Color", "accent")
+		stroke.Transparency = 0.35
+	end
+	Create.padding(pill, if look.corner == -1 then 14 else 10, 7, 10, 7)
 	Create.list(pill, "Horizontal", 8)
 	if window.Icon then
 		Create.icon(window.Icon, 14, "accent", pill)
@@ -56,6 +83,10 @@ function Hud.watermark(window, options)
 		Theme = { TextColor3 = "text" },
 		Parent = pill,
 	})
+	if look.outline then
+		-- No card behind it, so a dark edge keeps the text readable.
+		Create.new("UIStroke", { ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual, Transparency = 0.4, Color = Color3.new(0, 0, 0), Parent = label })
+	end
 
 	local function text(field)
 		if type(field) == "function" then
@@ -84,7 +115,7 @@ function Hud.watermark(window, options)
 		for index, field in fields do
 			parts[index] = text(field)
 		end
-		label.Text = table.concat(parts, "  |  ")
+		label.Text = table.concat(parts, look.separator or "  |  ")
 	end
 
 	if table.find(fields, "FPS") then
@@ -107,18 +138,22 @@ end
 function Hud.keybindList(window, options)
 	options = options or {}
 	local scope = window.scope:child()
+	local look = Styles.pick("KeybindList", options.Style, window)
 	local panel = Create.new("Frame", {
 		Name = "Keybinds",
 		Size = UDim2.fromOffset(200, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Position = options.Position or UDim2.new(0, 12, 0.4, 0),
 		Active = true,
+		BackgroundTransparency = if look.fill then look.transparency or 0 else 1,
 		Theme = { BackgroundColor3 = "surface" },
 		Parent = window.gui,
 	})
 	scope:add(panel)
-	Create.corner(10, panel)
-	Create.stroke("stroke", panel)
+	if look.fill then
+		Create.corner(10, panel)
+		Create.stroke("stroke", panel)
+	end
 	Create.padding(panel, 12, 10)
 	Create.list(panel, "Vertical", 6)
 	Create.new("TextLabel", {

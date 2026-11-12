@@ -280,6 +280,8 @@ function Row.new(container, options, layout)
 	local handle = { Frame = frame, Title = options.Title or "", Changed = Signal.new(), Hidden = false, scope = scope }
 	scope:add(handle.Changed)
 	row.handle = handle
+	-- Kept so the registry can attach a tooltip to the row after it is built.
+	handle.row = row
 
 	function refresh()
 		veil.Visible = state.disabled or state.locked or state.blocked

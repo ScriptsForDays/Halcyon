@@ -4,6 +4,7 @@
 
 local UserInputService = game:GetService("UserInputService")
 
+local CommandPalette = require("./CommandPalette")
 local Config = require("../Core/Config")
 local Create = require("../Core/Create")
 local Dialog = require("./Dialog")
@@ -183,6 +184,13 @@ function Window.new(library, options, access)
 	if type(saved.anonymous) == "boolean" then
 		self.profile.Anonymous = saved.anonymous
 	end
+	-- Spotlights the player already dismissed.
+	self.seenSpotlights = {}
+	for _, id in if type(saved.seen) == "table" then saved.seen else {} do
+		if type(id) == "string" then
+			self.seenSpotlights[id] = true
+		end
+	end
 	if type(saved.reducedMotion) == "boolean" then
 		Motion.reduced = saved.reducedMotion
 	end
@@ -319,9 +327,17 @@ function Window.new(library, options, access)
 		self:savePreferences()
 	end))
 
+	if options.CommandPalette then
+		CommandPalette.bind(self)
+	end
 	self:layout()
 	self:pop()
 	return self
+end
+
+-- Opens the search over every tab and row; see CommandPalette.luau.
+function Window:OpenPalette()
+	return CommandPalette.open(self)
 end
 
 -- A soft drop shadow under the window: one nine-slice image, stretched
@@ -1188,6 +1204,9 @@ end
 -- itself, the pill or chip it was minimised to, or the open button a hidden
 -- window leaves behind.
 function Window:refreshVisibility()
+	for _, hook in self.visibilityHooks or {} do
+		task.defer(hook)
+	end
 	local docked = self.minimized and self.minimizeStyle ~= "Topbar"
 	self.root.Visible = self.Visible and not docked
 	self.pill.Visible = self.Visible and docked and self.minimizeStyle == "Pill"
@@ -1357,7 +1376,13 @@ function Window:writePreferences()
 		table.insert(collapsed, name)
 	end
 	table.sort(collapsed)
+	local seen = {}
+	for id in self.seenSpotlights do
+		table.insert(seen, id)
+	end
+	table.sort(seen)
 	local encoded, text = Env.encode({
+		seen = seen,
 		version = PREFERENCES_VERSION,
 		collapsedGroups = collapsed,
 		minimizeStyle = self.minimizeStyle,

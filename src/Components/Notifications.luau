@@ -3,6 +3,7 @@
 -- always sit across the top, clear of the thumbs.
 
 local GuiService = game:GetService("GuiService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local Create = require("../Core/Create")
@@ -10,6 +11,7 @@ local Icons = require("../Core/Icons")
 local Env = require("../Core/Env")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
+local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
 local WIDTH, NARROW = 320, 480
@@ -23,12 +25,22 @@ local POSITIONS = { TopLeft = true, TopCenter = true, TopRight = true, BottomLef
 -- Default: a card with a countdown bar. Timer: the seconds left in the
 -- corner. Compact: one line in a pill. Banner: a coloured strip across the
 -- top. Progress: a bar the hub fills, for work that takes a while.
-local STYLES = { Default = true, Timer = true, Compact = true, Banner = true, Progress = true }
+-- Accent: a card with a coloured edge and the icon on a tinted disc.
+-- Glass: a see-through card. Achievement: a large icon disc for a reward
+-- or milestone. Snackbar: a dark one-line bar with its first action as a
+-- word. Island: a pill at the top centre of the screen, apart from the stack.
+local STYLES = {}
+for _, name in { "Default", "Timer", "Compact", "Banner", "Progress", "Accent", "Glass", "Achievement", "Snackbar", "Island" } do
+	STYLES[name] = true
+	Styles.register("Notification", name, {})
+end
+-- A short chime that ships with every Roblox client, used when Sound is on.
+local CHIME = "rbxasset://sounds/electronicpingshort.wav"
 
 local Notifications = {
 	-- What a notice uses when it does not say otherwise. Hubs change these
 	-- with Halcyon:SetNotificationDefaults.
-	Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4, Style = "Default" },
+	Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4, Style = "Default", Sound = false },
 }
 
 -- Accepts any of Duration, Position, Progress and MaxVisible; anything
@@ -46,6 +58,10 @@ function Notifications.configure(library, settings)
 	end
 	if type(settings.Progress) == "boolean" then
 		defaults.Progress = settings.Progress
+	end
+	-- true for the built-in chime, or a sound id of the hub's own.
+	if type(settings.Sound) == "boolean" or type(settings.Sound) == "string" then
+		defaults.Sound = settings.Sound
 	end
 	if STYLES[settings.Style] then
 		defaults.Style = settings.Style
@@ -65,7 +81,17 @@ local function toastStack(library)
 	local overlay = Mount.overlay(library)
 	local holder = Create.new("Frame", { Name = "Holder", Parent = overlay.toasts })
 	local layout = Create.list(holder, "Vertical", 8)
-	local state = { holder = holder, active = {}, queue = {}, order = 0, side = 1 }
+	-- Island notices sit at the top centre, apart from the stack.
+	local island = Create.new("Frame", {
+		Name = "Island",
+		Size = UDim2.new(0, 360, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, GuiService:GetGuiInset().Y + 8),
+		Parent = overlay.toasts,
+	})
+	Create.list(island, "Vertical", 6, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
+	local state = { holder = holder, island = island, active = {}, queue = {}, order = 0, side = 1 }
 	library.toasts = state
 
 	function state.place()
@@ -94,32 +120,61 @@ local function show(library, state, toast)
 	local options = toast.options
 	local kind = KINDS[toast.kind] or KINDS.info
 	local style = toast.style
-	local compact = style == "Compact"
+	local snack, isle = style == "Snackbar", style == "Island"
+	local compact = style == "Compact" or isle
 	local scope = library.scope:child()
 	toast.scope = scope
 	state.order += 1
+	local sound = if options.Sound ~= nil then options.Sound else Notifications.Defaults.Sound
+	if sound then
+		local chime = Create.new("Sound", { SoundId = if type(sound) == "string" then sound else CHIME, Volume = 0.35 })
+		pcall(SoundService.PlayLocalSound, SoundService, chime)
+		task.delay(3, function()
+			chime:Destroy()
+		end)
+	end
 
 	local slot = Create.new("Frame", {
 		Name = "Toast",
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = if isle then UDim2.fromOffset(0, 0) else UDim2.new(1, 0, 0, 0),
+		AutomaticSize = if isle then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y,
 		LayoutOrder = state.order,
-		Parent = state.holder,
+		Parent = if isle then state.island else state.holder,
 	})
 	scope:add(slot)
 	-- The card slides in from the side of the screen it sits on.
 	local card = Create.new("TextButton", {
 		Name = "Card",
 		Text = "",
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Position = UDim2.fromOffset(28 * state.side, 0),
+		Size = if isle then UDim2.fromOffset(0, 0) else UDim2.new(1, 0, 0, 0),
+		AutomaticSize = if isle then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y,
+		Position = if isle then UDim2.fromOffset(0, -16) else UDim2.fromOffset(28 * state.side, 0),
 		ClipsDescendants = true,
-		Theme = { BackgroundColor3 = "surface" },
+		BackgroundTransparency = if style == "Glass" then 0.2 else 0,
+		Theme = { BackgroundColor3 = if snack or isle then "text" else "surface" },
 		Parent = slot,
 	})
-	Create.corner(if compact then -1 else 10, card)
-	Create.stroke("stroke", card)
+	Create.corner(if compact or snack then -1 else 10, card)
+	local edge = Create.stroke(if style == "Glass" then "text" else "stroke", card)
+	if style == "Glass" then
+		edge.Transparency = 0.82
+	elseif snack or isle then
+		edge.Transparency = 1
+	end
+	if isle then
+		Create.new("UISizeConstraint", { MaxSize = Vector2.new(360, math.huge), Parent = card })
+	end
+	if style == "Accent" then
+		local stripe = Create.new("Frame", {
+			Name = "Edge",
+			Size = UDim2.new(0, 3, 1, -16),
+			Position = UDim2.fromOffset(0, 8),
+			ZIndex = 2,
+			Theme = { BackgroundColor3 = kind.role },
+			Parent = card,
+		})
+		Create.corner(-1, stripe)
+	end
 	if style == "Banner" then
 		-- Inset from the card's rounded corners, so its ends never poke past them.
 		local strip = Create.new("Frame", {
@@ -139,8 +194,27 @@ local function show(library, state, toast)
 	else
 		Create.padding(body, 12, if style == "Banner" then 15 else 12, 12, 12)
 	end
-	Create.list(body, "Horizontal", 10, { VerticalAlignment = if compact then Enum.VerticalAlignment.Center else Enum.VerticalAlignment.Top })
-	toast.icon = Create.icon(options.Icon or kind.icon, if compact then 16 else 18, kind.role, body)
+	if isle then
+		body.Size = UDim2.fromOffset(0, 0)
+		body.AutomaticSize = Enum.AutomaticSize.XY
+	end
+	Create.list(body, "Horizontal", 10, { VerticalAlignment = if compact or snack then Enum.VerticalAlignment.Center else Enum.VerticalAlignment.Top })
+	if style == "Accent" or style == "Achievement" then
+		-- The icon sits on a disc tinted with the notice's colour.
+		local big = style == "Achievement"
+		local disc = Create.new("Frame", {
+			Name = "Disc",
+			Size = UDim2.fromOffset(if big then 44 else 30, if big then 44 else 30),
+			BackgroundTransparency = if big then 0 else 0.82,
+			Theme = { BackgroundColor3 = kind.role },
+			Parent = body,
+		})
+		Create.corner(-1, disc)
+		toast.icon = Create.icon(options.Icon or (if big then "trophy" else kind.icon), if big then 22 else 16, if big then "onAccent" else kind.role, disc)
+		toast.icon.AnchorPoint, toast.icon.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+	else
+		toast.icon = Create.icon(options.Icon or kind.icon, if compact then 16 else 18, kind.role, body)
+	end
 
 	local text = Create.new("Frame", { Name = "Text", AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = body }, {
 		Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
@@ -153,12 +227,24 @@ local function show(library, state, toast)
 		TextWrapped = true,
 		Weight = "medium",
 		Text = toast.title,
-		TextSize = if compact then 13 else 14,
-		TextTruncate = if compact then Enum.TextTruncate.AtEnd else Enum.TextTruncate.None,
-		Theme = { TextColor3 = "text" },
+		TextSize = if compact or snack then 13 else (if style == "Achievement" then 15 else 14),
+		TextTruncate = if compact or snack then Enum.TextTruncate.AtEnd else Enum.TextTruncate.None,
+		Theme = { TextColor3 = if snack or isle then "background" else "text" },
 		Parent = text,
 	})
-	if not compact and (toast.content ~= "" or style == "Progress") then
+	if isle then
+		-- An island grows with its words instead of filling a fixed card.
+		text.AutomaticSize = Enum.AutomaticSize.XY
+		text.Size = UDim2.fromOffset(0, 0)
+		text:FindFirstChildOfClass("UIFlexItem"):Destroy()
+		toast.titleLabel.Size = UDim2.fromOffset(0, 0)
+		toast.titleLabel.AutomaticSize = Enum.AutomaticSize.XY
+		toast.titleLabel.TextWrapped = false
+	end
+	if style == "Achievement" then
+		toast.titleLabel.FontFace = Create.font("bold")
+	end
+	if not compact and not snack and (toast.content ~= "" or style == "Progress") then
 		toast.contentLabel = Create.new("TextLabel", {
 			Name = "Content",
 			Size = UDim2.new(1, 0, 0, 0),
@@ -191,8 +277,28 @@ local function show(library, state, toast)
 		Create.corner(-1, toast.fill)
 	end
 
+	-- A snackbar's first action is a word at its end, such as Undo.
+	if snack and type(options.Actions) == "table" and options.Actions[1] then
+		local settings = options.Actions[1]
+		local word = Create.new("TextButton", {
+			Name = "Action",
+			Size = UDim2.fromOffset(0, if library.touch then 40 else 24),
+			AutomaticSize = Enum.AutomaticSize.X,
+			Text = string.upper(settings.Title or "OK"),
+			TextSize = 12,
+			Weight = "bold",
+			LayoutOrder = 3,
+			Theme = { TextColor3 = "accent" },
+			Parent = body,
+		})
+		scope:connect(word.Activated, function()
+			toast.Dismiss()
+			Env.call(settings.Title or "Notification", settings.Callback)
+		end)
+	end
+
 	-- Buttons of the notice's own: each runs its Callback and dismisses it.
-	if not compact and type(options.Actions) == "table" and #options.Actions > 0 then
+	if not compact and not snack and type(options.Actions) == "table" and #options.Actions > 0 then
 		local actions = Create.new("Frame", {
 			Name = "Actions",
 			Size = UDim2.new(1, 0, 0, 0),
@@ -226,6 +332,10 @@ local function show(library, state, toast)
 		end
 	end
 
+	if style == "Achievement" and not Motion.reduced then
+		local grow = Create.new("UIScale", { Scale = 0.9, Parent = card })
+		Motion.tween(grow, "spring", { Scale = 1 })
+	end
 	Motion.tween(card, "base", { Position = UDim2.fromOffset(0, 0) })
 	scope:connect(card.Activated, toast.Dismiss)
 
@@ -253,7 +363,7 @@ local function show(library, state, toast)
 			end))
 		end
 		-- The bar empties over the notice's lifetime, so the time left is visible.
-		if toast.progress and style ~= "Timer" and not compact and not Motion.reduced then
+		if toast.progress and style ~= "Timer" and not compact and not snack and not Motion.reduced then
 			local bar = Create.new("Frame", {
 				Name = "Countdown",
 				-- Inset by the card's corner radius so the bar's ends stay inside the rounding.
@@ -270,7 +380,8 @@ local function show(library, state, toast)
 end
 
 -- Options: Title, Content, Kind ("info", "success", "warning", "danger"),
--- Style ("Default", "Timer", "Compact", "Banner", "Progress"),
+-- Style ("Default", "Timer", "Compact", "Banner", "Progress", "Accent",
+-- "Glass", "Achievement", "Snackbar", "Island"), Sound (true or a sound id),
 -- Icon, Duration in seconds (0 stays until tapped), Progress (false hides
 -- the countdown bar), Actions as a list of { Title, Callback }.
 -- Returns a handle with Dismiss, SetTitle, SetContent, SetProgress and Done.

@@ -704,6 +704,14 @@ end
 
 Methods.WaitForChild = Methods.FindFirstChild
 
+function Methods:GetMouseLocation()
+	return Stub.mouse or Vector2.new(0, 0)
+end
+
+function Methods:IsKeyDown(keyCode)
+	return Stub.held ~= nil and Stub.held[keyCode] == true
+end
+
 function Methods:GetPlayers()
 	local list = {}
 	for _, child in self:GetChildren() do

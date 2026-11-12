@@ -4,6 +4,8 @@
 
 local Choices = require("./Choices")
 local Env = require("../Core/Env")
+local Spotlight = require("../Components/Spotlight")
+local Tooltip = require("../Components/Tooltip")
 
 local MODULES = {
 	Button = require("./Button"),
@@ -98,6 +100,18 @@ local function create(container, kind, options)
 	-- disabled, starts greyed like its neighbours.
 	if handle.SetBlocked and ((container.section and container.section.switchedOff) or window.disabledAll) then
 		handle:SetBlocked(true)
+	end
+	-- A string or table is a hover tip; a slider's Tooltip = true/false is its value bubble.
+	if (type(options.Tooltip) == "string" or type(options.Tooltip) == "table") and handle.row then
+		Tooltip.attach(handle.row, options.Tooltip)
+	end
+	handle.Tab = container.tab or (container.section and container.section.tab)
+	-- Spotlight = "text" or { Title, Text, Id } points at a new feature once.
+	if options.Spotlight then
+		Spotlight.attach(window, handle, options.Spotlight)
+	end
+	function handle.Spotlight(target, settings)
+		return Spotlight.attach(window, target, settings)
 	end
 	function handle.ShowWhen(target, source, expected)
 		Registry.follow(target, source, expected)
