@@ -54,7 +54,7 @@ function Button.new(container, options)
 		paint(roles.fill)
 	end)
 	row.scope:connect(button.Activated, row.fire)
-	Effects.apply(row.scope, button, options.Effect or row.window.buttonEffect, 8)
+	Effects.apply(row.scope, button, options.Effect or row.window.styles.ButtonEffect or row.window.buttonEffect, 8)
 
 	function handle:SetTitle(text)
 		self.Title = text

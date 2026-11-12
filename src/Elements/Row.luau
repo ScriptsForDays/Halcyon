@@ -9,6 +9,7 @@ local Icons = require("../Core/Icons")
 local Popup = require("../Components/Popup")
 local Signal = require("../Core/Signal")
 local Theme = require("../Core/Theme")
+local Tokens = require("../Core/Tokens")
 
 -- The narrowest the title lane may get before the controls wrap under it.
 local MIN_TITLE = 96
@@ -117,10 +118,10 @@ function Row.new(container, options, layout)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Parent = frame,
 	})
-	Create.padding(content, 12, if layout.compact then 4 else 8)
+	Create.padding(content, 12, if layout.compact then 4 else Tokens.density.rowPadding)
 	Create.list(content, "Vertical", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
 	if not layout.compact then
-		Create.new("UISizeConstraint", { MinSize = Vector2.new(0, 44), Parent = content })
+		Create.new("UISizeConstraint", { MinSize = Vector2.new(0, Tokens.rowHeight()), Parent = content })
 	end
 
 	local row = {

@@ -7,6 +7,7 @@
 
 local Icons = require("./Icons")
 local Theme = require("./Theme")
+local Tokens = require("./Tokens")
 
 local TEXT = { TextLabel = true, TextButton = true, TextBox = true }
 local IMAGE = { ImageLabel = true, ImageButton = true }
@@ -92,6 +93,10 @@ function Create.new(className, properties, children)
 			instance[key] = value
 		end
 	end
+	-- The TextSize setting scales every size a component asks for.
+	if TEXT[className] and Tokens.textScale ~= 1 then
+		instance.TextSize = Tokens.text(instance.TextSize)
+	end
 	if themed then
 		for property, role in themed do
 			Theme.bind(instance, property, role)
@@ -109,8 +114,10 @@ function Create.new(className, properties, children)
 	return instance
 end
 
--- A radius of -1 rounds fully, for pills and circles.
+-- A radius of -1 rounds fully, for pills and circles. The Radius setting
+-- scales every other radius.
 function Create.corner(radius, parent)
+	radius = Tokens.corner(radius)
 	return Create.new("UICorner", { CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius), Parent = parent })
 end
 

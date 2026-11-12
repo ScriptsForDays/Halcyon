@@ -152,7 +152,7 @@ function Slider.new(container, options)
 		local pressed = min + x * (max - min)
 		local changed = if not range then store(min, pressed) elseif dragLow then store(math.min(pressed, high), high) else store(low, math.max(pressed, low))
 		if tipWanted() then
-			local style = options.TooltipStyle or row.window.sliderTooltipStyle
+			local style = options.TooltipStyle or row.window.styles.SliderTooltip or row.window.sliderTooltipStyle
 			if tip and tip.style ~= style then
 				tip.destroy()
 				tip = nil

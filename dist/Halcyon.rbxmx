@@ -1616,13 +1616,24 @@ local Effects = import("Core/Effects")
 local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
 local Registry = import("Elements/Registry")
+local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
+local Tokens = import("Core/Tokens")
+Styles.register("Section", "Card", { fill = "card", stroke = "stroke", surface = "card" })
+Styles.register("Section", "Outlined", { stroke = "stroke", surface = "background" })
+Styles.register("Section", "Flat", { flat = true, surface = "background" })
+Styles.register("Section", "Glass", { fill = "card", fillTransparency = 0.35, stroke = "text", strokeTransparency = 0.88, surface = "card" })
+Styles.register("Section", "Accent", { fill = "card", stroke = "stroke", surface = "card", edge = "accent" })
+Styles.register("Section", "Inset", { fill = "background", stroke = "stroke", surface = "background" })
+Styles.register("Section", "Header", { fill = "card", stroke = "stroke", surface = "card", band = "raised" })
 local Section = {}
 Section.__index = Section
 function Section.new(tab, options)
 options = options or {}
 local window = tab.window
-local style = options.Style or tab.sectionStyle or window.sectionStyle
-local flat = style == "Flat"
+local look = Styles.pick("Section", options.Style or tab.sectionStyle, window)
+local flat = look.flat == true
 local self = setmetatable({
 library = tab.library,
 window = window,
@@ -1634,7 +1645,7 @@ tier = options.Tier or (options.PaidOnly and true) or tab.tier,
 lockText = options.LockText or tab.lockText,
 lockHint = options.LockHint or tab.lockHint,
 rowFill = flat,
-surface = if style == "Card" then "card" else "background",
+surface = look.surface or "card",
 side = if options.Side == "Right" then "Right" else "Left",
 Title = options.Title,
 Hidden = false,
@@ -1648,28 +1659,46 @@ Name = "Section",
 Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 LayoutOrder = tab:nextOrder(),
-BackgroundTransparency = if style == "Card" then 0 else 1,
-Theme = { BackgroundColor3 = "card" },
+BackgroundTransparency = if look.fill then look.fillTransparency or 0 else 1,
+Theme = { BackgroundColor3 = look.fill or "card" },
 Parent = tab.left,
 })
 self.scope:add(root)
 self.root = root
+self.look = look
 if not flat then
 Create.corner(10, root)
-Create.stroke("stroke", root)
+if look.stroke then
+local stroke = Create.stroke(look.stroke, root)
+stroke.Transparency = look.strokeTransparency or 0
+end
 end
 Create.list(root, "Vertical", 0)
 if options.Title then
 local collapsible = options.Collapsible ~= false
+local holder = root
+if look.band then
+holder = Create.new("Frame", { Name = "Band", Size = UDim2.new(1, 0, 0, 40), Theme = { BackgroundColor3 = look.band }, Parent = root })
+Create.corner(10, holder)
+self.bandFill = Create.new("Frame", {
+Name = "Square",
+Size = UDim2.new(1, 0, 0, 10),
+Position = UDim2.new(0, 0, 1, -10),
+Theme = { BackgroundColor3 = look.band },
+Parent = holder,
+})
+end
 local header = Create.new(if collapsible then "TextButton" else "Frame", {
 Name = "Header",
 Size = UDim2.new(1, 0, 0, if flat then 32 else 40),
-Parent = root,
+ZIndex = 2,
+Parent = holder,
 })
 Create.padding(header, if flat then 4 else 14, 0)
 Create.list(header, "Horizontal", 8)
 if options.Icon then
-Create.icon(options.Icon, 16, "textMuted", header)
+local icon = Create.icon(options.Icon, 16, "textMuted", header)
+Theme.paint(icon, "ImageColor3", options.IconColor)
 end
 self.label = Create.new("TextLabel", {
 Name = "Title",
@@ -1682,8 +1711,12 @@ Text = options.Title,
 Theme = { TextColor3 = "text" },
 Parent = header,
 }, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+self.header = header
+if options.Badge ~= nil then
+self:SetBadge(options.Badge)
+end
 if collapsible then
-local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 2, Parent = header })
+local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 3, Parent = header })
 self.chevron = Create.icon("chevron-down", 14, "textMuted", holder)
 self.scope:connect(header.Activated, function()
 self:SetCollapsed(not self.collapsed)
@@ -1698,11 +1731,36 @@ LayoutOrder = 1,
 Parent = root,
 })
 self.body = body
+if look.edge then
+local stripe = Create.new("Frame", {
+Name = "Edge",
+Size = UDim2.new(0, 3, 1, -12),
+Position = UDim2.fromOffset(5, 4),
+Theme = { BackgroundColor3 = look.edge },
+Parent = body,
+})
+Create.corner(-1, stripe)
+end
 local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
 if not flat then
-Create.padding(rows, 6, if options.Title then 0 else 6, 6, 6)
+local edge = if look.edge then 8 else 0
+Create.padding(rows, 6 + edge, if options.Title and not look.band then 0 else 6, 6, 6)
 end
-Create.list(rows, "Vertical", if flat then 6 else 2)
+Create.list(rows, "Vertical", if flat then Tokens.density.gap else 2)
+if options.Description then
+self.description = Create.new("TextLabel", {
+Name = "Description",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+TextSize = 12,
+LayoutOrder = 0,
+Text = options.Description,
+Theme = { TextColor3 = "textMuted" },
+Parent = rows,
+})
+Create.padding(self.description, 6, 0, 6, 4)
+end
 self.frame = rows
 if self.tier then
 self:buildLock()
@@ -1826,6 +1884,9 @@ end
 function Section:refresh()
 local open = self.searching or not self.collapsed
 self.frame.Visible = open
+if self.bandFill then
+self.bandFill.Visible = open
+end
 if self.chevron then
 Motion.tween(self.chevron, "fast", { Rotation = if open then 0 else -90 })
 end
@@ -1839,6 +1900,16 @@ end
 function Section:SetCollapsed(collapsed)
 self.collapsed = collapsed == true
 self:refresh()
+end
+function Section:SetBadge(value)
+if self.badge then
+self.badge:Destroy()
+self.badge = nil
+end
+if self.header and value ~= nil and value ~= false then
+self.badge = Row.badge(self.header, if type(value) == "number" then tostring(value) else value)
+self.badge.LayoutOrder = 2
+end
 end
 function Section:SetTitle(title)
 self.Title = title
@@ -2270,6 +2341,7 @@ local Notifications = import("Components/Notifications")
 local Popup = import("Components/Popup")
 local Profile = import("Components/Profile")
 local Signal = import("Core/Signal")
+local Styles = import("Core/Styles")
 local Tab = import("Components/Tab")
 local Theme = import("Core/Theme")
 local TOPBAR = 48
@@ -2278,6 +2350,12 @@ local COLUMNS = 520
 local LANES = { Sidebar = 196, Rail = 60 }
 local STRIPS = { Top = 46, Dock = 58 }
 local MINIMIZE = { Topbar = true, Pill = true, Chip = true }
+for _, name in { "Sidebar", "Rail", "Top", "Dock" } do
+Styles.register("Navigation", name, { lane = LANES[name], strip = STRIPS[name] })
+end
+for _, name in { "Topbar", "Pill", "Chip" } do
+Styles.register("Minimize", name, {})
+end
 local SHADOW_IMAGE = "rbxassetid://8992230677"
 local SHADOW_SPREAD = 50
 local MIN_SIZE = Vector2.new(420, 300)
@@ -2323,7 +2401,8 @@ self.ConfigChanged = Signal.new()
 self.query = ""
 self.Visible = true
 self.Title, self.Subtitle, self.Icon = options.Title or "Halcyon", options.Subtitle, options.Icon
-self.sectionStyle = options.SectionStyle or "Card"
+self.styles = Styles.defaults(options)
+self.sectionStyle = options.SectionStyle
 self.sliderTooltips = options.SliderTooltips ~= false
 self.sliderTooltipStyle = options.SliderTooltipStyle or "Rounded"
 self.toggleOutline = options.ToggleOutline ~= false
@@ -3122,6 +3201,7 @@ function Window:SetSliderTooltips(enabled, style)
 self.sliderTooltips = enabled == true
 if style then
 self.sliderTooltipStyle = style
+self.styles.SliderTooltip = style
 end
 end
 function Window:SetToggleOutline(enabled, color)
@@ -3414,6 +3494,7 @@ end
 modules["Core/Create"] = function()
 local Icons = import("Core/Icons")
 local Theme = import("Core/Theme")
+local Tokens = import("Core/Tokens")
 local TEXT = { TextLabel = true, TextButton = true, TextBox = true }
 local IMAGE = { ImageLabel = true, ImageButton = true }
 local VISUAL = { Frame = true, ScrollingFrame = true, CanvasGroup = true, ViewportFrame = true }
@@ -3486,6 +3567,9 @@ if not NOT_PROPERTIES[key] then
 instance[key] = value
 end
 end
+if TEXT[className] and Tokens.textScale ~= 1 then
+instance.TextSize = Tokens.text(instance.TextSize)
+end
 if themed then
 for property, role in themed do
 Theme.bind(instance, property, role)
@@ -3503,6 +3587,7 @@ instance.Parent = properties.Parent
 return instance
 end
 function Create.corner(radius, parent)
+radius = Tokens.corner(radius)
 return Create.new("UICorner", { CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius), Parent = parent })
 end
 function Create.stroke(role, parent, thickness)
@@ -3631,6 +3716,7 @@ end
 modules["Core/Effects"] = function()
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
+local Styles = import("Core/Styles")
 local TweenService = game:GetService("TweenService")
 local SWEEP = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local RIPPLE = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -3641,6 +3727,9 @@ NumberSequenceKeypoint.new(0.5, 0.7),
 NumberSequenceKeypoint.new(1, 1),
 })
 local Effects = { Kinds = { Sweep = true, Ripple = true, Lift = true, Glow = true, None = true } }
+for _, name in { "Sweep", "Ripple", "Lift", "Glow", "None" } do
+Styles.register("ButtonEffect", name, {})
+end
 local function layer(button, radius)
 local existing = button:FindFirstChild("Effects")
 if existing then
@@ -4471,6 +4560,93 @@ table.clear(self.list)
 end
 return Signal
 end
+modules["Core/Styles"] = function()
+local Styles = { kinds = {} }
+local function entry(kind)
+local found = Styles.kinds[kind]
+if not found then
+found = { order = {}, specs = {} }
+Styles.kinds[kind] = found
+end
+return found
+end
+function Styles.register(kind, name, spec)
+if type(kind) ~= "string" or type(name) ~= "string" or name == "" then
+return false, "AddStyle expects a kind and a name"
+end
+if type(spec) ~= "table" then
+return false, "AddStyle expects a table describing the look"
+end
+local found = entry(kind)
+if not found.specs[name] then
+table.insert(found.order, name)
+end
+found.specs[name] = spec
+return true
+end
+function Styles.extend(kind, base, name, changes)
+local parent = Styles.get(kind, base)
+if not parent then
+return false, string.format("%s has no look called %q", kind, tostring(base))
+end
+local spec = table.clone(parent)
+for key, value in changes do
+spec[key] = value
+end
+return Styles.register(kind, name, spec)
+end
+function Styles.get(kind, name)
+local found = Styles.kinds[kind]
+return if found and type(name) == "string" then found.specs[name] else nil
+end
+function Styles.has(kind, name)
+return Styles.get(kind, name) ~= nil
+end
+function Styles.names(kind)
+local found = Styles.kinds[kind]
+return if found then table.clone(found.order) else {}
+end
+function Styles.pick(kind, explicit, window)
+local found = Styles.kinds[kind]
+if not found then
+return nil, nil
+end
+if found.specs[explicit] then
+return found.specs[explicit], explicit
+end
+local preferred = window and window.styles and window.styles[kind]
+if found.specs[preferred] then
+return found.specs[preferred], preferred
+end
+local first = found.order[1]
+return found.specs[first], first
+end
+local LEGACY = {
+ToggleThumb = "Thumb",
+SliderTooltipStyle = "SliderTooltip",
+SectionStyle = "Section",
+ButtonEffect = "ButtonEffect",
+TabStyle = "Navigation",
+MinimizeStyle = "Minimize",
+}
+function Styles.defaults(options)
+local chosen = {}
+for option, kind in LEGACY do
+if type(options[option]) == "string" then
+chosen[kind] = options[option]
+end
+end
+if type(options.Styles) == "table" then
+for kind, name in options.Styles do
+if type(kind) == "string" and type(name) == "string" then
+chosen[kind] = name
+end
+end
+end
+return chosen
+end
+return Styles
+end
 modules["Core/Theme"] = function()
 local Signal = import("Core/Signal")
 local ROLES = {
@@ -4620,7 +4796,77 @@ if not deferred then
 instance[property] = Theme.current[role]
 end
 end
+function Theme.unbind(instance, property)
+local properties = Theme.bindings[instance]
+if properties then
+properties[property] = nil
+end
+end
+function Theme.paint(instance, property, value)
+if typeof(value) == "Color3" then
+Theme.unbind(instance, property)
+instance[property] = value
+elseif type(value) == "string" and Theme.current[value] ~= nil then
+Theme.bind(instance, property, value)
+end
+end
 return Theme
+end
+modules["Core/Tokens"] = function()
+local RADIUS = {
+Sharp = { scale = 0.25, pill = 3 },
+Soft = { scale = 0.6 },
+Default = { scale = 1 },
+Round = { scale = 1.4 },
+}
+local DENSITY = {
+Compact = { rowHeight = 36, rowPadding = 5, gap = 4, sectionPadding = 8 },
+Default = { rowHeight = 44, rowPadding = 8, gap = 6, sectionPadding = 10 },
+Spacious = { rowHeight = 52, rowPadding = 12, gap = 8, sectionPadding = 14 },
+}
+local TEXT = { Default = 1, Large = 1.15, Larger = 1.3 }
+local Tokens = {
+Radius = { "Sharp", "Soft", "Default", "Round" },
+Density = { "Compact", "Default", "Spacious" },
+TextSize = { "Default", "Large", "Larger" },
+radius = RADIUS.Default,
+density = DENSITY.Default,
+textScale = 1,
+touch = false,
+names = { radius = "Default", density = "Default", text = "Default" },
+}
+function Tokens.set(settings)
+if type(settings) ~= "table" then
+return
+end
+if RADIUS[settings.Radius] then
+Tokens.radius, Tokens.names.radius = RADIUS[settings.Radius], settings.Radius
+end
+if DENSITY[settings.Density] then
+Tokens.density, Tokens.names.density = DENSITY[settings.Density], settings.Density
+end
+if TEXT[settings.TextSize] then
+Tokens.textScale, Tokens.names.text = TEXT[settings.TextSize], settings.TextSize
+end
+end
+function Tokens.reset()
+Tokens.radius, Tokens.density, Tokens.textScale = RADIUS.Default, DENSITY.Default, 1
+Tokens.names = { radius = "Default", density = "Default", text = "Default" }
+end
+function Tokens.corner(radius)
+if radius < 0 then
+return Tokens.radius.pill or -1
+end
+return math.round(radius * Tokens.radius.scale)
+end
+function Tokens.text(size)
+return math.round(size * Tokens.textScale)
+end
+function Tokens.rowHeight()
+local height = Tokens.density.rowHeight
+return if Tokens.touch then math.max(height, 44) else height
+end
+return Tokens
 end
 modules["Elements/Button"] = function()
 local Create = import("Core/Create")
@@ -4673,7 +4919,7 @@ row.scope:connect(button.MouseLeave, function()
 paint(roles.fill)
 end)
 row.scope:connect(button.Activated, row.fire)
-Effects.apply(row.scope, button, options.Effect or row.window.buttonEffect, 8)
+Effects.apply(row.scope, button, options.Effect or row.window.styles.ButtonEffect or row.window.buttonEffect, 8)
 function handle:SetTitle(text)
 self.Title = text
 button.Text = text
@@ -5625,6 +5871,15 @@ end
 end
 return Registry
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX2">
+<Properties>
+<string name="Name">Part02</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Row"] = function()
 local Create = import("Core/Create")
 local Effects = import("Core/Effects")
@@ -5633,6 +5888,7 @@ local Icons = import("Core/Icons")
 local Popup = import("Components/Popup")
 local Signal = import("Core/Signal")
 local Theme = import("Core/Theme")
+local Tokens = import("Core/Tokens")
 local MIN_TITLE = 96
 local Row = {}
 local BADGES = { New = "accent", Beta = "info", Risky = "danger", Paid = "warning" }
@@ -5726,10 +5982,10 @@ Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 Parent = frame,
 })
-Create.padding(content, 12, if layout.compact then 4 else 8)
+Create.padding(content, 12, if layout.compact then 4 else Tokens.density.rowPadding)
 Create.list(content, "Vertical", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
 if not layout.compact then
-Create.new("UISizeConstraint", { MinSize = Vector2.new(0, 44), Parent = content })
+Create.new("UISizeConstraint", { MinSize = Vector2.new(0, Tokens.rowHeight()), Parent = content })
 end
 local row = {
 frame = frame,
@@ -6017,15 +6273,6 @@ return row
 end
 return Row
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX2">
-<Properties>
-<string name="Name">Part02</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Segmented"] = function()
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
@@ -6236,7 +6483,7 @@ Drag.area(scope, area, function(x)
 local pressed = min + x * (max - min)
 local changed = if not range then store(min, pressed) elseif dragLow then store(math.min(pressed, high), high) else store(low, math.max(pressed, low))
 if tipWanted() then
-local style = options.TooltipStyle or row.window.sliderTooltipStyle
+local style = options.TooltipStyle or row.window.styles.SliderTooltip or row.window.sliderTooltipStyle
 if tip and tip.style ~= style then
 tip.destroy()
 tip = nil
@@ -6285,6 +6532,7 @@ end
 modules["Elements/SliderTooltip"] = function()
 local Create = import("Core/Create")
 local Mount = import("Core/Mount")
+local Styles = import("Core/Styles")
 local STYLES = {
 Rounded = { corner = 8, arrow = 2 },
 Sharp = { corner = 0, arrow = 0 },
@@ -6296,13 +6544,16 @@ local LIFT = 10
 local ARROW_HALF = 7
 local MARGIN = 4
 local SliderTooltip = { Styles = STYLES }
+for _, name in { "Rounded", "Sharp", "Pill", "Plain" } do
+Styles.register("SliderTooltip", name, STYLES[name])
+end
 local function overlaps(left, top, right, bottom, other)
 local corner, extent = other.AbsolutePosition, other.AbsoluteSize
 return right > corner.X - MARGIN and left < corner.X + extent.X + MARGIN and bottom > corner.Y - MARGIN and top < corner.Y + extent.Y + MARGIN
 end
 function SliderTooltip.new(row, styleName)
 local library = row.library
-local style = STYLES[styleName] or STYLES.Rounded
+local style = Styles.get("SliderTooltip", styleName) or STYLES.Rounded
 local overlay = Mount.overlay(library)
 local lift = if style.arrow then LIFT else 6
 local holder = Create.new("Frame", { Name = "SliderTip", Visible = false, ZIndex = 5, Parent = overlay.popups })
@@ -6451,6 +6702,7 @@ local Env = import("Core/Env")
 local Keybind = import("Elements/Keybind")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local TRACK_WIDTH, INSET, STRETCH = 36, 3, 6
 local THUMBS = {
@@ -6626,10 +6878,13 @@ local KeySystem = import("Components/KeySystem")
 local Motion = import("Core/Motion")
 local Notifications = import("Components/Notifications")
 local Palettes = import("Themes/Palettes")
+local Presets = import("Themes/Presets")
 local Scope = import("Core/Scope")
 local SettingsTab = import("Components/SettingsTab")
 local Signal = import("Core/Signal")
+local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
+local Tokens = import("Core/Tokens")
 local Window = import("Components/Window")
 for _, palette in Palettes do
 assert(Theme.add(palette))
@@ -6643,6 +6898,7 @@ scale = 1,
 listeningForKey = false,
 touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
 }
+Tokens.touch = library.touch
 function library.notify(options)
 return Notifications.push(library, options)
 end
@@ -6660,7 +6916,9 @@ KeySystem = KeySystem,
 Motion = Motion,
 Scope = Scope,
 Signal = Signal,
+Styles = Styles,
 Theme = Theme,
+Tokens = Tokens,
 library = library,
 },
 }
@@ -6687,6 +6945,7 @@ options = options or {}
 if type(options) ~= "table" then
 error("CreateWindow expects a table of options", 2)
 end
+options = Presets.apply(options)
 local folder = folderFor(options)
 local registry = Env.globals()
 registry.HalcyonWindows = registry.HalcyonWindows or {}
@@ -6694,6 +6953,8 @@ local previous = registry.HalcyonWindows[folder]
 if previous then
 pcall(previous.Unload, previous)
 end
+Tokens.reset()
+Tokens.set(options)
 if options.Font then
 Create.setFamily(options.Font)
 end
@@ -6757,6 +7018,29 @@ end
 function Halcyon:SetFont(font)
 return Create.setFamily(font)
 end
+function Halcyon:AddStyle(kind, name, spec, base)
+if base ~= nil then
+return Styles.extend(kind, base, name, spec)
+end
+return Styles.register(kind, name, spec)
+end
+function Halcyon:GetStyles(kind)
+if kind == nil then
+local kinds = {}
+for name in Styles.kinds do
+table.insert(kinds, name)
+end
+table.sort(kinds)
+return kinds
+end
+return Styles.names(kind)
+end
+function Halcyon:GetPresets()
+return Presets.names()
+end
+function Halcyon:AddPreset(name, preset)
+return Presets.register(name, preset)
+end
 function Halcyon:GetExecutor()
 return Env.executor()
 end
@@ -6792,6 +7076,74 @@ palette("Crimson", { "120E0F", "171213", "1B1516", "231B1D", "2E2326", "32272A",
 palette("Glacier", { "1B1F27", "20252E", "242A34", "2B323E", "353D4B", "3A4352", "ECEFF4", "ABB5C5", "88C0D0", "A3D3E0", "10202A", "B5E0EC", "A3BE8C", "EBCB8B", "E08A93", "81A1C1" }),
 palette("Daylight", { "F6F7F9", "EEF0F3", "FFFFFF", "E9ECF0", "DDE1E7", "D3D8DF", "14171C", "525B69", "2A66D9", "1F56BF", "FFFFFF", "2A66D9", "15803D", "B45309", "C92A3A", "0B6CAB" }),
 }
+end
+modules["Themes/Presets"] = function()
+local Presets = {
+order = { "Classic", "Minimal", "Glass", "Neon", "Compact" },
+list = {
+Classic = {},
+Minimal = {
+Radius = "Soft",
+SectionStyle = "Flat",
+ButtonEffect = "None",
+Styles = { Toggle = "Slim", Slider = "Thin", TabIndicator = "Underline", Input = "Underline" },
+},
+Glass = {
+Radius = "Round",
+WindowStyle = "Glass",
+SectionStyle = "Glass",
+ButtonEffect = "Glow",
+Styles = { Toggle = "Large", TabIndicator = "Pill", Button = "Soft" },
+},
+Neon = {
+WindowStyle = "Gradient",
+SectionStyle = "Accent",
+ButtonEffect = "Sweep",
+Styles = { Toggle = "Glow", Slider = "Thick", TabIndicator = "Glow" },
+},
+Compact = {
+Density = "Compact",
+Radius = "Soft",
+SectionStyle = "Outlined",
+Styles = { Toggle = "Square", Slider = "Thin" },
+},
+},
+}
+function Presets.names()
+return table.clone(Presets.order)
+end
+function Presets.register(name, preset)
+if type(name) ~= "string" or type(preset) ~= "table" then
+return false, "AddPreset expects a name and a table"
+end
+if not Presets.list[name] then
+table.insert(Presets.order, name)
+end
+Presets.list[name] = preset
+return true
+end
+function Presets.apply(options)
+local preset = Presets.list[options.Preset]
+if not preset then
+return options
+end
+local merged = table.clone(options)
+for key, value in preset do
+if key == "Styles" then
+local styles = if type(options.Styles) == "table" then table.clone(options.Styles) else {}
+for kind, name in value do
+if styles[kind] == nil then
+styles[kind] = name
+end
+end
+merged.Styles = styles
+elseif merged[key] == nil then
+merged[key] = value
+end
+end
+return merged
+end
+return Presets
 end
 end
 ]]></ProtectedString>

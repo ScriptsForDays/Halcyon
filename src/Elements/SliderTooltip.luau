@@ -4,6 +4,7 @@
 
 local Create = require("../Core/Create")
 local Mount = require("../Core/Mount")
+local Styles = require("../Core/Styles")
 
 -- corner: the bubble's radius (-1 rounds it fully). arrow: the pointer's
 -- radius, or nil for no pointer.
@@ -20,6 +21,9 @@ local ARROW_HALF = 7
 local MARGIN = 4
 
 local SliderTooltip = { Styles = STYLES }
+for _, name in { "Rounded", "Sharp", "Pill", "Plain" } do
+	Styles.register("SliderTooltip", name, STYLES[name])
+end
 
 local function overlaps(left, top, right, bottom, other)
 	local corner, extent = other.AbsolutePosition, other.AbsoluteSize
@@ -28,7 +32,7 @@ end
 
 function SliderTooltip.new(row, styleName)
 	local library = row.library
-	local style = STYLES[styleName] or STYLES.Rounded
+	local style = Styles.get("SliderTooltip", styleName) or STYLES.Rounded
 	local overlay = Mount.overlay(library)
 	local lift = if style.arrow then LIFT else 6
 

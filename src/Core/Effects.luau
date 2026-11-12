@@ -12,6 +12,7 @@
 
 local Create = require("./Create")
 local Motion = require("./Motion")
+local Styles = require("./Styles")
 
 local TweenService = game:GetService("TweenService")
 
@@ -26,6 +27,9 @@ local BAND_FADE = NumberSequence.new({
 })
 
 local Effects = { Kinds = { Sweep = true, Ripple = true, Lift = true, Glow = true, None = true } }
+for _, name in { "Sweep", "Ripple", "Lift", "Glow", "None" } do
+	Styles.register("ButtonEffect", name, {})
+end
 
 -- The clipping layer, made once per button.
 local function layer(button, radius)

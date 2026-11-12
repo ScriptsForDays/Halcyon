@@ -1,25 +1,44 @@
--- A titled group of rows: the "groupbox". Three looks:
+-- A titled group of rows: the "groupbox". Its look comes from the style
+-- registry (kind "Section"):
 --   Card      a filled surface with an outline; rows sit on it unboxed
 --   Outlined  the outline alone
 --   Flat      no container; each row carries its own fill
+--   Glass     a see-through card
+--   Accent    a card with an accent stripe down its left edge
+--   Inset     sunk into the page: the page colour with an outline
+--   Header    a card whose title sits on a band of its own
 
 local Create = require("../Core/Create")
 local Effects = require("../Core/Effects")
 local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Registry = require("../Elements/Registry")
+local Row = require("../Elements/Row")
+local Styles = require("../Core/Styles")
+local Theme = require("../Core/Theme")
+local Tokens = require("../Core/Tokens")
+
+-- fill: the section's own colour; stroke: its outline; surface: the colour
+-- rows sit on (veils match it); flat: no container at all.
+Styles.register("Section", "Card", { fill = "card", stroke = "stroke", surface = "card" })
+Styles.register("Section", "Outlined", { stroke = "stroke", surface = "background" })
+Styles.register("Section", "Flat", { flat = true, surface = "background" })
+Styles.register("Section", "Glass", { fill = "card", fillTransparency = 0.35, stroke = "text", strokeTransparency = 0.88, surface = "card" })
+Styles.register("Section", "Accent", { fill = "card", stroke = "stroke", surface = "card", edge = "accent" })
+Styles.register("Section", "Inset", { fill = "background", stroke = "stroke", surface = "background" })
+Styles.register("Section", "Header", { fill = "card", stroke = "stroke", surface = "card", band = "raised" })
 
 local Section = {}
 Section.__index = Section
 
--- Options: Title, Icon, Style, Side ("Left" or "Right"), Collapsible,
+-- Options: Title, Icon, IconColor, Description, Badge, Style, Side ("Left" or "Right"), Collapsible,
 -- Collapsed, Tier or PaidOnly (lock every row inside under one overlay),
 -- LockText, LockHint.
 function Section.new(tab, options)
 	options = options or {}
 	local window = tab.window
-	local style = options.Style or tab.sectionStyle or window.sectionStyle
-	local flat = style == "Flat"
+	local look = Styles.pick("Section", options.Style or tab.sectionStyle, window)
+	local flat = look.flat == true
 	local self = setmetatable({
 		library = tab.library,
 		window = window,
@@ -31,7 +50,7 @@ function Section.new(tab, options)
 		lockText = options.LockText or tab.lockText,
 		lockHint = options.LockHint or tab.lockHint,
 		rowFill = flat,
-		surface = if style == "Card" then "card" else "background",
+		surface = look.surface or "card",
 		side = if options.Side == "Right" then "Right" else "Left",
 		Title = options.Title,
 		Hidden = false,
@@ -46,29 +65,50 @@ function Section.new(tab, options)
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		LayoutOrder = tab:nextOrder(),
-		BackgroundTransparency = if style == "Card" then 0 else 1,
-		Theme = { BackgroundColor3 = "card" },
+		BackgroundTransparency = if look.fill then look.fillTransparency or 0 else 1,
+		Theme = { BackgroundColor3 = look.fill or "card" },
 		Parent = tab.left,
 	})
 	self.scope:add(root)
 	self.root = root
+	self.look = look
 	if not flat then
 		Create.corner(10, root)
-		Create.stroke("stroke", root)
+		if look.stroke then
+			local stroke = Create.stroke(look.stroke, root)
+			stroke.Transparency = look.strokeTransparency or 0
+		end
 	end
 	Create.list(root, "Vertical", 0)
 
 	if options.Title then
 		local collapsible = options.Collapsible ~= false
+		local holder = root
+		if look.band then
+			-- The band is rounded on top only: a square strip fills its
+			-- lower corners while the rows show below it.
+			holder = Create.new("Frame", { Name = "Band", Size = UDim2.new(1, 0, 0, 40), Theme = { BackgroundColor3 = look.band }, Parent = root })
+			Create.corner(10, holder)
+			self.bandFill = Create.new("Frame", {
+				Name = "Square",
+				Size = UDim2.new(1, 0, 0, 10),
+				Position = UDim2.new(0, 0, 1, -10),
+				Theme = { BackgroundColor3 = look.band },
+				Parent = holder,
+			})
+		end
 		local header = Create.new(if collapsible then "TextButton" else "Frame", {
 			Name = "Header",
 			Size = UDim2.new(1, 0, 0, if flat then 32 else 40),
-			Parent = root,
+			ZIndex = 2,
+			Parent = holder,
 		})
 		Create.padding(header, if flat then 4 else 14, 0)
 		Create.list(header, "Horizontal", 8)
 		if options.Icon then
-			Create.icon(options.Icon, 16, "textMuted", header)
+			-- IconColor is a theme role name or a Color3.
+			local icon = Create.icon(options.Icon, 16, "textMuted", header)
+			Theme.paint(icon, "ImageColor3", options.IconColor)
 		end
 		self.label = Create.new("TextLabel", {
 			Name = "Title",
@@ -81,10 +121,14 @@ function Section.new(tab, options)
 			Theme = { TextColor3 = "text" },
 			Parent = header,
 		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+		self.header = header
+		if options.Badge ~= nil then
+			self:SetBadge(options.Badge)
+		end
 		if collapsible then
 			-- The arrow turns inside a fixed holder: a rotated child of a
 			-- list layout is drawn unrotated.
-			local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 2, Parent = header })
+			local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 3, Parent = header })
 			self.chevron = Create.icon("chevron-down", 14, "textMuted", holder)
 			self.scope:connect(header.Activated, function()
 				self:SetCollapsed(not self.collapsed)
@@ -102,11 +146,39 @@ function Section.new(tab, options)
 		Parent = root,
 	})
 	self.body = body
+	if look.edge then
+		-- The body has no layout, so the stripe lies beside the rows
+		-- without becoming one of them.
+		local stripe = Create.new("Frame", {
+			Name = "Edge",
+			Size = UDim2.new(0, 3, 1, -12),
+			Position = UDim2.fromOffset(5, 4),
+			Theme = { BackgroundColor3 = look.edge },
+			Parent = body,
+		})
+		Create.corner(-1, stripe)
+	end
 	local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
 	if not flat then
-		Create.padding(rows, 6, if options.Title then 0 else 6, 6, 6)
+		local edge = if look.edge then 8 else 0
+		Create.padding(rows, 6 + edge, if options.Title and not look.band then 0 else 6, 6, 6)
 	end
-	Create.list(rows, "Vertical", if flat then 6 else 2)
+	Create.list(rows, "Vertical", if flat then Tokens.density.gap else 2)
+	if options.Description then
+		-- A line under the title that explains the group; it folds with the rows.
+		self.description = Create.new("TextLabel", {
+			Name = "Description",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
+			TextSize = 12,
+			LayoutOrder = 0,
+			Text = options.Description,
+			Theme = { TextColor3 = "textMuted" },
+			Parent = rows,
+		})
+		Create.padding(self.description, 6, 0, 6, 4)
+	end
 	self.frame = rows
 
 	if self.tier then
@@ -249,6 +321,9 @@ end
 function Section:refresh()
 	local open = self.searching or not self.collapsed
 	self.frame.Visible = open
+	if self.bandFill then
+		self.bandFill.Visible = open
+	end
 	if self.chevron then
 		Motion.tween(self.chevron, "fast", { Rotation = if open then 0 else -90 })
 	end
@@ -264,6 +339,18 @@ end
 function Section:SetCollapsed(collapsed)
 	self.collapsed = collapsed == true
 	self:refresh()
+end
+
+-- A count or word in a small pill beside the title; nil or false removes it.
+function Section:SetBadge(value)
+	if self.badge then
+		self.badge:Destroy()
+		self.badge = nil
+	end
+	if self.header and value ~= nil and value ~= false then
+		self.badge = Row.badge(self.header, if type(value) == "number" then tostring(value) else value)
+		self.badge.LayoutOrder = 2
+	end
 end
 
 function Section:SetTitle(title)

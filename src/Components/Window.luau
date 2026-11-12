@@ -17,6 +17,7 @@ local Notifications = require("./Notifications")
 local Popup = require("./Popup")
 local Profile = require("./Profile")
 local Signal = require("../Core/Signal")
+local Styles = require("../Core/Styles")
 local Tab = require("./Tab")
 local Theme = require("../Core/Theme")
 
@@ -30,6 +31,12 @@ local STRIPS = { Top = 46, Dock = 58 }
 -- Where a minimised window goes: its own top bar, a pill carrying its
 -- title, or the round open button.
 local MINIMIZE = { Topbar = true, Pill = true, Chip = true }
+for _, name in { "Sidebar", "Rail", "Top", "Dock" } do
+	Styles.register("Navigation", name, { lane = LANES[name], strip = STRIPS[name] })
+end
+for _, name in { "Topbar", "Pill", "Chip" } do
+	Styles.register("Minimize", name, {})
+end
 -- A blurred rounded square, the same image asset WindUI stretches around
 -- its window. It is sliced 99 px in from each edge.
 local SHADOW_IMAGE = "rbxassetid://8992230677"
@@ -83,7 +90,10 @@ function Window.new(library, options, access)
 	self.query = ""
 	self.Visible = true
 	self.Title, self.Subtitle, self.Icon = options.Title or "Halcyon", options.Subtitle, options.Icon
-	self.sectionStyle = options.SectionStyle or "Card"
+	-- The default look for each kind of control, from Styles and the older
+	-- single options; an element's own Style wins over it.
+	self.styles = Styles.defaults(options)
+	self.sectionStyle = options.SectionStyle
 	-- The value bubble over a slider's knob while it is dragged.
 	self.sliderTooltips = options.SliderTooltips ~= false
 	self.sliderTooltipStyle = options.SliderTooltipStyle or "Rounded"
@@ -1015,6 +1025,7 @@ function Window:SetSliderTooltips(enabled, style)
 	self.sliderTooltips = enabled == true
 	if style then
 		self.sliderTooltipStyle = style
+		self.styles.SliderTooltip = style
 	end
 end
 

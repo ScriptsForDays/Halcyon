@@ -355,6 +355,10 @@ Styles:Segmented({
 Layouts:Section({ Title = "Card section", Style = "Card", Side = "Right" }):Toggle({ Title = "Rows sit on one surface" })
 Layouts:Section({ Title = "Outlined section", Style = "Outlined", Side = "Right" }):Toggle({ Title = "An outline and nothing else" })
 Layouts:Section({ Title = "Flat section", Style = "Flat" }):Toggle({ Title = "Each row carries its own fill" })
+Layouts:Section({ Title = "Glass section", Style = "Glass", Side = "Right" }):Toggle({ Title = "A see-through card" })
+Layouts:Section({ Title = "Accent section", Style = "Accent", Badge = 2, Side = "Right" }):Toggle({ Title = "A stripe marks the group" })
+Layouts:Section({ Title = "Header section", Style = "Header", Icon = "layers", IconColor = "accent" }):Toggle({ Title = "The title sits on a band" })
+Layouts:Section({ Title = "Inset section", Style = "Inset", Description = "Sunk into the page, with a line that explains it." }):Toggle({ Title = "Rows on the page colour" })
 Layouts:Section({ Title = "Collapsed section", Collapsed = true }):Label("Sections fold when their title is pressed.")
 
 local Hud = Layouts:Section({ Title = "Overlays", Icon = "monitor" })

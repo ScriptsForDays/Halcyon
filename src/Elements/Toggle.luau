@@ -4,6 +4,7 @@ local Env = require("../Core/Env")
 local Keybind = require("./Keybind")
 local Motion = require("../Core/Motion")
 local Row = require("./Row")
+local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
 local TRACK_WIDTH, INSET, STRETCH = 36, 3, 6

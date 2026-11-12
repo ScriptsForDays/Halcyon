@@ -180,4 +180,22 @@ function Theme.bind(instance, property, role, deferred)
 	end
 end
 
+-- Stops following the palette, for a property given a fixed colour.
+function Theme.unbind(instance, property)
+	local properties = Theme.bindings[instance]
+	if properties then
+		properties[property] = nil
+	end
+end
+
+-- Binds a role name, or sets a fixed Color3 and stops following the palette.
+function Theme.paint(instance, property, value)
+	if typeof(value) == "Color3" then
+		Theme.unbind(instance, property)
+		instance[property] = value
+	elseif type(value) == "string" and Theme.current[value] ~= nil then
+		Theme.bind(instance, property, value)
+	end
+end
+
 return Theme

@@ -20,10 +20,13 @@ local KeySystem = require("./Components/KeySystem")
 local Motion = require("./Core/Motion")
 local Notifications = require("./Components/Notifications")
 local Palettes = require("./Themes/Palettes")
+local Presets = require("./Themes/Presets")
 local Scope = require("./Core/Scope")
 local SettingsTab = require("./Components/SettingsTab")
 local Signal = require("./Core/Signal")
+local Styles = require("./Core/Styles")
 local Theme = require("./Core/Theme")
+local Tokens = require("./Core/Tokens")
 local Window = require("./Components/Window")
 
 for _, palette in Palettes do
@@ -42,6 +45,7 @@ local library = {
 	listeningForKey = false,
 	touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
 }
+Tokens.touch = library.touch
 
 function library.notify(options)
 	return Notifications.push(library, options)
@@ -61,7 +65,9 @@ local Halcyon = {
 		Motion = Motion,
 		Scope = Scope,
 		Signal = Signal,
+		Styles = Styles,
 		Theme = Theme,
+		Tokens = Tokens,
 		library = library,
 	},
 }
@@ -99,6 +105,8 @@ function Halcyon:CreateWindow(options)
 	if type(options) ~= "table" then
 		error("CreateWindow expects a table of options", 2)
 	end
+	-- A preset fills in whatever the hub did not set itself.
+	options = Presets.apply(options)
 	local folder = folderFor(options)
 
 	-- Running a hub twice is the usual way a player breaks it. Windows are
@@ -111,6 +119,9 @@ function Halcyon:CreateWindow(options)
 		pcall(previous.Unload, previous)
 	end
 
+	-- Radius, Density and TextSize apply to everything built from here on.
+	Tokens.reset()
+	Tokens.set(options)
 	if options.Font then
 		Create.setFamily(options.Font)
 	end
@@ -193,6 +204,39 @@ end
 
 function Halcyon:SetFont(font)
 	return Create.setFamily(font)
+end
+
+-- Adds a look for one kind of control ("Toggle", "Slider", "Section" and so
+-- on), described with the same fields as a built-in look. With `base`, only
+-- the fields given change: AddStyle("Toggle", "Wide", { trackWidth = 48 }, "Switch").
+function Halcyon:AddStyle(kind, name, spec, base)
+	if base ~= nil then
+		return Styles.extend(kind, base, name, spec)
+	end
+	return Styles.register(kind, name, spec)
+end
+
+-- The names of a kind's looks; with no kind, the kinds that have looks.
+function Halcyon:GetStyles(kind)
+	if kind == nil then
+		local kinds = {}
+		for name in Styles.kinds do
+			table.insert(kinds, name)
+		end
+		table.sort(kinds)
+		return kinds
+	end
+	return Styles.names(kind)
+end
+
+function Halcyon:GetPresets()
+	return Presets.names()
+end
+
+-- Registers a preset: a table of window options (Radius, Density, Styles,
+-- SectionStyle, ButtonEffect and so on) that `Preset = name` fills in.
+function Halcyon:AddPreset(name, preset)
+	return Presets.register(name, preset)
 end
 
 function Halcyon:GetExecutor()
