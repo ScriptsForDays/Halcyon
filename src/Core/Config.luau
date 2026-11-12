@@ -100,6 +100,11 @@ function Config:delete(name)
 	return true, `Deleted "{safe}".`
 end
 
+function Config:exists(name)
+	local safe = Env.safeName(name)
+	return safe ~= nil and Env.read(self:path(safe)) ~= nil
+end
+
 function Config:list()
 	local names = {}
 	for _, file in Env.list(self.root .. "/configs") do

@@ -15,7 +15,8 @@ end
 -- Options: Min, Max, Step, Default, Suffix, Stacked (track under the title),
 -- Range (two knobs; the value is { low, high }), Tooltip (false hides the
 -- value bubble shown while dragging), TooltipStyle ("Rounded", "Sharp",
--- "Pill" or "Plain").
+-- "Pill" or "Plain"), Live (false runs the Callback once, when the drag
+-- ends, for a setting that is costly or moves the slider itself).
 function Slider.new(container, options)
 	local row = Row.new(container, options)
 	local handle, scope = row.handle, row.scope
@@ -139,6 +140,7 @@ function Slider.new(container, options)
 		return row.window.sliderTooltips
 	end
 
+	local dragged = false
 	Drag.area(scope, area, function(x)
 		local pressed = min + x * (max - min)
 		local changed = if not range then store(min, pressed) elseif dragLow then store(math.min(pressed, high), high) else store(low, math.max(pressed, low))
@@ -153,11 +155,19 @@ function Slider.new(container, options)
 			tip.show(rail, (shown - min) / math.max(max - min, 1e-9), label(shown), readout)
 		end
 		if changed then
-			row.fire(handle:Get())
+			if options.Live == false then
+				dragged = true
+			else
+				row.fire(handle:Get())
+			end
 		end
 	end, function()
 		if tip then
 			tip.hide()
+		end
+		if dragged then
+			dragged = false
+			row.fire(handle:Get())
 		end
 	end, rail)
 

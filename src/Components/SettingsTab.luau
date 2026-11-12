@@ -2,7 +2,7 @@
 -- configs and unload. Hubs call Window:SettingsTab() instead of rebuilding
 -- these rows in every script.
 
-local Env = require("../Core/Env")
+local ConfigSection = require("./ConfigSection")
 local Motion = require("../Core/Motion")
 local Theme = require("../Core/Theme")
 
@@ -10,16 +10,11 @@ local STYLES = { "Sidebar", "Rail", "Top", "Dock" }
 
 local SettingsTab = {}
 
--- `done` and `failed` title the notice; the message from the config call
--- says which config and why.
-local function report(window, done, failed, ok, message)
-	window:Notify({ Title = if ok then done else failed, Content = message, Kind = if ok then "success" else "warning" })
-end
-
 -- Options: Title, Icon, Group, and one switch per row. Every row is on
 -- unless its switch is false:
 --   Theme, Accent, Navigation, Scale, ReduceMotion, MenuKey, Minimize,
 --   Anonymous, Configs, Unload
+-- ScaleControl picks "Stepper" (default) or "Slider" for the interface scale.
 function SettingsTab.build(window, options)
 	options = options or {}
 	local function wants(...)
@@ -76,17 +71,25 @@ function SettingsTab.build(window, options)
 			})
 		end
 		if wants("Scale") then
-			look:Stepper({
+			local scale = {
 				Title = "Interface scale",
 				Min = 75,
 				Max = 125,
 				Step = 5,
 				Suffix = "%",
 				Default = math.round(window.scale * 100),
+				-- The window resizes under the pointer, so the slider applies
+				-- the scale when the drag ends rather than at every step.
+				Live = false,
 				Callback = function(percent)
 					window:SetScale(percent / 100)
 				end,
-			})
+			}
+			if options.ScaleControl == "Slider" then
+				look:Slider(scale)
+			else
+				look:Stepper(scale)
+			end
 		end
 		if wants("ReduceMotion") then
 			look:Toggle({
@@ -139,69 +142,7 @@ function SettingsTab.build(window, options)
 	end
 
 	if options.Configs ~= false then
-		local configs = tab:Section({ Title = "Configs", Icon = "save", Side = "Right" })
-		if Env.canSave then
-			local name = configs:Input({ Title = "Config name", Placeholder = "default" })
-			local saved = configs:Dropdown({ Title = "Saved configs", Values = window:ListConfigs(), AllowNone = true, Placeholder = "None" })
-			local function chosen()
-				local typed = name:Get()
-				return if typed ~= "" then typed else saved:Get()
-			end
-			configs:Button({
-				Title = "Save",
-				Description = "Writes every saved setting to this config",
-				Icon = "save",
-				Callback = function()
-					local ok, message = window:SaveConfig(chosen() or "default")
-					saved:Refresh(window:ListConfigs())
-					report(window, "Config saved", "Config not saved", ok, message)
-				end,
-			})
-			configs:Button({
-				Title = "Load",
-				Icon = "download",
-				Callback = function()
-					report(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
-				end,
-			})
-			configs:Button({
-				Title = "Load on start",
-				Description = "Marks the config that Window:LoadAutoload() loads",
-				Icon = "pin",
-				Callback = function()
-					report(window, "Loads on start", "Autoload not set", window:SetAutoload(chosen()))
-				end,
-			})
-			configs:Button({
-				Title = "Delete",
-				Icon = "trash-2",
-				Callback = function()
-					local target = chosen()
-					if not target then
-						report(window, "Config deleted", "Nothing deleted", false, "Pick a config to delete.")
-						return
-					end
-					window:Dialog({
-						Title = `Delete "{target}"?`,
-						Content = "The config file is removed from this device.",
-						Buttons = {
-							{ Title = "Keep" },
-							{
-								Title = "Delete",
-								Variant = "Danger",
-								Callback = function()
-									local ok, message = window:DeleteConfig(target)
-									saved:Refresh(window:ListConfigs())
-									report(window, "Config deleted", "Config not deleted", ok, message)
-								end,
-							},
-						},
-					})
-				end,
-			})
-		else
-			configs:Paragraph({ Title = "Saving is off", Content = Env.NO_FILES, Icon = "info" })
-		end
+		ConfigSection.build(window, tab, { Side = "Right" })
 	end
 
 	if wants("Unload") then
@@ -209,7 +150,7 @@ function SettingsTab.build(window, options)
 			Title = "Unload",
 			Variant = "Danger",
 			Callback = function()
-				window:Unload()
+				window:RequestUnload()
 			end,
 		})
 	end

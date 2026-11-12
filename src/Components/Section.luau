@@ -4,6 +4,7 @@
 --   Flat      no container; each row carries its own fill
 
 local Create = require("../Core/Create")
+local Effects = require("../Core/Effects")
 local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Registry = require("../Elements/Registry")
@@ -174,6 +175,10 @@ function Section:buildLock()
 	-- scale inside a frame that sizes itself to its children feeds back and
 	-- stretches both.
 	local rows = self.frame
+	self.lockShimmer = Effects.shimmer(self.scope, overlay, 10)
+	-- A locked section with a single short row still has room for the
+	-- overlay's icon, wording and hint.
+	self.lockMinimum = Create.new("UISizeConstraint", { MinSize = Vector2.new(0, 0), Parent = rows })
 	local function cover()
 		overlay.Size = UDim2.new(1, 0, 0, rows.AbsoluteSize.Y / self.library.scale)
 	end
@@ -199,6 +204,12 @@ function Section:refreshLock()
 	end
 	local wording, hint = self.window:lockWording(self.tier, self.lockText, self.lockHint)
 	lock.frame.Visible = not self.window:allows(self.tier)
+	self.lockMinimum.MinSize = Vector2.new(0, if lock.frame.Visible then 84 else 0)
+	if lock.frame.Visible and self.window.lockShimmer then
+		self.lockShimmer.start()
+	else
+		self.lockShimmer.stop()
+	end
 	lock.title.Text = wording
 	lock.hint.Text = hint or ""
 	lock.hint.Visible = hint ~= nil and hint ~= ""

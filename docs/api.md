@@ -62,7 +62,7 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 | `ToggleThumb` | The shape of every switch's thumb: `"Circle"` *(default)*, `"Oval"` or `"Square"` |
 | `CollapsedGroups` | Sidebar groups that start folded, by name |
 
-Switches, all on unless set to `false`: `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`. `OpenButton = true` shows the round open button on desktop too when the window is hidden.
+Switches, all on unless set to `false`: `ConfirmUnload` (the Unload button asks first), `LockShimmer` (the light across locked rows), `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`. `OpenButton = true` shows the round open button on desktop too when the window is hidden.
 
 ### Profile
 
@@ -107,9 +107,13 @@ Profile = {
 | `Window:Notify(options)`, `:Dialog(options)` | Feedback |
 | `Window:Watermark(options)`, `:KeybindList(options)` | Overlays |
 | `Window:SaveConfig(name)` and the other config calls | See [Configs](#configs) |
-| `Window:Unload()` | Removes the window and everything it made |
+| `Window:RequestUnload()` | What the Unload button does: asks first unless `ConfirmUnload = false` |
+| `Window:Unload()` | Removes the window and everything it made, without asking |
+| `Window:ConfigSection(tabOrSection, options)` | The config block (name, save with overwrite check, load, delete, load on start) anywhere you like |
+| `Window:ConfigExists(name)` | Whether a config with that name is saved |
+| `Window:Require(names)` | The executor functions in the list this executor lacks |
 
-Fields: `Window.Flags` (handles by flag), `Window.OnUnload`, `Window.TabChanged`, `Window.KeybindsChanged` (signals with `:Connect`), `Window.Visible`.
+Fields: `Window.Flags` (handles by flag), `Window.ConfigChanged` (fires `action, name` after a save, load, delete or autoload), `Window.OnUnload`, `Window.TabChanged`, `Window.KeybindsChanged` (signals with `:Connect`), `Window.Visible`.
 
 ## Tabs and sections
 
@@ -133,7 +137,7 @@ local Section = Tab:Section({ Title = "Aim", Icon = "target", Side = "Right" })
 | `Collapsible` *(default true)*, `Collapsed` | Folding by pressing the header |
 | `Tier`, `PaidOnly`, `LockText`, `LockHint` | Lock the section: one overlay with an icon, the wording and a hint covers its rows |
 
-`Tab:Select()`, `Tab:SetTitle(text)`. `Section:SetTitle(text)`, `:SetCollapsed(bool)`, `:SetVisible(bool)`, `:Destroy()`.
+`Tab:Select()`, `Tab:SetTitle(text)`, `Tab:SetBadge(value)` (a number, a short word, `true` for a dot, `nil` to clear). `Section:SetTitle(text)`, `:SetCollapsed(bool)`, `:SetVisible(bool)`, `:Destroy()`.
 
 Elements can be added to a tab directly; they go into an untitled flat section.
 
@@ -141,7 +145,7 @@ Elements can be added to a tab directly; they go into an untitled flat section.
 
 Every element is created on a tab or section and returns a handle.
 
-**Options every element takes:** `Title` (required, except Divider, Code and Image), `Description`, `Icon` (a leading icon), `Flag` (saves the value in configs), `Callback`, `Tier` (a tier name), `PaidOnly`, `LockText`.
+**Options every element takes:** `Title` (required, except Divider, Code and Image), `Description`, `Icon` (a leading icon), `Flag` (saves the value in configs), `Callback`, `Tier` (a tier name), `PaidOnly`, `LockText`, `Badge` (`"New"`, `"Beta"`, `"Risky"`, `"Paid"`, any text, or `{ Text, Color }`), `Info` (a longer explanation behind an info icon), `Requires` (executor functions the row needs; without them it is locked with their names).
 
 **Every handle has:** `Get()`, `Set(value)`, `Changed` (a signal), `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `Destroy()`, `Frame`, `Kind`, `Flag`.
 
@@ -151,7 +155,7 @@ Every element is created on a tab or section and returns a handle.
 |---|---|---|
 | `Button` | `Variant` (`"Filled"`, `"Outline"`, `"Danger"`; without it the whole row is the button), `Effect`, `TrailingIcon` | none; `Press()` runs it |
 | `Toggle` | `Default`, `Style` (`"Switch"` or `"Checkbox"`), `Thumb` (`"Circle"`, `"Oval"`, `"Square"`), `Keybind`, `Color`, `Outline`, `OutlineColor` | boolean |
-| `Slider` | `Min`, `Max`, `Step`, `Default`, `Suffix`, `Stacked`, `Range`, `Width`, `Tooltip`, `TooltipStyle` | number; `{ low, high }` with `Range` |
+| `Slider` | `Min`, `Max`, `Step`, `Default`, `Suffix`, `Stacked`, `Range`, `Width`, `Tooltip`, `TooltipStyle`, `Live` (false calls back once, when the drag ends) | number; `{ low, high }` with `Range` |
 | `Dropdown` | `Values`, `Default`, `Multi`, `AllowNone`, `Searchable`, `Placeholder`, `Width`; `Refresh(values)` | one value or `nil`; a list with `Multi` |
 | `Input` | `Default`, `Placeholder`, `Numeric`, `Min`, `Max`, `Live`, `MaxLength`, `Width` | string; number with `Numeric` |
 | `Keybind` | `Default`, `Mode` (`"Press"`, `"Toggle"`, `"Hold"`), `ChangedCallback` | `Enum.KeyCode` or `nil` |
@@ -184,11 +188,28 @@ Window:Notify({
 	Kind = "success", -- "info", "success", "warning" or "danger"
 	Duration = 8, -- seconds; 0 stays until tapped
 	Progress = true, -- the countdown bar
+	Style = "Default", -- or "Timer", "Compact", "Banner", "Progress"
 	Actions = { { Title = "Undo", Callback = function() end }, { Title = "Dismiss" } },
 })
 
-Halcyon:SetNotificationDefaults({ Duration = 6, Position = "TopRight", MaxVisible = 3, Progress = true })
+Halcyon:SetNotificationDefaults({ Duration = 6, Position = "TopRight", MaxVisible = 3, Progress = true, Style = "Default" })
+
+-- Work that takes a while: the notice stays until Done.
+local job = Window:Notify({ Title = "Downloading", Content = "0 of 10", Style = "Progress" })
+job.SetProgress(0.5) -- 0 to 1
+job.SetContent("5 of 10")
+job.Done("Downloaded") -- fills the bar, turns green, leaves after a moment
 ```
+
+| Style | Looks like |
+|---|---|
+| `Default` | A card with a countdown bar along the bottom |
+| `Timer` | The seconds left, counting down in the corner |
+| `Compact` | One line in a pill: icon and title |
+| `Banner` | A coloured strip across the top |
+| `Progress` | A bar the hub fills; stays until `Done` |
+
+Every notice returns a handle with `Dismiss`, `SetTitle`, `SetContent`, `SetProgress` and `Done`.
 
 `Position` is one of `TopLeft`, `TopCenter`, `TopRight`, `BottomLeft`, `BottomCenter`, `BottomRight`. On a narrow screen notices always sit across the top. Notify on results the player cannot see (saved, failed, loaded), not on every toggle.
 
@@ -228,7 +249,7 @@ The player's interface choices (theme, navigation, scale, menu key, minimise sty
 Window:SettingsTab({ Title = "Settings", Icon = "settings", Group = "Library" })
 ```
 
-Each row is on unless its switch is `false`: `Theme`, `Accent`, `Navigation`, `Scale`, `ReduceMotion`, `MenuKey`, `Minimize`, `Anonymous`, `Configs`, `Unload`.
+Each row is on unless its switch is `false`: `Theme`, `Accent`, `Navigation`, `Scale`, `ReduceMotion`, `MenuKey`, `Minimize`, `Anonymous`, `Configs`, `Unload`. `ScaleControl = "Slider"` shows the interface scale as a slider instead of a stepper.
 
 ```lua
 local mark = Window:Watermark({ Fields = { "Title", "User", "Executor", "FPS", "Ping", "Time", "Date" } })

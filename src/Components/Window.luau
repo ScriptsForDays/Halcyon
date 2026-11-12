@@ -9,6 +9,8 @@ local Create = require("../Core/Create")
 local Dialog = require("./Dialog")
 local Drag = require("../Core/Drag")
 local Env = require("../Core/Env")
+local Hairline = require("../Core/Hairline")
+local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Notifications = require("./Notifications")
@@ -76,6 +78,8 @@ function Window.new(library, options, access)
 	self.preferencesPath = `Halcyon/{self.folder}/settings.json`
 	self.Flags, self.tabs, self.keybinds, self.gated = {}, {}, {}, {}
 	self.OnUnload, self.KeybindsChanged, self.TabChanged, self.Tick = Signal.new(), Signal.new(), Signal.new(), Signal.new()
+	-- Fires (action, name) after a config is saved, loaded, deleted or set to autoload.
+	self.ConfigChanged = Signal.new()
 	self.query = ""
 	self.Visible = true
 	self.Title, self.Subtitle, self.Icon = options.Title or "Halcyon", options.Subtitle, options.Icon
@@ -88,6 +92,8 @@ function Window.new(library, options, access)
 	self.toggleOutline = options.ToggleOutline ~= false
 	self.toggleOutlineColor = options.ToggleOutlineColor
 	self.toggleThumb = options.ToggleThumb or "Circle"
+	-- The light that crosses locked rows and sections every few seconds.
+	self.lockShimmer = options.LockShimmer ~= false
 	-- The finish on filled, outline and danger buttons: "Sweep", "Ripple",
 	-- "Lift", "Glow" or "None".
 	self.buttonEffect = options.ButtonEffect or "Sweep"
@@ -151,7 +157,14 @@ function Window.new(library, options, access)
 
 	local size = options.Size
 	self.size = if typeof(size) == "Vector2" then size elseif typeof(size) == "UDim2" then Vector2.new(size.X.Offset, size.Y.Offset) else DEFAULT_SIZE
+	-- Where the player last left the window and how big they made it.
+	local function point(value)
+		return if type(value) == "table" and type(value.x) == "number" and type(value.y) == "number" then Vector2.new(value.x, value.y) else nil
+	end
+	self.size = point(saved.size) or self.size
+	self.placed = point(saved.position)
 	library.scale = self.scale
+	Hairline.setScale(self.scale)
 
 	self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = library.displayOrder, Parent = Mount.parent() })
 	self.scope:add(self.gui)
@@ -297,7 +310,7 @@ end
 function Window:buildTopbar()
 	local scope = self.scope
 	local topbar = Create.new("Frame", { Name = "Topbar", Size = UDim2.new(1, 0, 0, TOPBAR), Parent = self.root })
-	Create.new("Frame", { Name = "Seam", Size = UDim2.new(1, 0, 0, 1), AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Theme = { BackgroundColor3 = "stroke" }, Parent = topbar })
+	self.topbarSeam = Hairline.new("X", "stroke", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Parent = topbar })
 
 	local brand = Create.new("Frame", { Name = "Brand", Size = UDim2.fromScale(1, 1), Parent = topbar })
 	local inset = Create.padding(brand, 16, 0)
@@ -397,9 +410,10 @@ function Window:buildTopbar()
 			Theme.bind(glyph, "ImageColor3", "textMuted")
 		end)
 		scope:connect(button.Activated, callback)
+		return glyph
 	end
 	if self.options.Minimizable ~= false then
-		action("minus", 2, function()
+		self.minimizeGlyph = action("minus", 2, function()
 			self:Minimize(not self.minimized)
 		end)
 	end
@@ -409,7 +423,10 @@ function Window:buildTopbar()
 
 	Drag.move(scope, topbar, self.root, {
 		onMoved = function()
-			self.moved = true
+			local corner = self.root.AbsolutePosition - self.gui.AbsolutePosition
+			self.placed = Vector2.new(math.round(corner.X), math.round(corner.Y))
+			self:layout()
+			self:savePreferences()
 		end,
 	})
 end
@@ -418,6 +435,7 @@ end
 -- size grows by twice the pointer's travel to keep the corner under it.
 function Window:buildGrip()
 	local grip = Create.new("TextButton", { Name = "Resize", Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -2, 1, -2), ZIndex = 10, Parent = self.root })
+	self.grip = grip
 	for _, offset in { Vector2.new(12, 12), Vector2.new(7, 12), Vector2.new(12, 7) } do
 		Create.new("Frame", { Size = UDim2.fromOffset(2, 2), Position = UDim2.fromOffset(offset.X, offset.Y), Theme = { BackgroundColor3 = "textMuted" }, Parent = grip })
 	end
@@ -427,8 +445,10 @@ function Window:buildGrip()
 		return not self.minimized
 	end, function(position, origin)
 		local travel = (position - origin) * (2 / self.scale)
-		self.size = Vector2.new(math.max(start.X + travel.X, MIN_SIZE.X), math.max(start.Y + travel.Y, MIN_SIZE.Y))
+		self.size = Vector2.new(math.round(math.max(start.X + travel.X, MIN_SIZE.X)), math.round(math.max(start.Y + travel.Y, MIN_SIZE.Y)))
 		self:layout()
+	end, function()
+		self:savePreferences()
 	end)
 end
 
@@ -436,11 +456,17 @@ end
 -- for the width it ended up with. Runs on every viewport or setting change.
 function Window:layout()
 	local view, scale = self.gui.AbsoluteSize, self.scale
-	local width = math.max(math.min(self.size.X, (view.X - 16) / scale), 240)
-	local height = math.max(math.min(self.size.Y, (view.Y - 16) / scale), 200)
+	local width = math.floor(math.max(math.min(self.size.X, (view.X - 16) / scale), 240))
+	local height = math.floor(math.max(math.min(self.size.Y, (view.Y - 16) / scale), 200))
 	local folded = self.minimized and self.minimizeStyle == "Topbar"
 	self.root.Size = UDim2.fromOffset(width, if folded then TOPBAR else height)
 	self.body.Visible = not folded
+	-- Folded to its top bar, the window's bottom edge is the seam's line; the
+	-- seam would show past the rounded corners.
+	self.topbarSeam.Visible = not folded
+	if self.grip then
+		self.grip.Visible = not folded
+	end
 
 	local narrow = width < NARROW
 	local style = self.tabStyle
@@ -458,14 +484,15 @@ function Window:layout()
 		tab:reflow(self.wide)
 	end
 
-	if self.moved then
-		local position = self.root.Position
-		local halfWidth, halfHeight = width * scale / 2, height * scale / 2
-		self.root.Position = UDim2.fromOffset(
-			math.clamp(position.X.Offset, halfWidth, math.max(view.X - halfWidth, halfWidth)),
-			math.clamp(position.Y.Offset, halfHeight, math.max(view.Y - halfHeight, halfHeight))
-		)
-	end
+	-- The top-left corner sits on a whole pixel, wherever the window goes:
+	-- centred at first, then where the player dragged it, kept on screen.
+	local shown = Vector2.new(width * scale, height * scale)
+	local corner = self.placed or (view - shown) / 2
+	corner = Vector2.new(
+		math.round(math.clamp(corner.X, 0, math.max(view.X - shown.X, 0))),
+		math.round(math.clamp(corner.Y, 0, math.max(view.Y - shown.Y, 0)))
+	)
+	self.root.Position = UDim2.fromOffset(corner.X + shown.X / 2, corner.Y + shown.Y / 2)
 end
 
 -- Rebuilds the tab buttons for the active style. The pages, the selected tab
@@ -482,12 +509,11 @@ function Window:buildNav()
 
 	local host = Create.new("Frame", { Name = "Navigation", Parent = self.body })
 	scope:add(host)
-	local seam = Create.new("Frame", { Name = "Seam", ZIndex = 2, Theme = { BackgroundColor3 = "stroke" }, Parent = host })
+	local seam = Hairline.new(if lane then "Y" else "X", "stroke", { ZIndex = 2, Parent = host })
 	local list
 
 	if lane then
 		host.Size = UDim2.new(0, lane, 1, 0)
-		seam.Size = UDim2.new(0, 1, 1, 0)
 		seam.AnchorPoint = Vector2.new(1, 0)
 		seam.Position = UDim2.fromScale(1, 0)
 		self.pages.Position = UDim2.fromOffset(lane, 0)
@@ -501,7 +527,7 @@ function Window:buildNav()
 		Create.padding(list, 8)
 		Create.list(list, "Vertical", 2)
 		if self.profile.Enabled then
-			Create.new("Frame", { Name = "Seam", Size = UDim2.new(1, 0, 0, 1), LayoutOrder = 1, Theme = { BackgroundColor3 = "stroke" }, Parent = column })
+			Hairline.new("X", "stroke", { LayoutOrder = 1, Parent = column })
 			local footer = Create.new("Frame", { Name = "Footer", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = column })
 			Create.list(footer, "Vertical", 0, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
 			if style == "Sidebar" then
@@ -512,7 +538,6 @@ function Window:buildNav()
 		end
 	else
 		host.Size = UDim2.new(1, 0, 0, strip)
-		seam.Size = UDim2.new(1, 0, 0, 1)
 		list = Create.new("ScrollingFrame", {
 			Name = "Tabs",
 			Size = UDim2.new(1, 0, 1, -1),
@@ -735,6 +760,11 @@ function Window:allows(requirement)
 end
 
 function Window:applyGate(handle, requirement)
+	-- A row whose executor functions are missing stays locked whatever the tier.
+	if handle.MissingText then
+		handle:Lock(handle.MissingText, "wrench")
+		return
+	end
 	if self:allows(requirement) then
 		handle:Unlock()
 		return
@@ -872,6 +902,9 @@ end
 
 function Window:Minimize(minimized)
 	self.minimized = minimized == true
+	if self.minimizeGlyph then
+		Icons.apply(self.minimizeGlyph, if self.minimized then "maximize-2" else "minus")
+	end
 	Popup.close(self.library)
 	self:layout()
 	self:refreshVisibility()
@@ -906,6 +939,7 @@ function Window:SetScale(scale)
 	self.scale = math.clamp(tonumber(scale) or 1, 0.75, 1.25)
 	self.library.scale = self.scale
 	self.uiScale.Scale = self.scale
+	Hairline.setScale(self.scale)
 	Popup.close(self.library)
 	self:layout()
 	self:savePreferences()
@@ -990,6 +1024,8 @@ function Window:writePreferences()
 		version = PREFERENCES_VERSION,
 		collapsedGroups = collapsed,
 		minimizeStyle = self.minimizeStyle,
+		size = { x = self.size.X, y = self.size.Y },
+		position = if self.placed then { x = self.placed.X, y = self.placed.Y } else nil,
 		theme = Theme.current.Name,
 		tabStyle = self.tabStyle,
 		scale = self.scale,
@@ -1047,16 +1083,33 @@ end
 
 -- Configs -------------------------------------------------------------------
 
+-- Runs a config call and announces it on ConfigChanged when it worked.
+local function announce(window, action, name, ok, message)
+	if ok then
+		window.ConfigChanged:Fire(action, Env.safeName(name))
+	end
+	return ok, message
+end
+
 function Window:SaveConfig(name)
-	return self.config:save(name)
+	return announce(self, "save", name, self.config:save(name))
 end
 
 function Window:LoadConfig(name)
-	return self.config:load(name)
+	return announce(self, "load", name, self.config:load(name))
 end
 
 function Window:DeleteConfig(name)
-	return self.config:delete(name)
+	return announce(self, "delete", name, self.config:delete(name))
+end
+
+function Window:ConfigExists(name)
+	return self.config:exists(name)
+end
+
+-- The executor functions in `names` this executor lacks; empty when it has them all.
+function Window:Require(names)
+	return Env.missing(names)
 end
 
 function Window:ListConfigs()
@@ -1064,7 +1117,7 @@ function Window:ListConfigs()
 end
 
 function Window:SetAutoload(name)
-	return self.config:setAutoload(name)
+	return announce(self, "autoload", name, self.config:setAutoload(name))
 end
 
 function Window:GetAutoload()
@@ -1079,6 +1132,31 @@ function Window:LoadAutoload()
 		return false, "No autoload config is set."
 	end
 	return self.config:load(name)
+end
+
+-- What the Unload button does. With ConfirmUnload on (the default) the
+-- player is asked first; a hub calling Unload() itself is never asked.
+function Window:RequestUnload()
+	if self.options.ConfirmUnload == false then
+		self:Unload()
+		return
+	end
+	self:Dialog({
+		Title = "Unload the script?",
+		Content = "The window closes and every feature it started stops. Run the script again to bring it back.",
+		Icon = "power",
+		Dismissible = true,
+		Buttons = {
+			{ Title = "Keep" },
+			{
+				Title = "Unload",
+				Variant = "Danger",
+				Callback = function()
+					self:Unload()
+				end,
+			},
+		},
+	})
 end
 
 function Window:Unload()

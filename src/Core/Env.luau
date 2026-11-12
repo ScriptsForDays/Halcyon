@@ -147,6 +147,54 @@ function Env.http(options)
 	return false, Env.NO_HTTP, 0
 end
 
+-- Whether the executor provides `name`, such as "hookfunction" or
+-- "Drawing.new". Names are checked against a strict pattern before any
+-- lookup, so a dotted path is only ever walked, never run as code.
+function Env.has(name)
+	if type(name) ~= "string" or not string.match(name, "^[%a_][%w_]*%.?[%w_]*$") then
+		return false
+	end
+	local parts = string.split(name, ".")
+	local function walk(root)
+		local value = root
+		for _, part in parts do
+			if type(value) ~= "table" then
+				return nil
+			end
+			local ok, found = pcall(function()
+				return value[part]
+			end)
+			value = if ok then found else nil
+		end
+		return value
+	end
+	if Env.getgenv and walk(Env.getgenv()) ~= nil then
+		return true
+	end
+	-- Most executors keep their functions in the script's own environment,
+	-- which plain Luau cannot index by name; a one-line chunk can.
+	local compile = optional(loadstring)
+	if compile then
+		local ok, chunk = pcall(compile, "return " .. name)
+		if ok and chunk then
+			local found, value = pcall(chunk)
+			return found and value ~= nil
+		end
+	end
+	return false
+end
+
+-- The names in `names` that the executor lacks, in the order given.
+function Env.missing(names)
+	local absent = {}
+	for _, name in names do
+		if not Env.has(name) then
+			table.insert(absent, name)
+		end
+	end
+	return absent
+end
+
 -- A length of time as people say it: "2d 4h", "3h 12m", "45m", "30s".
 function Env.duration(seconds)
 	seconds = math.max(math.floor(seconds), 0)

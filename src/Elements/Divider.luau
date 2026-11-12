@@ -1,4 +1,5 @@
 local Create = require("../Core/Create")
+local Hairline = require("../Core/Hairline")
 local Row = require("./Row")
 
 local Divider = {}
@@ -19,9 +20,8 @@ function Divider.new(container, options)
 			Parent = line,
 		})
 	end
-	Create.new("Frame", { Size = UDim2.fromOffset(0, 1), LayoutOrder = 1, Theme = { BackgroundColor3 = "stroke" }, Parent = line }, {
-		Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
-	})
+	local rule = Hairline.new("X", "stroke", { Size = UDim2.new(0, 0, 0, 0), LayoutOrder = 1, Parent = line })
+	Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill, Parent = rule })
 	return row.handle
 end
 

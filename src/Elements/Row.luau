@@ -3,14 +3,94 @@
 -- disabled and locked looks. An element only adds its control.
 
 local Create = require("../Core/Create")
+local Effects = require("../Core/Effects")
 local Env = require("../Core/Env")
 local Icons = require("../Core/Icons")
+local Popup = require("../Components/Popup")
 local Signal = require("../Core/Signal")
+local Theme = require("../Core/Theme")
 
 -- The narrowest the title lane may get before the controls wrap under it.
 local MIN_TITLE = 96
 
 local Row = {}
+
+-- Named badges and the theme roles they are drawn in.
+local BADGES = { New = "accent", Beta = "info", Risky = "danger", Paid = "warning" }
+
+-- `badge` is a name from BADGES, any other text, or { Text, Color }.
+function Row.badge(parent, badge)
+	local text, role, color
+	if type(badge) == "table" then
+		text, color = tostring(badge.Text or ""), badge.Color
+	else
+		text = tostring(badge)
+		role = BADGES[text] or "accent"
+	end
+	local pill = Create.new("TextLabel", {
+		Name = "Badge",
+		Size = UDim2.fromOffset(0, 16),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = string.upper(text),
+		TextSize = 10,
+		Weight = "bold",
+		LayoutOrder = 2,
+		BackgroundTransparency = 0.82,
+		Parent = parent,
+	})
+	Create.corner(4, pill)
+	Create.padding(pill, 5, 0)
+	if typeof(color) == "Color3" then
+		pill.BackgroundColor3, pill.TextColor3 = color, color
+	else
+		Theme.bind(pill, "BackgroundColor3", role or "accent")
+		Theme.bind(pill, "TextColor3", role or "accent")
+	end
+	return pill
+end
+
+-- An info icon. Hovering shows the explanation in a popup; on touch, a tap
+-- opens and closes it.
+function Row.info(row, parent, explanation)
+	local button = Create.new("ImageButton", { Name = "Info", Size = UDim2.fromOffset(18, 18), LayoutOrder = 3, Parent = parent })
+	local glyph = Create.icon("info", 14, "textMuted", button)
+	glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+	glyph.Position = UDim2.fromScale(0.5, 0.5)
+	local open = false
+	local function show(wanted)
+		local library = row.library
+		local current = library.popup
+		local showing = current ~= nil and current.anchor == button
+		if wanted == showing then
+			return
+		end
+		local popup = Popup.toggle(library, button, { Width = 240 })
+		open = popup ~= nil
+		if popup then
+			Create.new("TextLabel", {
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextWrapped = true,
+				TextSize = 13,
+				Text = tostring(explanation),
+				Theme = { TextColor3 = "text" },
+				Parent = popup.frame,
+			})
+		end
+	end
+	row.scope:connect(button.MouseEnter, function()
+		Theme.bind(glyph, "ImageColor3", "text")
+		show(true)
+	end)
+	row.scope:connect(button.MouseLeave, function()
+		Theme.bind(glyph, "ImageColor3", "textMuted")
+		show(false)
+	end)
+	row.scope:connect(button.Activated, function()
+		show(not open)
+	end)
+	return button
+end
 
 -- Options: button (the whole row is one press target), bare (no title or
 -- slot; the element fills the row itself), compact (no minimum height).
@@ -50,9 +130,9 @@ function Row.new(container, options, layout)
 		reach = if container.library.touch then 40 else 28,
 	}
 
-	local title, description, slot
+	local title, description, slot, head
 	if not layout.bare then
-		local head = Create.new("Frame", { Name = "Head", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = content })
+		head = Create.new("Frame", { Name = "Head", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = content })
 		Create.list(head, "Horizontal", 12)
 		if options.Icon then
 			Create.icon(options.Icon, 18, "textMuted", head)
@@ -72,6 +152,7 @@ function Row.new(container, options, layout)
 			Theme = { TextColor3 = "text" },
 			Parent = text,
 		})
+		row.titleBlock = text
 		description = Create.new("TextLabel", {
 			Name = "Description",
 			Size = UDim2.new(1, 0, 0, 0),
@@ -121,19 +202,20 @@ function Row.new(container, options, layout)
 	-- the hub's own wording, so the row reads as an upgrade and not as broken.
 	local lock = Create.new("Frame", {
 		Name = "Lock",
-		Size = UDim2.fromOffset(0, 26),
+		Size = UDim2.fromOffset(0, 24),
 		AutomaticSize = Enum.AutomaticSize.X,
-		-- On the title line, where the control was: centred in a one-line
-		-- row and clear of a track or bar under the title in a taller one.
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 9),
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -12, 0, 22),
 		Theme = { BackgroundColor3 = "accent" },
 		Parent = veil,
 	})
 	Create.corner(-1, lock)
-	Create.padding(lock, 10, 0)
-	Create.list(lock, "Horizontal", 6)
-	local lockIcon = Create.icon("lock", 13, "onAccent", lock)
+	-- The badge's contents sit in their own frame so the shimmer layer is
+	-- not laid out as one of them.
+	local badge = Create.new("Frame", { Name = "Badge", Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, Parent = lock })
+	local badgePadding = Create.padding(badge, 10, 0)
+	local badgeLayout = Create.list(badge, "Horizontal", 6)
+	local lockIcon = Create.icon("lock", 13, "onAccent", badge)
 	local lockLabel = Create.new("TextLabel", {
 		Name = "Reason",
 		Size = UDim2.fromScale(0, 1),
@@ -142,25 +224,78 @@ function Row.new(container, options, layout)
 		Weight = "bold",
 		LayoutOrder = 1,
 		Theme = { TextColor3 = "onAccent" },
-		Parent = lock,
+		Parent = badge,
 	})
+	local shimmer = Effects.shimmer(scope, lock, -1)
+	-- While locked, the title keeps clear of the badge instead of running
+	-- under it. In a narrow row the badge shrinks to its icon and the reason
+	-- moves into the description line, so the title is not squeezed.
+	local refresh
+	-- True while a locked row is too narrow for the badge's wording.
+	local narrowLock = false
+	local headRoom = if head then Create.new("UIPadding", { Parent = head }) else nil
+	local function makeRoom()
+		if not headRoom then
+			return
+		end
+		local scale = row.library.scale
+		local full = lockLabel.TextBounds.X + 13 + 6 + 20
+		local narrow = lock.Visible and (frame.AbsoluteSize.X / scale) - full - 24 < MIN_TITLE
+		if narrow ~= narrowLock then
+			narrowLock = narrow
+			lockLabel.Visible = not narrow
+			-- The narrow badge is a round chip just big enough for its icon.
+			lock.AutomaticSize = if narrow then Enum.AutomaticSize.None else Enum.AutomaticSize.X
+			lock.Size = UDim2.fromOffset(if narrow then 24 else 0, 24)
+			badge.AutomaticSize = lock.AutomaticSize
+			badge.Size = if narrow then UDim2.fromScale(1, 1) else UDim2.fromScale(0, 1)
+			badgeLayout.HorizontalAlignment = if narrow then Enum.HorizontalAlignment.Center else Enum.HorizontalAlignment.Left
+			badgePadding.PaddingLeft = UDim.new(0, if narrow then 0 else 10)
+			badgePadding.PaddingRight = badgePadding.PaddingLeft
+			refresh()
+			return
+		end
+		headRoom.PaddingRight = UDim.new(0, if lock.Visible then lock.AbsoluteSize.X / scale + 12 else 0)
+	end
+	scope:connect(lock:GetPropertyChangedSignal("AbsoluteSize"), makeRoom)
+	scope:connect(frame:GetPropertyChangedSignal("AbsoluteSize"), makeRoom)
+	-- Centred on the title and description, where the control was; a track or
+	-- bar under the title stays clear of it.
+	if head then
+		local function align()
+			lock.Position = UDim2.new(1, -12, 0, (head.AbsolutePosition.Y - frame.AbsolutePosition.Y + head.AbsoluteSize.Y / 2) / row.library.scale)
+		end
+		scope:connect(head:GetPropertyChangedSignal("AbsoluteSize"), align)
+		scope:connect(head:GetPropertyChangedSignal("AbsolutePosition"), align)
+		align()
+	end
 
 	local state = { disabled = false, locked = false, reason = nil, description = options.Description }
 	local handle = { Frame = frame, Title = options.Title or "", Changed = Signal.new(), Hidden = false, scope = scope }
 	scope:add(handle.Changed)
 	row.handle = handle
 
-	local function refresh()
+	function refresh()
 		veil.Visible = state.disabled or state.locked
 		lock.Visible = state.locked and not state.quiet
+		makeRoom()
 		if slot then
 			slot.Visible = not state.locked
 		end
-		veil.BackgroundTransparency = if state.locked then 0.3 else 0.45
+		-- One veil for both: light enough that a locked feature's name stays readable.
+		veil.BackgroundTransparency = 0.45
+		if lock.Visible and row.window.lockShimmer then
+			shimmer.start()
+		else
+			shimmer.stop()
+		end
 		lockLabel.Text = state.reason or ""
 		if description then
-			description.Text = state.description or ""
-			description.Visible = state.description ~= nil and state.description ~= ""
+			-- A narrow locked row says why in the description instead of the badge.
+			local shown = if state.locked and narrowLock then state.reason else state.description
+			description.Text = shown or ""
+			description.Visible = shown ~= nil and shown ~= ""
+			Theme.bind(description, "TextColor3", if state.locked and narrowLock then "accent" else "textMuted")
 		end
 		handle.SearchText = string.lower(handle.Title .. " " .. (state.description or ""))
 	end
@@ -260,6 +395,29 @@ function Row.new(container, options, layout)
 	-- A full-width area under the title line, for sliders and progress bars.
 	function row.belowTitle()
 		return Create.new("Frame", { Name = "Below", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = content })
+	end
+
+	-- A tag beside the title (Badge) and an info icon that opens a longer
+	-- explanation (Info). The title moves into a line with them and
+	-- truncates rather than wrap, so the marks stay beside it.
+	function row.marks(text, title)
+		local line = Create.new("Frame", { Name = "TitleLine", Size = UDim2.new(1, 0, 0, 18), Parent = text })
+		Create.list(line, "Horizontal", 6)
+		title.Parent = line
+		title.Size = UDim2.fromScale(0, 1)
+		title.AutomaticSize = Enum.AutomaticSize.X
+		title.TextWrapped = false
+		title.TextTruncate = Enum.TextTruncate.AtEnd
+		Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Shrink, Parent = title })
+		if options.Badge then
+			Row.badge(line, options.Badge)
+		end
+		if options.Info then
+			Row.info(row, line, options.Info)
+		end
+	end
+	if title and (options.Badge or options.Info) then
+		row.marks(row.titleBlock, title)
 	end
 
 	-- Hover marks a control only while the pointer is on `target` itself

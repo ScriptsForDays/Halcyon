@@ -171,7 +171,21 @@ function Profile.card(window, scope, parent)
 	if settings.ShowTier then
 		-- The tier the player holds: Keyless, or a key system tier. Paid tiers take the accent.
 		local paid = window:IsPaid()
-		local badge = Create.new("TextLabel", {
+		local access = window.access
+		local icon = access.Icon or (if paid then "crown" elseif access.Keyless or access.NoKey then "lock-open" else "key")
+		local badge = Create.new("Frame", {
+			Name = "TierBadge",
+			Size = UDim2.fromScale(0, 1),
+			AutomaticSize = Enum.AutomaticSize.X,
+			LayoutOrder = 1,
+			Theme = { BackgroundColor3 = if paid then "accent" else "raised" },
+			Parent = heading,
+		})
+		Create.corner(5, badge)
+		Create.padding(badge, 6, 0)
+		Create.list(badge, "Horizontal", 4)
+		Create.icon(icon, 11, if paid then "onAccent" else "textMuted", badge)
+		Create.new("TextLabel", {
 			Name = "Tier",
 			Size = UDim2.fromScale(0, 1),
 			AutomaticSize = Enum.AutomaticSize.X,
@@ -179,11 +193,9 @@ function Profile.card(window, scope, parent)
 			TextSize = 12,
 			Weight = "medium",
 			LayoutOrder = 1,
-			Theme = { BackgroundColor3 = if paid then "accent" else "raised", TextColor3 = if paid then "onAccent" else "textMuted" },
-			Parent = heading,
+			Theme = { TextColor3 = if paid then "onAccent" else "textMuted" },
+			Parent = badge,
 		})
-		Create.corner(5, badge)
-		Create.padding(badge, 6, 0)
 	end
 	line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
 	local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")

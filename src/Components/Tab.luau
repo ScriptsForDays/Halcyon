@@ -163,6 +163,35 @@ function Tab:buildButton(style, parent, scope, order)
 		label.TextXAlignment = Enum.TextXAlignment.Center
 	end
 
+	-- A count, a word or a dot beside the tab, set with Tab:SetBadge.
+	local mark = self.badge
+	if mark ~= nil and mark ~= false then
+		local dot = mark == true or style == "Rail" or style == "Dock"
+		local pill = Create.new("TextLabel", {
+			Name = "Badge",
+			Size = if dot then UDim2.fromOffset(8, 8) else UDim2.fromOffset(0, 16),
+			AutomaticSize = if dot then Enum.AutomaticSize.None else Enum.AutomaticSize.X,
+			Text = if dot then "" else tostring(mark),
+			TextSize = 10,
+			Weight = "bold",
+			ZIndex = 3,
+			LayoutOrder = 3,
+			Theme = { BackgroundColor3 = "accent", TextColor3 = "onAccent" },
+			Parent = button,
+		})
+		Create.corner(-1, pill)
+		if not dot then
+			Create.padding(pill, 5, 0)
+		end
+		if style == "Sidebar" then
+			pill.AnchorPoint = Vector2.new(1, 0.5)
+			pill.Position = UDim2.new(1, if self.tier then -30 else -10, 0.5, 0)
+		elseif dot and style ~= "Top" then
+			pill.AnchorPoint = Vector2.new(0.5, 0.5)
+			pill.Position = UDim2.new(0.5, 10, 0, 10)
+		end
+	end
+
 	self.button, self.buttonIcon, self.buttonLabel = button, icon, label
 	scope:connect(button.Activated, function()
 		self.window:SelectTab(self)
@@ -198,6 +227,12 @@ function Tab:paint(selected, dimmed)
 	if self.lock then
 		self.lock.Visible = not self.window:allows(self.tier)
 	end
+end
+
+-- A number, a short word, true for a dot, or nil to clear it.
+function Tab:SetBadge(value)
+	self.badge = value
+	self.window:buildNav()
 end
 
 function Tab:Select()

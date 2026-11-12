@@ -15,10 +15,8 @@ local STYLES = {
 }
 local KNOB_RADIUS = 7
 local LIFT = 10
--- How far the bubble may hang past either end of the rail. Small enough to
--- stay clear of a value box beside the track, large enough that the arrow
--- still sits under the bubble when the knob is at an end.
-local OVERHANG = 10
+-- Half the arrow's width once turned on its corner.
+local ARROW_HALF = 7
 local MARGIN = 4
 
 local SliderTooltip = { Styles = STYLES }
@@ -101,8 +99,13 @@ function SliderTooltip.new(row, styleName)
 			size = Vector2.new((#text * 7 + 16) * factor, 24 * factor)
 		end
 		local half = size.X / 2
-		local low, high = corner.X - OVERHANG * factor + half, corner.X + extent.X + OVERHANG * factor - half
+		-- First keep the bubble over the track; then make sure the arrow at the
+		-- knob lands on the bubble's flat edge, never on a rounded corner.
+		local low, high = corner.X + half, corner.X + extent.X - half
 		local bubbleX = if low <= high then math.clamp(knobX, low, high) else corner.X + extent.X / 2
+		local radius = if style.corner < 0 then size.Y / 2 else (style.corner or 0) * factor
+		local reachOfArrow = math.max(half - radius - ARROW_HALF * factor, 0)
+		bubbleX = math.clamp(bubbleX, knobX - reachOfArrow, knobX + reachOfArrow)
 
 		local reach = (KNOB_RADIUS + lift) * factor
 		local above = true

@@ -17,6 +17,8 @@ local TweenService = game:GetService("TweenService")
 
 local SWEEP = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local RIPPLE = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- One pass every few seconds, repeated by the engine: no Lua runs per frame.
+local SHIMMER = TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 2.6)
 local BAND_FADE = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 1),
 	NumberSequenceKeypoint.new(0.5, 0.7),
@@ -111,6 +113,42 @@ local function glow(scope, button)
 	scope:connect(button.MouseLeave, function()
 		Motion.tween(stroke, "base", { Transparency = 1 })
 	end)
+end
+
+-- A light band that crosses `target` every few seconds, for locked rows and
+-- sections. Returns start and stop; it starts stopped. The clipping layer
+-- is made on the first start, so unlocked rows carry no CanvasGroup.
+function Effects.shimmer(scope, target, radius)
+	local band, tween
+	local shimmer = {}
+	function shimmer.start()
+		if tween or Motion.reduced then
+			return
+		end
+		band = band
+			or Create.new("Frame", {
+				Name = "Shimmer",
+				Size = UDim2.fromScale(0.5, 1),
+				AnchorPoint = Vector2.new(0.5, 0),
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BackgroundTransparency = 0.55,
+				Parent = layer(target, radius),
+			}, { Create.new("UIGradient", { Transparency = BAND_FADE, Rotation = 20 }) })
+		band.Position = UDim2.fromScale(-0.4, 0)
+		tween = TweenService:Create(band, SHIMMER, { Position = UDim2.fromScale(1.4, 0) })
+		tween:Play()
+	end
+	function shimmer.stop()
+		if tween then
+			tween:Cancel()
+			tween = nil
+		end
+		if band then
+			band.Position = UDim2.fromScale(-0.4, 0)
+		end
+	end
+	scope:add(shimmer.stop)
+	return shimmer
 end
 
 -- Adds `kind` to `button`. `radius` matches the button's own corner so the

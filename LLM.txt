@@ -85,13 +85,15 @@ Window:LoadAutoload()
 - `ShadowTransparency` (default 0.5), `ShadowImage`
 - `LockHint`, `PaidLockHint`: second line on locked section overlays
 - `CollapsedGroups = { "Group name" }`
-- Switches, on unless `false`: `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`. `OpenButton = true` shows the open button on desktop.
+- Switches, on unless `false`: `ConfirmUnload`, `LockShimmer`, `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`. `OpenButton = true` shows the open button on desktop.
 
 ## Window
 
 Methods: `Tab(options)`, `SelectTab(tab)`, `SettingsTab(options)`, `Show()`, `Hide()`, `Toggle()`, `Minimize(bool)`, `SetMinimizeStyle(name)`, `Search(text)`, `SetTabStyle(name)`, `SetScale(number)`, `SetToggleKey(keyCode)`, `SetTitle(text)`, `SetSubtitle(text)`, `SetVersion(text)`, `SetVersionVisible(bool)`, `SetAnonymous(bool)`, `SetProfile(table)`, `SetAccent(color)`, `SetReducedMotion(bool)`, `SetGroupCollapsed(name, bool)`, `SetSliderTooltips(enabled, style)`, `SetToggleOutline(enabled, color)`, `SetLockText(text, paidText)`, `SetLockHint(hint, paidHint)`, `GetKeyExpiry()`, `GetTier()`, `HasTier(name)`, `IsPaid()`, `SetTier(name)`, `Notify(options)`, `Dialog(options)`, `Watermark(options)`, `KeybindList(options)`, `SaveConfig(name)`, `LoadConfig(name)`, `DeleteConfig(name)`, `ListConfigs()`, `SetAutoload(name)`, `GetAutoload()`, `LoadAutoload()`, `Unload()`.
 
-Fields: `Flags` (flag name -> handle), `OnUnload`, `TabChanged`, `KeybindsChanged` (signals), `Visible`, `access`.
+More: `RequestUnload()` (asks first unless ConfirmUnload = false), `ConfigSection(tabOrSection, options)`, `ConfigExists(name)`, `Require(names) -> missing`, `Tab:SetBadge(value)`. `SettingsTab({ ScaleControl = "Slider" })`. Slider `Live = false` calls back once on release.
+
+Fields: `Flags` (flag name -> handle) `ConfigChanged` (action, name),, `OnUnload`, `TabChanged`, `KeybindsChanged` (signals), `Visible`, `access`.
 
 ## Tab and Section
 
@@ -103,7 +105,7 @@ Fields: `Flags` (flag name -> handle), `OnUnload`, `TabChanged`, `KeybindsChange
 
 ## Elements
 
-Common options: `Title`, `Description`, `Icon`, `Flag`, `Callback`, `Tier`, `PaidOnly`, `LockText`.
+Common options: `Title`, `Description`, `Icon`, `Flag`, `Callback`, `Tier`, `PaidOnly`, `LockText`, `Badge` ("New" | "Beta" | "Risky" | "Paid" | text | { Text, Color }), `Info` (text behind an info icon), `Requires` ({ "hookfunction", ... }: locked with the missing names when the executor lacks them).
 
 Common handle members: `Get()`, `Set(value)`, `Changed:Connect(fn)`, `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `Destroy()`, `Frame`, `Kind`, `Flag`.
 
@@ -156,7 +158,8 @@ KeySystem = {
 ## Notifications and dialogs
 
 ```lua
-Window:Notify({ Title, Content, Kind = "info" | "success" | "warning" | "danger", Icon, Duration = 4, Progress = true, Actions = { { Title, Callback } } })
+Window:Notify({ Title, Content, Kind = "info" | "success" | "warning" | "danger", Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress", Icon, Duration = 4, Progress = true, Actions = { { Title, Callback } } })
+-- returns { Dismiss, SetTitle, SetContent, SetProgress(0..1), Done(title, kind) }; a Progress notice stays until Done.
 Halcyon:SetNotificationDefaults({ Duration = 6, Position = "TopRight", Progress = true, MaxVisible = 3 })
 Window:Dialog({ Title, Content, Icon, Dismissible, Buttons = { { Title = "Keep" }, { Title = "Delete", Variant = "Danger", Callback = fn } } })
 ```

@@ -8,10 +8,12 @@
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require("./Core/Config")
+local ConfigSection = require("./Components/ConfigSection")
 local Create = require("./Core/Create")
 local Dialog = require("./Components/Dialog")
 local Drag = require("./Core/Drag")
 local Env = require("./Core/Env")
+local Hairline = require("./Core/Hairline")
 local Hud = require("./Components/Hud")
 local Icons = require("./Core/Icons")
 local KeySystem = require("./Components/KeySystem")
@@ -33,7 +35,9 @@ Theme.set(Palettes[1].Name)
 local library = {
 	scope = Scope.new(),
 	windows = {},
-	displayOrder = 100,
+	-- Near the top of the int32 range, so a game's own screens never cover
+	-- the window. The overlay sits 10 above.
+	displayOrder = 2147483000,
 	scale = 1,
 	listeningForKey = false,
 	touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
@@ -51,6 +55,7 @@ local Halcyon = {
 		Create = Create,
 		Drag = Drag,
 		Env = Env,
+		Hairline = Hairline,
 		Icons = Icons,
 		KeySystem = KeySystem,
 		Motion = Motion,
@@ -63,6 +68,12 @@ local Halcyon = {
 
 function Window:SettingsTab(options)
 	return SettingsTab.build(self, options)
+end
+
+-- The config block (name, save, load, delete, load on start) on any tab
+-- or section.
+function Window:ConfigSection(target, options)
+	return ConfigSection.build(self, target, options)
 end
 
 function Window:Watermark(options)

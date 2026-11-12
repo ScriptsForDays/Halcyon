@@ -206,7 +206,14 @@ local function show(name)
 end
 
 local Inputs = Components:Section({ Title = "Inputs", Icon = "sliders-horizontal" })
-Inputs:Toggle({ Title = "Switch", Description = "The default toggle", Callback = show("Switch") })
+Inputs:Toggle({
+	Title = "Switch",
+	Description = "The default toggle",
+	Badge = "New",
+	Info = "Rows can carry a badge (New, Beta, Risky or your own) and this info icon for a longer explanation.",
+	Callback = show("Switch"),
+})
+Inputs:Toggle({ Title = "Needs hookfunction", Description = "Locked when the executor lacks it", Requires = { "hookfunction" }, Callback = show("Needs hookfunction") })
 Inputs:Toggle({ Title = "Checkbox", Style = "Checkbox", Callback = show("Checkbox") })
 Inputs:Toggle({ Title = "Oval thumb", Thumb = "Oval", Default = true, Callback = show("Oval thumb") })
 Inputs:Toggle({ Title = "Square thumb", Thumb = "Square", Callback = show("Square thumb") })
@@ -264,15 +271,30 @@ Feedback:Button({
 		Bar:Set((Bar:Get() + 15) % 115)
 	end,
 })
-for _, kind in { "info", "success", "warning", "danger" } do
-	Feedback:Button({
-		Title = "Notify: " .. kind,
-		Icon = "bell",
-		Callback = function()
-			Window:Notify({ Title = "A " .. kind .. " notice", Content = "Tap a notice to dismiss it.", Kind = kind })
-		end,
-	})
-end
+Feedback:Segmented({
+	Title = "Notice style",
+	Values = { "Default", "Timer", "Compact", "Banner" },
+	Stacked = true,
+	Callback = function(style)
+		Window:Notify({ Title = `A {string.lower(style)} notice`, Content = "Tap a notice to dismiss it.", Style = style, Duration = 6 })
+	end,
+})
+Feedback:Button({
+	Title = "Notify with progress",
+	Description = "Fills over three seconds, then reports it finished",
+	Icon = "download",
+	Callback = function()
+		local job = Window:Notify({ Title = "Downloading assets", Content = "0 of 10", Style = "Progress" })
+		task.spawn(function()
+			for done = 1, 10 do
+				task.wait(0.3)
+				job.SetProgress(done / 10)
+				job.SetContent(`{done} of 10`)
+			end
+			job.Done("Assets downloaded")
+		end)
+	end,
+})
 Feedback:Button({
 	Title = "Notify with a button",
 	Description = "Stays for eight seconds and counts down",
@@ -362,7 +384,10 @@ Hud:Toggle({
 	end,
 })
 
-Window:SettingsTab({ Group = "Library" })
+local Saves = Window:Tab({ Title = "Configs", Icon = "save", Group = "Library" })
+Window:ConfigSection(Saves)
+Window:SettingsTab({ Group = "Library", ScaleControl = "Slider" })
+Components:SetBadge("New")
 
 Window.OnUnload:Connect(function()
 	for _, connection in connections do

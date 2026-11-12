@@ -78,7 +78,10 @@ function Drag.move(scope, handle, target, options)
 	end, function(position, origin, moved)
 		if moved then
 			local wanted = start + (position - origin)
-			target.Position = UDim2.fromOffset(Drag.clamp(target, wanted.X, wanted.Y))
+			local x, y = Drag.clamp(target, wanted.X, wanted.Y)
+			-- Snap the top-left corner to a whole pixel so edges stay crisp.
+			local lead = target.AbsoluteSize * target.AnchorPoint
+			target.Position = UDim2.fromOffset(math.round(x - lead.X) + lead.X, math.round(y - lead.Y) + lead.Y)
 		end
 	end, function(moved)
 		local callback = if moved then options.onMoved else options.onTap

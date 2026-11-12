@@ -2,6 +2,8 @@
 -- each element needs: claim its Flag, make it searchable, apply its tier
 -- lock, and undo all three when it is destroyed.
 
+local Env = require("../Core/Env")
+
 local MODULES = {
 	Button = require("./Button"),
 	Toggle = require("./Toggle"),
@@ -68,6 +70,15 @@ local function create(container, kind, options)
 		-- the section's one overlay.
 		handle.QuietLock = container.lockOverlay ~= nil and options.Tier == nil and not options.PaidOnly
 		window:gate(handle, requirement)
+	end
+	-- Requires lists executor functions the row needs; without them it is
+	-- locked with their names instead of failing when used.
+	if type(options.Requires) == "table" then
+		local missing = Env.missing(options.Requires)
+		if #missing > 0 then
+			handle.MissingText = "Needs " .. table.concat(missing, ", ")
+			handle:Lock(handle.MissingText, "wrench")
+		end
 	end
 	if window.query ~= "" then
 		window:applySearch()

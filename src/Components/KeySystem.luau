@@ -10,6 +10,7 @@
 local Create = require("../Core/Create")
 local Dialog = require("./Dialog")
 local Env = require("../Core/Env")
+local Hairline = require("../Core/Hairline")
 local Motion = require("../Core/Motion")
 local Theme = require("../Core/Theme")
 
@@ -233,6 +234,8 @@ function KeySystem.prompt(library, options, context)
 			Data = detail,
 			ExpiresAt = expiresAt,
 			ShowExpiry = showExpiry,
+			Icon = tiers[index].Icon,
+			NoKey = tiers[index].NoKey == true,
 		}
 	end
 
@@ -300,7 +303,7 @@ function KeySystem.prompt(library, options, context)
 	cross.AnchorPoint = Vector2.new(0.5, 0.5)
 	cross.Position = UDim2.fromScale(0.5, 0.5)
 	scope:connect(close.Activated, shell.Close)
-	Create.new("Frame", { Name = "Seam", Size = UDim2.new(1, 0, 0, 1), LayoutOrder = 1, Theme = { BackgroundColor3 = "stroke" }, Parent = card })
+	Hairline.new("X", "stroke", { LayoutOrder = 1, Parent = card })
 
 	-- One card per tier, side by side: icon, name, and what it takes.
 	local cards = {}

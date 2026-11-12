@@ -28,14 +28,13 @@ local function run(command)
 	elseif name == "scale" then
 		Window:SetScale(tonumber(argument))
 	elseif name == "notify" then
-		Window:Notify({ Title = "A warning notice", Content = "Tap a notice to dismiss it.", Kind = "warning", Duration = 120 })
-		Window:Notify({
-			Title = "Config saved",
-			Content = "Your settings were written to disk.",
-			Kind = "success",
-			Duration = 60,
-			Actions = { { Title = "Undo" }, { Title = "Dismiss" } },
-		})
+		Window:Notify({ Title = "Timer notice", Content = "Counts down before it leaves.", Kind = "warning", Style = "Timer", Duration = 60 })
+		Window:Notify({ Title = "Saved", Style = "Compact", Kind = "success", Duration = 60 })
+		Window:Notify({ Title = "Update ready", Content = "Version 1.1 is out.", Kind = "info", Style = "Banner", Duration = 60 })
+		local job = Window:Notify({ Title = "Downloading assets", Content = "6 of 10", Style = "Progress" })
+		job.SetProgress(0.6)
+	elseif name == "unload" then
+		Window:RequestUnload()
 	elseif name == "minimize" then
 		Window:SetMinimizeStyle(argument)
 		Window:Minimize(true)

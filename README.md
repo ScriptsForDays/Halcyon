@@ -62,7 +62,8 @@ Window:LoadAutoload() -- loads the config the player marked, if any
 | **Controls** | Button, Toggle (switch or checkbox, three thumb shapes, an optional keybind and colour), Slider (single or range, with a value tooltip), Dropdown (single, multi, searchable), Input, Keybind, ColorPicker (with alpha), Segmented, Stepper, Progress, Paragraph, Label, Divider, Code, Image |
 | **Layout** | Four navigation styles (Sidebar, Rail, Top, Dock), three section styles (Card, Outlined, Flat), one or two columns, collapsible sections and sidebar groups, three ways to minimise |
 | **Key system** | Tiers such as Free and Paid, or your own; listed keys, your own validator or your own server; ad-service confirmation for free keys; saved keys with an expiry countdown; rows and whole sections locked to a tier or to paid keys |
-| **Feedback** | Notifications with a countdown bar and buttons, dialogs, a watermark, a keybind list |
+| **Feedback** | Notifications in five styles (Default, Timer, Compact, Banner, Progress) with buttons, dialogs, a watermark, a keybind list |
+| **For hub code** | Row badges and info tips, `Requires` to lock rows the executor can't run, tab badges, a config section you can place anywhere, a two-step unload |
 | **Saving** | Configs for every flagged control, autoload, and the player's own interface choices |
 | **Looks** | Inter by default, ten themes, your own themes, an accent override, a soft window shadow, six icon packs, your own font |
 | **Profile** | Avatar (headshot or 3D viewport), name, tier, executor, date and time, with an anonymous mode |
@@ -172,6 +173,8 @@ Below 560 px of window width the sidebar becomes a strip of tabs, two columns fo
 ![A slider tooltip and locked rows](assets/details.jpg)
 
 - Running your hub twice replaces the first window instead of stacking a second.
+- The window draws in the executor's hidden GUI container (`gethui`) at a DisplayOrder near the top of the range, so the game's own screens never cover it.
+- Divider lines keep one weight at any interface scale and any position. A plain 1 px frame turns 1 or 2 pixels thick depending on where it lands once display scaling is involved; Halcyon draws dividers as outlines, which measured the same at every position in Studio.
 - `Window:Unload()` removes every instance and connection the library made. `Window.OnUnload` is where your hub stops its own features.
 - Without file functions (some executors, and Studio) nothing is saved, and the Settings tab says so. Nothing pretends to have saved.
 - No per-frame work: dragging and sliders follow input events, and one loop a second drives every clock.
@@ -186,7 +189,7 @@ Below 560 px of window width the sidebar becomes a strip of tabs, two columns fo
 
 ## In Roblox Studio
 
-1. In **Explorer**, under **ReplicatedStorage**, add a **ModuleScript** named `Halcyon` and paste in all of `dist/Halcyon.luau`.
+1. In **Explorer**, right-click **ReplicatedStorage**, choose **Insert from File...** and pick `dist/Halcyon.rbxmx`. It adds a `Halcyon` ModuleScript with its code split across child scripts, because Studio refuses a single script of 200,000 characters or more.
 2. Under **StarterPlayer > StarterPlayerScripts**, add a **LocalScript** and paste in `example/Example.luau`.
 3. Press **Play**.
 
