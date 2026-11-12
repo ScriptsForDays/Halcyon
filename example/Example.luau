@@ -533,7 +533,7 @@ Extras:Table({
 
 local Saves = Window:Tab({ Title = "Configs", Icon = "save", Group = "Library" })
 Window:ConfigSection(Saves)
-Window:SettingsTab({ Group = "Library", ScaleControl = "Slider" })
+Window:SettingsTab({ Group = "Library", ScaleControl = "Slider", Personalise = true, ThemeBuilder = true })
 Components:SetBadge("New")
 
 Window.OnUnload:Connect(function()

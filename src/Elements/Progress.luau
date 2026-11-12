@@ -1,4 +1,5 @@
 local Create = require("../Core/Create")
+local Effects = require("../Core/Effects")
 local Motion = require("../Core/Motion")
 local Row = require("./Row")
 
@@ -33,6 +34,7 @@ function Progress.new(container, options)
 		Parent = rail,
 	})
 	Create.corner(-1, fill)
+	Effects.accentFill(row.scope, fill)
 
 	function handle:Get()
 		return value

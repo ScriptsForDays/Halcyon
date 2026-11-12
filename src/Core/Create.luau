@@ -117,8 +117,12 @@ end
 -- A radius of -1 rounds fully, for pills and circles. The Radius setting
 -- scales every other radius.
 function Create.corner(radius, parent)
+	local base = radius
 	radius = Tokens.corner(radius)
-	return Create.new("UICorner", { CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius), Parent = parent })
+	local corner = Create.new("UICorner", { CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius), Parent = parent })
+	-- Kept so a later Corners setting can rescale it.
+	corner:SetAttribute("HalcyonRadius", base)
+	return corner
 end
 
 function Create.stroke(role, parent, thickness)

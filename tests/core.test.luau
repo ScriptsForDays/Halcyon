@@ -3,7 +3,7 @@ local Theme, Scope, Signal, Icons, Config, Env = Internal.Theme, Internal.Scope,
 
 -- Themes: ten palettes, each readable.
 local names = Theme.names()
-Stub.equal(#names, 10, "ten built-in themes")
+Stub.equal(#names, 16, "sixteen built-in themes")
 for _, name in names do
 	local worst, pair = Theme.worstContrast(Theme.palettes[name])
 	Stub.check(worst >= 4.5, `{name}: {pair} contrast is {string.format("%.2f", worst)}`)
@@ -34,7 +34,7 @@ ok, message = Theme.add({ Name = "Invisible", Base = "Midnight", text = Theme.pa
 Stub.check(not ok and string.find(message, "unreadable") ~= nil, "unreadable theme refused")
 ok, message = Theme.add({ Name = "Dim", Base = "Midnight", textMuted = Color3.fromHex("6B7280") })
 Stub.check(ok and message ~= nil, "low-contrast theme accepted with a warning")
-Stub.equal(#Theme.names(), 12, "custom themes listed")
+Stub.equal(#Theme.names(), 18, "custom themes listed")
 
 -- Signal and Scope.
 local signal, fired = Signal.new(), 0

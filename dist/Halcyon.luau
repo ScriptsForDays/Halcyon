@@ -1666,6 +1666,355 @@ return toast
 end
 return Notifications
 end
+modules["Components/Personalise"] = function()
+local Create = import("Core/Create")
+local Env = import("Core/Env")
+local Notifications = import("Components/Notifications")
+local Theme = import("Core/Theme")
+local Tokens = import("Core/Tokens")
+local Personalise = {}
+Personalise.Fonts = { "Inter", "BuilderSans", "Gotham", "Montserrat", "Roboto", "SourceSans", "Ubuntu", "Nunito", "Arimo" }
+local INTER = "rbxassetid://12187365364"
+local POSITIONS = { "TopLeft", "TopCenter", "TopRight", "BottomLeft", "BottomCenter", "BottomRight" }
+Personalise.Positions = POSITIONS
+local function family(name)
+if name == "Inter" then
+return INTER
+end
+local ok, font = pcall(Font.fromName, name)
+return if ok and font then font.Family else nil
+end
+local function each(window, callback)
+for _, root in { window.gui, window.library.overlay and window.library.overlay.gui } do
+if root then
+for _, instance in root:GetDescendants() do
+callback(instance)
+end
+end
+end
+end
+local TEXT = { TextLabel = true, TextButton = true, TextBox = true }
+function Personalise.apply(window, key, value)
+local personal = window.personal
+if key == "Font" then
+local wanted = family(value)
+if not wanted then
+return false
+end
+local previous = Create.family
+Create.setFamily(wanted)
+each(window, function(instance)
+if TEXT[instance.ClassName] and instance.FontFace.Family == previous then
+instance.FontFace = Font.new(wanted, instance.FontFace.Weight, instance.FontFace.Style)
+end
+end)
+elseif key == "TextSize" or key == "Radius" or key == "Density" then
+local before = { text = Tokens.textScale }
+if not table.find(Tokens[key], value) then
+return false
+end
+Tokens.set({ [key] = value })
+if key == "TextSize" then
+local ratio = Tokens.textScale / before.text
+each(window, function(instance)
+if TEXT[instance.ClassName] then
+instance.TextSize = math.round(instance.TextSize * ratio)
+end
+end)
+elseif key == "Radius" then
+each(window, function(instance)
+local base = instance:GetAttribute("HalcyonRadius")
+if base and instance:IsA("UICorner") then
+local radius = Tokens.corner(base)
+instance.CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius)
+end
+end)
+else
+each(window, function(instance)
+local part = instance:GetAttribute("HalcyonDensity")
+if part == "padding" then
+instance.PaddingTop = UDim.new(0, Tokens.density.rowPadding)
+instance.PaddingBottom = instance.PaddingTop
+elseif part == "height" then
+instance.MinSize = Vector2.new(0, Tokens.rowHeight())
+end
+end)
+end
+elseif key == "Transparency" then
+window:SetTransparency(value)
+elseif key == "NoticePosition" then
+if not table.find(POSITIONS, value) then
+return false
+end
+Notifications.configure(window.library, { Position = value })
+elseif key == "AccentGradient" then
+Theme.setGradient(value == true)
+elseif key == "SafeStatus" then
+Theme.setSafeStatus(value == true)
+else
+return false
+end
+personal[key] = value
+return true
+end
+function Personalise.set(window, key, value)
+local ok = Personalise.apply(window, key, value)
+if ok then
+window:savePreferences()
+local row = window.personalRows and window.personalRows[key]
+local shown = if key == "Transparency" then math.round((tonumber(value) or 0) * 100) else value
+if row and row:Get() ~= shown then
+row:Set(shown)
+end
+end
+return ok
+end
+function Personalise.restore(window, saved, early)
+if type(saved) ~= "table" then
+return
+end
+for _, key in if early then { "TextSize", "Radius", "Density" } else { "Font", "Transparency", "NoticePosition", "AccentGradient", "SafeStatus" } do
+if saved[key] ~= nil then
+if early then
+if table.find(Tokens[key], saved[key]) then
+Tokens.set({ [key] = saved[key] })
+window.personal[key] = saved[key]
+end
+else
+Personalise.apply(window, key, saved[key])
+end
+end
+end
+end
+function Personalise.encodeTheme(palette)
+local plain = { Name = palette.Name }
+for _, role in Theme.Roles do
+plain[role] = palette[role]:ToHex()
+end
+return plain
+end
+function Personalise.decodeTheme(plain)
+if type(plain) ~= "table" or type(plain.Name) ~= "string" then
+return nil, "That is not a theme."
+end
+local palette = { Name = string.sub(plain.Name, 1, 32) }
+for _, role in Theme.Roles do
+local hex = plain[role]
+if type(hex) ~= "string" or not string.match(hex, "^#?%x%x%x%x%x%x$") then
+return nil, `The theme is missing a valid "{role}" colour.`
+end
+palette[role] = Color3.fromHex(hex)
+end
+return palette, nil
+end
+function Personalise.saveTheme(window, palette)
+local ok, message = Theme.add(palette)
+if not ok then
+return false, message
+end
+window.customThemes[palette.Name] = Personalise.encodeTheme(Theme.palettes[palette.Name])
+window:savePreferences()
+return true, message
+end
+function Personalise.exportTheme(name)
+local palette = Theme.palettes[name]
+if not palette then
+return nil
+end
+local ok, text = Env.encode(Personalise.encodeTheme(palette))
+return if ok then text else nil
+end
+function Personalise.importTheme(window, text)
+local ok, plain = Env.decode(tostring(text or ""))
+if not ok then
+return false, "That text is not a theme."
+end
+local palette, problem = Personalise.decodeTheme(plain)
+if not palette then
+return false, problem
+end
+return Personalise.saveTheme(window, palette)
+end
+function Personalise.section(window, tab, options)
+options = options or {}
+local personal = window.personal
+local section = tab:Section({ Title = options.Title or "Personalise", Icon = "paintbrush", Side = options.Side })
+window.personalRows = window.personalRows or {}
+local rows = window.personalRows
+if options.Font ~= false then
+rows.Font = section:Dropdown({
+Title = "Font",
+Values = Personalise.Fonts,
+Default = personal.Font or "Inter",
+Callback = function(name)
+Personalise.set(window, "Font", name)
+end,
+})
+end
+if options.TextSize ~= false then
+rows.TextSize = section:Segmented({
+Title = "Text size",
+Values = Tokens.TextSize,
+Default = Tokens.names.text,
+Callback = function(name)
+Personalise.set(window, "TextSize", name)
+end,
+})
+end
+if options.Corners ~= false then
+rows.Radius = section:Segmented({
+Title = "Corners",
+Values = Tokens.Radius,
+Default = Tokens.names.radius,
+Callback = function(name)
+Personalise.set(window, "Radius", name)
+end,
+})
+end
+if options.Density ~= false then
+rows.Density = section:Segmented({
+Title = "Spacing",
+Values = Tokens.Density,
+Default = Tokens.names.density,
+Callback = function(name)
+Personalise.set(window, "Density", name)
+end,
+})
+end
+if options.Transparency ~= false then
+rows.Transparency = section:Slider({
+Title = "See-through window",
+Min = 0,
+Max = 60,
+Step = 5,
+Suffix = "%",
+Default = math.round((window.transparency or 0) * 100),
+Callback = function(percent)
+Personalise.set(window, "Transparency", percent / 100)
+end,
+})
+end
+if options.NoticePosition ~= false then
+rows.NoticePosition = section:Dropdown({
+Title = "Notices appear",
+Values = POSITIONS,
+Default = personal.NoticePosition or Notifications.Defaults.Position,
+Callback = function(position)
+Personalise.set(window, "NoticePosition", position)
+end,
+})
+end
+if options.AccentGradient ~= false then
+rows.AccentGradient = section:Toggle({
+Title = "Gradient accent",
+Description = "Accent fills run into a second colour",
+Default = personal.AccentGradient == true,
+Callback = function(on)
+Personalise.set(window, "AccentGradient", on)
+end,
+})
+end
+if options.SafeStatus ~= false then
+rows.SafeStatus = section:Toggle({
+Title = "Colour-blind friendly",
+Description = "Status colours that stay apart for every kind of colour vision",
+Default = personal.SafeStatus == true,
+Callback = function(on)
+Personalise.set(window, "SafeStatus", on)
+end,
+})
+end
+return section
+end
+function Personalise.builder(window, tab, options)
+options = options or {}
+local section = tab:Section({ Title = options.Title or "Theme builder", Icon = "palette", Side = options.Side })
+local draft = table.clone(Theme.current)
+draft.Name = "Custom"
+local role = "accent"
+local function preview()
+local ok = Theme.add(draft)
+if ok then
+Theme.set(draft.Name)
+end
+end
+local picker
+section:Dropdown({
+Title = "Colour",
+Description = "The part of the theme to change",
+Values = Theme.Roles,
+Default = role,
+Callback = function(name)
+role = name
+picker:Set(draft[role])
+end,
+})
+picker = section:ColorPicker({
+Title = "Value",
+Default = draft[role],
+Palette = true,
+Callback = function(color)
+draft[role] = color
+preview()
+end,
+})
+local name = section:Input({ Title = "Name", Placeholder = "My theme", MaxLength = 32 })
+local status = section:Label({ Title = "Changes show as you make them." })
+section:Buttons({
+Buttons = {
+{
+Title = "Save",
+Icon = "save",
+Callback = function()
+local chosen = name:Get()
+if chosen == "" then
+status:SetTitle("Give the theme a name first.")
+return
+end
+local saving = table.clone(draft)
+saving.Name = chosen
+local ok, message = Personalise.saveTheme(window, saving)
+if ok then
+Theme.set(chosen)
+end
+status:SetTitle(if ok then message or `Saved "{chosen}".` else message)
+end,
+},
+{
+Title = "Copy",
+Icon = "copy",
+Variant = "Outline",
+Callback = function()
+local text = Personalise.exportTheme(Theme.current.Name)
+local copied = text ~= nil and Env.copy(text)
+status:SetTitle(if copied then "Copied. Paste it into Import to share." else "This executor cannot copy text.")
+end,
+},
+},
+})
+section:Input({
+Title = "Import",
+Placeholder = "Paste a theme",
+Callback = function(text)
+if text == "" then
+return
+end
+local ok, message = Personalise.importTheme(window, text)
+status:SetTitle(if ok then "Imported." else message)
+end,
+})
+return section
+end
+function Personalise.loadThemes(window, saved)
+for _, plain in if type(saved) == "table" then saved else {} do
+local palette = Personalise.decodeTheme(plain)
+if palette and Theme.add(palette) then
+window.customThemes[palette.Name] = plain
+end
+end
+end
+return Personalise
+end
 modules["Components/Popup"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
@@ -2458,6 +2807,7 @@ return Section
 end
 modules["Components/SettingsTab"] = function()
 local ConfigSection = import("Components/ConfigSection")
+local Personalise = import("Components/Personalise")
 local Motion = import("Core/Motion")
 local Theme = import("Core/Theme")
 local STYLES = { "Sidebar", "Rail", "Top", "Dock" }
@@ -2581,6 +2931,12 @@ end
 end,
 })
 end
+end
+if options.Personalise then
+Personalise.section(window, tab, if type(options.Personalise) == "table" then options.Personalise else nil)
+end
+if options.ThemeBuilder then
+Personalise.builder(window, tab, { Side = "Right" })
 end
 if options.Configs ~= false then
 ConfigSection.build(window, tab, { Side = "Right" })
@@ -3307,6 +3663,7 @@ end
 return Tooltip
 end
 modules["Components/Window"] = function()
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local CommandPalette = import("Components/CommandPalette")
 local Config = import("Core/Config")
@@ -3319,6 +3676,7 @@ local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
 local Notifications = import("Components/Notifications")
+local Personalise = import("Components/Personalise")
 local Popup = import("Components/Popup")
 local Profile = import("Components/Profile")
 local Signal = import("Core/Signal")
@@ -3426,6 +3784,9 @@ self.lockHint = options.LockHint
 self.paidLockHint = options.PaidLockHint or "Unlock with a paid key"
 self.lockedSections = {}
 local saved = if options.SavePreferences == false then {} else readPreferences(self.preferencesPath)
+self.personal, self.customThemes = {}, {}
+Personalise.loadThemes(self, saved.themes)
+Personalise.restore(self, saved.personal, true)
 local function style(name)
 return if LANES[name] or STRIPS[name] then name else nil
 end
@@ -3576,9 +3937,46 @@ end))
 if options.CommandPalette then
 CommandPalette.bind(self)
 end
+Personalise.restore(self, saved.personal, false)
+if options.FocusRing ~= false then
+self:buildFocusRing()
+end
 self:layout()
 self:pop()
 return self
+end
+function Window:buildFocusRing()
+local ring = Create.new("Frame", { Name = "FocusRing", Size = UDim2.new(1, 6, 1, 6), Position = UDim2.fromOffset(-3, -3), BackgroundTransparency = 1 })
+Create.corner(10, ring)
+Create.new("UIStroke", { Thickness = 2, Theme = { Color = "focus" }, Parent = ring })
+self.scope:add(ring)
+local function mark(instance)
+if instance:IsA("GuiButton") or instance:IsA("TextBox") then
+instance.SelectionImageObject = ring
+end
+end
+for _, instance in self.gui:GetDescendants() do
+mark(instance)
+end
+self.scope:connect(self.gui.DescendantAdded, mark)
+self.scope:connect(UserInputService.InputBegan, function(input, processed)
+if processed or input.KeyCode ~= Enum.KeyCode.ButtonSelect then
+return
+end
+self:Toggle()
+if self.Visible and self.selected and self.selected.button then
+GuiService.SelectedObject = self.selected.button
+end
+end)
+end
+function Window:SetPersonal(key, value)
+return Personalise.set(self, key, value)
+end
+function Window:PersonaliseSection(tab, options)
+return Personalise.section(self, tab, options)
+end
+function Window:ThemeBuilder(tab, options)
+return Personalise.builder(self, tab, options)
 end
 function Window:OpenPalette()
 return CommandPalette.open(self)
@@ -4475,8 +4873,14 @@ for id in self.seenSpotlights do
 table.insert(seen, id)
 end
 table.sort(seen)
+local themes = {}
+for _, plain in self.customThemes do
+table.insert(themes, plain)
+end
 local encoded, text = Env.encode({
 seen = seen,
+personal = self.personal,
+themes = themes,
 version = PREFERENCES_VERSION,
 collapsedGroups = collapsed,
 minimizeStyle = self.minimizeStyle,
@@ -4822,8 +5226,11 @@ instance.Parent = properties.Parent
 return instance
 end
 function Create.corner(radius, parent)
+local base = radius
 radius = Tokens.corner(radius)
-return Create.new("UICorner", { CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius), Parent = parent })
+local corner = Create.new("UICorner", { CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, radius), Parent = parent })
+corner:SetAttribute("HalcyonRadius", base)
+return corner
 end
 function Create.stroke(role, parent, thickness)
 return Create.new("UIStroke", { Thickness = thickness or 1, Theme = { Color = role }, Parent = parent })
@@ -4952,6 +5359,7 @@ modules["Core/Effects"] = function()
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
 local TweenService = game:GetService("TweenService")
 local SWEEP = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local RIPPLE = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -5196,6 +5604,27 @@ press(scope, button)
 elseif kind == "Fill" then
 fill(scope, button, radius or 8)
 end
+end
+function Effects.accentFill(scope, frame)
+local gradient
+local function apply()
+local finish = Theme.gradientEnd()
+if finish then
+gradient = gradient or Create.new("UIGradient", { Name = "AccentGradient", Parent = frame })
+gradient.Enabled = true
+gradient.Color = ColorSequence.new(Theme.color("accent"), finish)
+Theme.unbind(frame, "BackgroundColor3")
+frame.BackgroundColor3 = Color3.new(1, 1, 1)
+else
+if gradient then
+gradient.Enabled = false
+end
+Theme.bind(frame, "BackgroundColor3", "accent")
+end
+end
+scope:add(Theme.Changed:Connect(apply))
+scope:add(Theme.GradientChanged:Connect(apply))
+apply()
 end
 Effects.layer = layer
 return Effects
@@ -6005,6 +6434,7 @@ local READABLE, UNREADABLE = 4.5, 3
 local Theme = {
 Roles = ROLES,
 Changed = Signal.new(),
+GradientChanged = Signal.new(),
 palettes = {},
 order = {},
 current = nil,
@@ -6084,6 +6514,18 @@ tinted.focus = tinted.accentHover
 tinted.onAccent = if luminance(color) > 0.35 then Color3.fromRGB(12, 14, 18) else Color3.new(1, 1, 1)
 return tinted
 end
+local SAFE_STATUS = {
+success = Color3.fromHex("56B4E9"),
+warning = Color3.fromHex("F0E442"),
+danger = Color3.fromHex("E66100"),
+info = Color3.fromHex("CC79A7"),
+}
+local SAFE_STATUS_LIGHT = {
+success = Color3.fromHex("0072B2"),
+warning = Color3.fromHex("8A6D00"),
+danger = Color3.fromHex("B34700"),
+info = Color3.fromHex("8E3E73"),
+}
 function Theme.set(name)
 local palette = Theme.palettes[name]
 if not palette then
@@ -6091,6 +6533,13 @@ return false, `Theme "{name}" does not exist.`
 end
 if Theme.accent then
 palette = withAccent(palette, Theme.accent)
+end
+if Theme.safeStatus then
+palette = table.clone(palette)
+local light = luminance(palette.background) > 0.5
+for role, color in if light then SAFE_STATUS_LIGHT else SAFE_STATUS do
+palette[role] = color
+end
 end
 Theme.current = palette
 local function apply()
@@ -6110,6 +6559,28 @@ end
 end)
 Theme.Changed:Fire(name)
 return true, nil
+end
+function Theme.setSafeStatus(enabled)
+Theme.safeStatus = enabled == true
+return Theme.set(Theme.current.Name)
+end
+function Theme.setGradient(color)
+if color == true then
+Theme.gradientAuto, Theme.gradient = true, nil
+else
+Theme.gradientAuto = false
+Theme.gradient = if typeof(color) == "Color3" then color else nil
+end
+Theme.GradientChanged:Fire()
+end
+function Theme.gradientEnd()
+if Theme.gradient then
+return Theme.gradient
+elseif Theme.gradientAuto then
+local hue, saturation, value = Theme.current.accent:ToHSV()
+return Color3.fromHSV((hue + 0.11) % 1, saturation, value)
+end
+return nil
 end
 function Theme.setAccent(color)
 Theme.accent = if typeof(color) == "Color3" then color else nil
@@ -8539,6 +9010,7 @@ return Paragraph
 end
 modules["Elements/Progress"] = function()
 local Create = import("Core/Create")
+local Effects = import("Core/Effects")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
 local Progress = {}
@@ -8569,6 +9041,7 @@ Theme = { BackgroundColor3 = "accent" },
 Parent = rail,
 })
 Create.corner(-1, fill)
+Effects.accentFill(row.scope, fill)
 function handle:Get()
 return value
 end
@@ -8881,10 +9354,12 @@ Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 Parent = frame,
 })
-Create.padding(content, 12, if layout.compact then 4 else Tokens.density.rowPadding)
+local padding = Create.padding(content, 12, if layout.compact then 4 else Tokens.density.rowPadding)
 Create.list(content, "Vertical", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
 if not layout.compact then
-Create.new("UISizeConstraint", { MinSize = Vector2.new(0, Tokens.rowHeight()), Parent = content })
+padding:SetAttribute("HalcyonDensity", "padding")
+local minimum = Create.new("UISizeConstraint", { MinSize = Vector2.new(0, Tokens.rowHeight()), Parent = content })
+minimum:SetAttribute("HalcyonDensity", "height")
 end
 local row = {
 frame = frame,
@@ -9284,6 +9759,7 @@ end
 modules["Elements/Slider"] = function()
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
+local Effects = import("Core/Effects")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
 local SliderTooltip = import("Elements/SliderTooltip")
@@ -9342,6 +9818,7 @@ Parent = area,
 Create.corner(look.railCorner or -1, rail)
 local fill = Create.new("Frame", { Name = "Fill", Theme = { BackgroundColor3 = "accent" }, Parent = rail })
 Create.corner(look.railCorner or -1, fill)
+Effects.accentFill(scope, fill)
 local function newKnob()
 if not knobSize then
 return nil
@@ -10510,6 +10987,7 @@ Hairline = Hairline,
 Icons = Icons,
 KeySystem = KeySystem,
 Motion = Motion,
+Personalise = import("Components/Personalise"),
 Scope = Scope,
 Signal = Signal,
 Styles = Styles,
@@ -10561,6 +11039,12 @@ if options.DisplayOrder then
 library.displayOrder = options.DisplayOrder
 end
 Notifications.configure(library, options.Notifications)
+if options.AccentGradient ~= nil then
+Theme.setGradient(options.AccentGradient)
+end
+if options.SafeStatusColors ~= nil then
+Theme.setSafeStatus(options.SafeStatusColors == true)
+end
 local access
 if options.KeySystem then
 access = KeySystem.prompt(library, options.KeySystem, { folder = folder, title = options.Title or "Halcyon" })
@@ -10671,6 +11155,12 @@ palette("Amethyst", { "100E16", "15121C", "181521", "201C2B", "2A2538", "2D283C"
 palette("Crimson", { "120E0F", "171213", "1B1516", "231B1D", "2E2326", "32272A", "F5ECED", "B3A2A5", "EF4444", "F36B6B", "1A0606", "FF9A9A", "4FCF8C", "F2B950", "FF7A7A", "6AB6EC" }),
 palette("Glacier", { "1B1F27", "20252E", "242A34", "2B323E", "353D4B", "3A4352", "ECEFF4", "ABB5C5", "88C0D0", "A3D3E0", "10202A", "B5E0EC", "A3BE8C", "EBCB8B", "E08A93", "81A1C1" }),
 palette("Daylight", { "F6F7F9", "EEF0F3", "FFFFFF", "E9ECF0", "DDE1E7", "D3D8DF", "14171C", "525B69", "2A66D9", "1F56BF", "FFFFFF", "2A66D9", "15803D", "B45309", "C92A3A", "0B6CAB" }),
+palette("OLED", { "000000", "050505", "0A0A0A", "121212", "1C1C1C", "222222", "F5F5F5", "A3A3A3", "7C9CFF", "9AB2FF", "050816", "AFC3FF", "4ADE80", "FACC15", "F87171", "7DD3FC" }),
+palette("Contrast", { "000000", "0A0A0A", "101010", "1A1A1A", "2A2A2A", "6B6B6B", "FFFFFF", "D6D6D6", "FFD400", "FFE14D", "000000", "FFFFFF", "3DFF7A", "FFB000", "FF5C5C", "5CC8FF" }),
+palette("Sunset", { "15100F", "1B1413", "201817", "2A201E", "352825", "3A2C29", "F8EEEA", "BFA9A2", "FF7A59", "FF9878", "1E0A04", "FFB49E", "5BD69A", "F7C25A", "F2666F", "6DBBEF" }),
+palette("Ocean", { "0B1220", "0F1829", "121C30", "18253D", "20304D", "243552", "E6EEF8", "93A6C0", "3B82F6", "60A5FA", "06101F", "93C5FD", "34D399", "FBBF24", "F87171", "38BDF8" }),
+palette("Aurora", { "0E1015", "12151C", "151922", "1C2130", "252B3D", "293046", "ECEFF7", "9EA6BC", "2DD4BF", "5EEAD4", "04201C", "99F6E4", "4ADE80", "F5C054", "F2707F", "818CF8" }),
+palette("Latte", { "F8F4EE", "F0EAE1", "FFFDF9", "EAE3D8", "E0D7C9", "D6CCBC", "1F1A14", "5E5448", "C2410C", "A3360A", "FFFFFF", "C2410C", "15803D", "A16207", "B91C1C", "0369A1" }),
 }
 end
 modules["Themes/Presets"] = function()

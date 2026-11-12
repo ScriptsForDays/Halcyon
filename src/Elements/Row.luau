@@ -118,10 +118,13 @@ function Row.new(container, options, layout)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Parent = frame,
 	})
-	Create.padding(content, 12, if layout.compact then 4 else Tokens.density.rowPadding)
+	local padding = Create.padding(content, 12, if layout.compact then 4 else Tokens.density.rowPadding)
 	Create.list(content, "Vertical", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
 	if not layout.compact then
-		Create.new("UISizeConstraint", { MinSize = Vector2.new(0, Tokens.rowHeight()), Parent = content })
+		-- Tagged so a later Spacing setting can retune the row.
+		padding:SetAttribute("HalcyonDensity", "padding")
+		local minimum = Create.new("UISizeConstraint", { MinSize = Vector2.new(0, Tokens.rowHeight()), Parent = content })
+		minimum:SetAttribute("HalcyonDensity", "height")
 	end
 
 	local row = {

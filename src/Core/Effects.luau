@@ -15,6 +15,7 @@
 local Create = require("./Create")
 local Motion = require("./Motion")
 local Styles = require("./Styles")
+local Theme = require("./Theme")
 
 local TweenService = game:GetService("TweenService")
 
@@ -290,6 +291,31 @@ function Effects.apply(scope, button, kind, radius)
 	elseif kind == "Fill" then
 		fill(scope, button, radius or 8)
 	end
+end
+
+-- Lets an accent fill run into the second accent colour while the theme
+-- has one (Theme.setGradient), and back to flat when it does not.
+function Effects.accentFill(scope, frame)
+	local gradient
+	local function apply()
+		local finish = Theme.gradientEnd()
+		if finish then
+			gradient = gradient or Create.new("UIGradient", { Name = "AccentGradient", Parent = frame })
+			gradient.Enabled = true
+			gradient.Color = ColorSequence.new(Theme.color("accent"), finish)
+			-- The gradient tints a white fill.
+			Theme.unbind(frame, "BackgroundColor3")
+			frame.BackgroundColor3 = Color3.new(1, 1, 1)
+		else
+			if gradient then
+				gradient.Enabled = false
+			end
+			Theme.bind(frame, "BackgroundColor3", "accent")
+		end
+	end
+	scope:add(Theme.Changed:Connect(apply))
+	scope:add(Theme.GradientChanged:Connect(apply))
+	apply()
 end
 
 -- The clipping layer, for other effects drawn inside a button.

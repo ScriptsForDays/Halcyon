@@ -2,6 +2,7 @@
 -- menu key, preferences and unload. Everything it creates is owned by its
 -- scope, so Unload is one clean().
 
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
 local CommandPalette = require("./CommandPalette")
@@ -15,6 +16,7 @@ local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Notifications = require("./Notifications")
+local Personalise = require("./Personalise")
 local Popup = require("./Popup")
 local Profile = require("./Profile")
 local Signal = require("../Core/Signal")
@@ -167,6 +169,11 @@ function Window.new(library, options, access)
 
 	-- Saved preferences win over the script's defaults: they are the player's choice.
 	local saved = if options.SavePreferences == false then {} else readPreferences(self.preferencesPath)
+	-- The player's own look: themes they made, then what applies at build
+	-- time; the rest is restored once the window exists.
+	self.personal, self.customThemes = {}, {}
+	Personalise.loadThemes(self, saved.themes)
+	Personalise.restore(self, saved.personal, true)
 	local function style(name)
 		return if LANES[name] or STRIPS[name] then name else nil
 	end
@@ -184,6 +191,8 @@ function Window.new(library, options, access)
 	if type(saved.anonymous) == "boolean" then
 		self.profile.Anonymous = saved.anonymous
 	end
+	-- The player's own look: restored early for what applies at build time,
+	-- and again once the window exists.
 	-- Spotlights the player already dismissed.
 	self.seenSpotlights = {}
 	for _, id in if type(saved.seen) == "table" then saved.seen else {} do
@@ -330,9 +339,57 @@ function Window.new(library, options, access)
 	if options.CommandPalette then
 		CommandPalette.bind(self)
 	end
+	Personalise.restore(self, saved.personal, false)
+	if options.FocusRing ~= false then
+		self:buildFocusRing()
+	end
 	self:layout()
 	self:pop()
 	return self
+end
+
+-- An accent ring that marks the control a gamepad (or the keyboard's UI
+-- navigation) has selected, in place of Roblox's default box. With a
+-- gamepad, ButtonSelect shows the window and puts the selection on its
+-- first tab.
+function Window:buildFocusRing()
+	local ring = Create.new("Frame", { Name = "FocusRing", Size = UDim2.new(1, 6, 1, 6), Position = UDim2.fromOffset(-3, -3), BackgroundTransparency = 1 })
+	Create.corner(10, ring)
+	Create.new("UIStroke", { Thickness = 2, Theme = { Color = "focus" }, Parent = ring })
+	self.scope:add(ring)
+	local function mark(instance)
+		if instance:IsA("GuiButton") or instance:IsA("TextBox") then
+			instance.SelectionImageObject = ring
+		end
+	end
+	for _, instance in self.gui:GetDescendants() do
+		mark(instance)
+	end
+	self.scope:connect(self.gui.DescendantAdded, mark)
+	self.scope:connect(UserInputService.InputBegan, function(input, processed)
+		if processed or input.KeyCode ~= Enum.KeyCode.ButtonSelect then
+			return
+		end
+		self:Toggle()
+		if self.Visible and self.selected and self.selected.button then
+			GuiService.SelectedObject = self.selected.button
+		end
+	end)
+end
+
+-- The player's own look, changed live and saved: "Font", "TextSize",
+-- "Radius", "Density", "Transparency", "NoticePosition", "AccentGradient"
+-- or "SafeStatus". Returns true when the value was accepted.
+function Window:SetPersonal(key, value)
+	return Personalise.set(self, key, value)
+end
+
+function Window:PersonaliseSection(tab, options)
+	return Personalise.section(self, tab, options)
+end
+
+function Window:ThemeBuilder(tab, options)
+	return Personalise.builder(self, tab, options)
 end
 
 -- Opens the search over every tab and row; see CommandPalette.luau.
@@ -1381,8 +1438,14 @@ function Window:writePreferences()
 		table.insert(seen, id)
 	end
 	table.sort(seen)
+	local themes = {}
+	for _, plain in self.customThemes do
+		table.insert(themes, plain)
+	end
 	local encoded, text = Env.encode({
 		seen = seen,
+		personal = self.personal,
+		themes = themes,
 		version = PREFERENCES_VERSION,
 		collapsedGroups = collapsed,
 		minimizeStyle = self.minimizeStyle,

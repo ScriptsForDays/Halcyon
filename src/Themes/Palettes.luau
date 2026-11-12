@@ -25,4 +25,12 @@ return {
 	palette("Crimson", { "120E0F", "171213", "1B1516", "231B1D", "2E2326", "32272A", "F5ECED", "B3A2A5", "EF4444", "F36B6B", "1A0606", "FF9A9A", "4FCF8C", "F2B950", "FF7A7A", "6AB6EC" }),
 	palette("Glacier", { "1B1F27", "20252E", "242A34", "2B323E", "353D4B", "3A4352", "ECEFF4", "ABB5C5", "88C0D0", "A3D3E0", "10202A", "B5E0EC", "A3BE8C", "EBCB8B", "E08A93", "81A1C1" }),
 	palette("Daylight", { "F6F7F9", "EEF0F3", "FFFFFF", "E9ECF0", "DDE1E7", "D3D8DF", "14171C", "525B69", "2A66D9", "1F56BF", "FFFFFF", "2A66D9", "15803D", "B45309", "C92A3A", "0B6CAB" }),
+	-- True black, for OLED screens.
+	palette("OLED", { "000000", "050505", "0A0A0A", "121212", "1C1C1C", "222222", "F5F5F5", "A3A3A3", "7C9CFF", "9AB2FF", "050816", "AFC3FF", "4ADE80", "FACC15", "F87171", "7DD3FC" }),
+	-- The strongest contrast: white text and a yellow accent on black.
+	palette("Contrast", { "000000", "0A0A0A", "101010", "1A1A1A", "2A2A2A", "6B6B6B", "FFFFFF", "D6D6D6", "FFD400", "FFE14D", "000000", "FFFFFF", "3DFF7A", "FFB000", "FF5C5C", "5CC8FF" }),
+	palette("Sunset", { "15100F", "1B1413", "201817", "2A201E", "352825", "3A2C29", "F8EEEA", "BFA9A2", "FF7A59", "FF9878", "1E0A04", "FFB49E", "5BD69A", "F7C25A", "F2666F", "6DBBEF" }),
+	palette("Ocean", { "0B1220", "0F1829", "121C30", "18253D", "20304D", "243552", "E6EEF8", "93A6C0", "3B82F6", "60A5FA", "06101F", "93C5FD", "34D399", "FBBF24", "F87171", "38BDF8" }),
+	palette("Aurora", { "0E1015", "12151C", "151922", "1C2130", "252B3D", "293046", "ECEFF7", "9EA6BC", "2DD4BF", "5EEAD4", "04201C", "99F6E4", "4ADE80", "F5C054", "F2707F", "818CF8" }),
+	palette("Latte", { "F8F4EE", "F0EAE1", "FFFDF9", "EAE3D8", "E0D7C9", "D6CCBC", "1F1A14", "5E5448", "C2410C", "A3360A", "FFFFFF", "C2410C", "15803D", "A16207", "B91C1C", "0369A1" }),
 }

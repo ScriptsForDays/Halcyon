@@ -1,5 +1,6 @@
 local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
+local Effects = require("../Core/Effects")
 local Motion = require("../Core/Motion")
 local Row = require("./Row")
 local SliderTooltip = require("./SliderTooltip")
@@ -84,6 +85,7 @@ function Slider.new(container, options)
 	Create.corner(look.railCorner or -1, rail)
 	local fill = Create.new("Frame", { Name = "Fill", Theme = { BackgroundColor3 = "accent" }, Parent = rail })
 	Create.corner(look.railCorner or -1, fill)
+	Effects.accentFill(scope, fill)
 
 	local function newKnob()
 		if not knobSize then

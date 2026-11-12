@@ -42,6 +42,11 @@ local function run(command)
 		Window:Minimize(false)
 	elseif name == "group" then
 		Window:SetGroupCollapsed(argument, not Window.collapsedGroups[argument])
+	elseif name == "personal" then
+		local key, value = string.match(argument, "^(%w+)=(.*)$")
+		Window:SetPersonal(key, if value == "true" then true elseif value == "false" then false else tonumber(value) or value)
+	elseif name == "palette" then
+		Window:OpenPalette()
 	elseif name == "set" then
 		local flag, value = string.match(argument, "^(%w+)=(.*)$")
 		local handle = Window.Flags[flag]

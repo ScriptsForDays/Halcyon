@@ -63,6 +63,7 @@ local Halcyon = {
 		Icons = Icons,
 		KeySystem = KeySystem,
 		Motion = Motion,
+		Personalise = require("./Components/Personalise"),
 		Scope = Scope,
 		Signal = Signal,
 		Styles = Styles,
@@ -132,6 +133,13 @@ function Halcyon:CreateWindow(options)
 		library.displayOrder = options.DisplayOrder
 	end
 	Notifications.configure(library, options.Notifications)
+	-- AccentGradient = true or a Color3; SafeStatusColors = true.
+	if options.AccentGradient ~= nil then
+		Theme.setGradient(options.AccentGradient)
+	end
+	if options.SafeStatusColors ~= nil then
+		Theme.setSafeStatus(options.SafeStatusColors == true)
+	end
 
 	local access
 	if options.KeySystem then

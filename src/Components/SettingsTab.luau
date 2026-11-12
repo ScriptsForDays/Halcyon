@@ -3,6 +3,7 @@
 -- these rows in every script.
 
 local ConfigSection = require("./ConfigSection")
+local Personalise = require("./Personalise")
 local Motion = require("../Core/Motion")
 local Theme = require("../Core/Theme")
 
@@ -15,6 +16,8 @@ local SettingsTab = {}
 --   Theme, Accent, Navigation, Scale, ReduceMotion, MenuKey, Minimize,
 --   Anonymous, Configs, Unload
 -- ScaleControl picks "Stepper" (default) or "Slider" for the interface scale.
+-- Two sections are added only when asked for: Personalise = true (or a
+-- table of its row switches) and ThemeBuilder = true.
 function SettingsTab.build(window, options)
 	options = options or {}
 	local function wants(...)
@@ -139,6 +142,13 @@ function SettingsTab.build(window, options)
 				end,
 			})
 		end
+	end
+
+	if options.Personalise then
+		Personalise.section(window, tab, if type(options.Personalise) == "table" then options.Personalise else nil)
+	end
+	if options.ThemeBuilder then
+		Personalise.builder(window, tab, { Side = "Right" })
 	end
 
 	if options.Configs ~= false then

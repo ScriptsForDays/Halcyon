@@ -630,6 +630,19 @@ local function setParent(self, parent)
 		if added then
 			added:Fire(self)
 		end
+		-- DescendantAdded reaches every ancestor, for this instance and
+		-- everything already inside it.
+		local ancestor = parent
+		while ancestor do
+			local descendant = rawget(ancestor, "signals").DescendantAdded
+			if descendant then
+				descendant:Fire(self)
+				for _, inner in self:GetDescendants() do
+					descendant:Fire(inner)
+				end
+			end
+			ancestor = rawget(ancestor, "props").Parent
+		end
 	end
 	fireChanged(self, "Parent")
 end
