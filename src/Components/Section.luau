@@ -10,10 +10,12 @@
 
 local Create = require("../Core/Create")
 local Effects = require("../Core/Effects")
+local Env = require("../Core/Env")
 local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Registry = require("../Elements/Registry")
 local Row = require("../Elements/Row")
+local Signal = require("../Core/Signal")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 local Tokens = require("../Core/Tokens")
@@ -31,7 +33,10 @@ Styles.register("Section", "Header", { fill = "card", stroke = "stroke", surface
 local Section = {}
 Section.__index = Section
 
--- Options: Title, Icon, IconColor, Description, Badge, Style, Side ("Left" or "Right"), Collapsible,
+-- Options: Title, Icon, IconColor, Description, Badge, Style, Side,
+-- Tabs (a list of names: tabs inside the box, see Section:Tab), Switch
+-- ({ Default, Flag, Callback }: a switch in the header that greys the rows
+-- while off), MaxHeight (the rows scroll past this height), ("Left" or "Right"), Collapsible,
 -- Collapsed, Tier or PaidOnly (lock every row inside under one overlay),
 -- LockText, LockHint.
 function Section.new(tab, options)
@@ -125,10 +130,13 @@ function Section.new(tab, options)
 		if options.Badge ~= nil then
 			self:SetBadge(options.Badge)
 		end
+		if type(options.Switch) == "table" then
+			self:buildSwitch(header, options.Switch)
+		end
 		if collapsible then
 			-- The arrow turns inside a fixed holder: a rotated child of a
 			-- list layout is drawn unrotated.
-			local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 3, Parent = header })
+			local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 4, Parent = header })
 			self.chevron = Create.icon("chevron-down", 14, "textMuted", holder)
 			self.scope:connect(header.Activated, function()
 				self:SetCollapsed(not self.collapsed)
@@ -158,7 +166,16 @@ function Section.new(tab, options)
 		})
 		Create.corner(-1, stripe)
 	end
-	local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
+	local rows = Create.new(if options.MaxHeight then "ScrollingFrame" else "Frame", {
+		Name = "Rows",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = body,
+	})
+	if options.MaxHeight then
+		-- A long list scrolls inside its box instead of stretching the page.
+		Create.new("UISizeConstraint", { MaxSize = Vector2.new(math.huge, tonumber(options.MaxHeight) or 240), Parent = rows })
+	end
 	if not flat then
 		local edge = if look.edge then 8 else 0
 		Create.padding(rows, 6 + edge, if options.Title and not look.band then 0 else 6, 6, 6)
@@ -179,12 +196,15 @@ function Section.new(tab, options)
 		})
 		Create.padding(self.description, 6, 0, 6, 4)
 	end
-	self.frame = rows
+	self.frame, self.rows = rows, rows
 
 	if self.tier then
 		self:buildLock()
 	end
 	Registry.install(self)
+	if type(options.Tabs) == "table" and #options.Tabs > 0 then
+		self:buildTabs(options.Tabs)
+	end
 	self:refresh()
 	return self
 end
@@ -270,7 +290,7 @@ function Section:buildLock()
 	-- The overlay is given the rows' height in pixels. A child sized by
 	-- scale inside a frame that sizes itself to its children feeds back and
 	-- stretches both.
-	local rows = self.frame
+	local rows = self.rows
 	self.lockShimmer = Effects.shimmer(self.scope, overlay, 10)
 	-- A locked section with a single short row still has room for the
 	-- overlay's icon, wording and hint.
@@ -320,7 +340,14 @@ end
 -- A search opens a collapsed section for as long as the query lasts.
 function Section:refresh()
 	local open = self.searching or not self.collapsed
-	self.frame.Visible = open
+	self.rows.Visible = open
+	if self.pages then
+		-- A search shows every inner tab's matches at once.
+		for name, page in self.pages do
+			page.frame.Visible = self.searching or name == self.page
+		end
+		self.strip.Visible = not self.searching
+	end
 	if self.bandFill then
 		self.bandFill.Visible = open
 	end
@@ -339,6 +366,147 @@ end
 function Section:SetCollapsed(collapsed)
 	self.collapsed = collapsed == true
 	self:refresh()
+end
+
+-- A small switch in the header. While it is off every row in the section
+-- is greyed and ignores presses; the rows keep their own values.
+function Section:buildSwitch(header, settings)
+	local on = settings.Default ~= false
+	local track = Create.new("TextButton", {
+		Name = "Switch",
+		Size = UDim2.fromOffset(30, 16),
+		LayoutOrder = 3,
+		Theme = { BackgroundColor3 = "stroke" },
+		Parent = header,
+	})
+	Create.corner(-1, track)
+	local knob = Create.new("Frame", { Name = "Thumb", Size = UDim2.fromOffset(12, 12), AnchorPoint = Vector2.new(0, 0.5), Parent = track })
+	Create.corner(-1, knob)
+	local handle = { Title = (self.Title or "Section") .. " switch", Changed = Signal.new(), scope = self.scope }
+	self.scope:add(handle.Changed)
+	local function draw(timing)
+		Theme.bind(track, "BackgroundColor3", if on then "accent" else "stroke", true)
+		Theme.bind(knob, "BackgroundColor3", if on then "onAccent" else "textMuted", true)
+		Motion.tween(track, timing, { BackgroundColor3 = Theme.color(if on then "accent" else "stroke") })
+		Motion.tween(knob, timing, {
+			Position = UDim2.new(0, if on then 16 else 2, 0.5, 0),
+			BackgroundColor3 = Theme.color(if on then "onAccent" else "textMuted"),
+		})
+	end
+	function handle:Get()
+		return on
+	end
+	function handle.Set(_, value)
+		on = value == true
+		self.switchedOff = not on
+		draw("fast")
+		for _, entry in self.entries do
+			if entry.section == self then
+				entry.handle:SetBlocked(not on or self.window.disabledAll == true)
+			end
+		end
+		handle.Changed:Fire(on)
+		Env.call(handle.Title, settings.Callback, on)
+	end
+	self.scope:connect(track.Activated, function()
+		handle:Set(not on)
+	end)
+	self.switch = handle
+	self.switchedOff = not on
+	self.window:claimFlag(settings.Flag, handle, self.scope)
+	draw(nil)
+	-- Rows added later are greyed by Registry while the switch is off.
+	task.defer(function()
+		if not on and not self.scope.cleaned then
+			handle:Set(false)
+		end
+	end)
+end
+
+-- Tabs inside the box: a strip of names over the rows, each with rows of
+-- its own. Elements added to the section itself go to the first one.
+function Section:buildTabs(names)
+	local strip = Create.new("Frame", { Name = "Strip", Size = UDim2.new(1, 0, 0, 30), LayoutOrder = -1, Parent = self.rows })
+	Create.padding(strip, 2, 0)
+	Create.list(strip, "Horizontal", 4)
+	self.strip = strip
+	self.pages, self.pageButtons, self.pageOrder = {}, {}, {}
+	local height = if self.library.touch then 36 else 28
+	strip.Size = UDim2.new(1, 0, 0, height + 2)
+	for index, name in names do
+		name = tostring(name)
+		local button = Create.new("TextButton", {
+			Name = "Page",
+			Size = UDim2.fromScale(0, 1),
+			Text = name,
+			TextSize = 12,
+			Weight = "medium",
+			LayoutOrder = index,
+			BackgroundTransparency = 1,
+			Theme = { BackgroundColor3 = "raised", TextColor3 = "textMuted" },
+			Parent = strip,
+		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+		Create.corner(6, button)
+		local frame = Create.new("Frame", {
+			Name = "Rows",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = index,
+			Visible = index == 1,
+			Parent = self.rows,
+		})
+		Create.list(frame, "Vertical", if self.rowFill then Tokens.density.gap else 2)
+		local page = setmetatable({ frame = frame, order = 0, Title = name }, { __index = self })
+		function page.nextOrder(container)
+			rawset(container, "order", rawget(container, "order") + 1)
+			return rawget(container, "order")
+		end
+		Registry.install(page)
+		self.pages[name], self.pageButtons[name] = page, button
+		table.insert(self.pageOrder, name)
+		self.scope:connect(button.Activated, function()
+			self:SelectTab(name)
+		end)
+	end
+	self:SelectTab(self.pageOrder[1])
+	-- The section's own element methods add to the first inner tab.
+	local first = self.pages[self.pageOrder[1]]
+	for kind in first do
+		if type(rawget(first, kind)) == "function" and kind ~= "nextOrder" then
+			self[kind] = function(_, options)
+				return first[kind](first, options)
+			end
+		end
+	end
+end
+
+-- The inner tab called `name`, to add elements to: box:Tab("Aimbot"):Toggle({...}).
+function Section:Tab(name)
+	local page = self.pages and self.pages[name]
+	if not page then
+		error(`This section has no tab called "{tostring(name)}"`, 2)
+	end
+	return page
+end
+
+function Section:SelectTab(name)
+	if not (self.pages and self.pages[name]) then
+		return
+	end
+	self.page = name
+	for other, button in self.pageButtons do
+		local active = other == name
+		Theme.bind(button, "TextColor3", if active then "text" else "textMuted")
+		button.FontFace = Create.font(if active then "bold" else "medium")
+		Motion.tween(button, "fast", { BackgroundTransparency = if active then 0 else 1 })
+	end
+	self:refresh()
+end
+
+-- Shows the section only while `source` (an element or its Flag) has the
+-- value `expected` (default true), or while `expected(value)` returns true.
+function Section:ShowWhen(source, expected)
+	Registry.follow(self, source, expected)
 end
 
 -- A count or word in a small pill beside the title; nil or false removes it.

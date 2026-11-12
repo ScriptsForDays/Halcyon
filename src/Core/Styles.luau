@@ -91,6 +91,11 @@ local LEGACY = {
 	ButtonEffect = "ButtonEffect",
 	TabStyle = "Navigation",
 	MinimizeStyle = "Minimize",
+	WindowStyle = "Window",
+	OpenAnimation = "Open",
+	PageTransition = "PageTransition",
+	TopbarControls = "Controls",
+	TabIndicator = "TabIndicator",
 }
 
 -- The window's chosen default look for each kind.

@@ -62,6 +62,7 @@ local function create(container, kind, options)
 
 	local handle = MODULES[kind].new(container, options)
 	handle.Kind = kind
+	handle.ownerWindow = window
 	window:claimFlag(options.Flag, handle)
 
 	local entry = { handle = handle, section = container.section }
@@ -93,10 +94,49 @@ local function create(container, kind, options)
 			handle:Lock(handle.MissingText, "wrench")
 		end
 	end
+	-- A row made while its section's switch is off, or the window is
+	-- disabled, starts greyed like its neighbours.
+	if handle.SetBlocked and ((container.section and container.section.switchedOff) or window.disabledAll) then
+		handle:SetBlocked(true)
+	end
+	function handle.ShowWhen(target, source, expected)
+		Registry.follow(target, source, expected)
+	end
 	if window.query ~= "" then
 		window:applySearch()
 	end
 	return handle
+end
+
+-- Makes `target` (a row or section) visible only while `source` matches.
+-- `source` is an element or its Flag; `expected` is a value (a multi
+-- dropdown matches when it includes it) or a function of the value.
+function Registry.follow(target, source, expected)
+	local window = target.window or target.ownerWindow
+	if type(source) == "string" then
+		source = window and window.Flags[source]
+	end
+	if type(source) ~= "table" or not source.Changed or not source.Get then
+		error("ShowWhen needs an element, or the Flag of one made before it", 3)
+	end
+	if expected == nil then
+		expected = true
+	end
+	local function check()
+		local value = source:Get()
+		local shown
+		if type(expected) == "function" then
+			local ok, result = pcall(expected, value)
+			shown = ok and result == true
+		elseif type(value) == "table" then
+			shown = table.find(value, expected) ~= nil
+		else
+			shown = value == expected
+		end
+		target:SetVisible(shown)
+	end
+	target.scope:connect(source.Changed, check)
+	check()
 end
 
 function Registry.install(container)

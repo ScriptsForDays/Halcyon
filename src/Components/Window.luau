@@ -37,6 +37,41 @@ end
 for _, name in { "Topbar", "Pill", "Chip" } do
 	Styles.register("Minimize", name, {})
 end
+
+-- The window's surface (kind "Window").
+--   transparency  how much of the game shows through the window
+--   sheen         a soft light across the top, for glass
+--   gradient      the background runs into a hint of the accent
+--   image         the hub's BackgroundImage fills the window
+Styles.register("Window", "Solid", {})
+Styles.register("Window", "Glass", { transparency = 0.14, sheen = true, edge = "text", edgeTransparency = 0.82 })
+Styles.register("Window", "Gradient", { gradient = true })
+Styles.register("Window", "Image", { image = true })
+
+-- How the window appears and leaves (kind "Open"): scale grows from this
+-- size, offset slides from this many pixels away, unroll opens down from
+-- the top bar.
+Styles.register("Open", "Pop", { scale = 0.96 })
+Styles.register("Open", "Zoom", { scale = 0.86, timing = "spring" })
+Styles.register("Open", "Rise", { offset = Vector2.new(0, 18), scale = 0.99 })
+Styles.register("Open", "Drop", { offset = Vector2.new(0, -18), scale = 0.99 })
+Styles.register("Open", "Slide", { offset = Vector2.new(-28, 0) })
+Styles.register("Open", "Unroll", { unroll = true })
+Styles.register("Open", "None", {})
+
+-- How a newly opened tab's page arrives (kind "PageTransition").
+Styles.register("PageTransition", "Rise", { offset = Vector2.new(0, 8) })
+Styles.register("PageTransition", "Slide", { offset = Vector2.new(16, 0) })
+Styles.register("PageTransition", "None", {})
+
+-- The minimise and close buttons (kind "Controls"): icons on the right, or
+-- three coloured dots on the left.
+Styles.register("Controls", "Default", {})
+Styles.register("Controls", "Mac", { dots = true })
+
+-- Snapping pulls a dragged window to a screen edge or the centre line
+-- within this many pixels.
+local SNAP = 18
 -- A blurred rounded square, the same image asset WindUI stretches around
 -- its window. It is sliced 99 px in from each edge.
 local SHADOW_IMAGE = "rbxassetid://8992230677"
@@ -195,6 +230,7 @@ function Window.new(library, options, access)
 	if options.Shadow ~= false then
 		self:buildShadow()
 	end
+	self:buildSurface()
 
 	self:buildTopbar()
 	self.body = Create.new("Frame", {
@@ -325,12 +361,126 @@ function Window:buildShadow()
 	self.shadow = shadow
 end
 
--- The window grows the last few percent into place when it appears.
-function Window:pop()
-	if self.root.Visible then
-		self.uiScale.Scale = self.scale * 0.96
-		Motion.tween(self.uiScale, "base", { Scale = self.scale })
+-- The window's surface: solid, glass, a gradient or the hub's image, and
+-- how see-through it is. Transparency (0 to 0.6) overrides the look's own.
+function Window:buildSurface()
+	local look = Styles.pick("Window", nil, self)
+	local root, options = self.root, self.options
+	self.surfaceLook = look
+	if look.edge then
+		local stroke = root:FindFirstChildOfClass("UIStroke")
+		Theme.bind(stroke, "Color", look.edge)
+		stroke.Transparency = look.edgeTransparency or 0
 	end
+	if look.sheen then
+		Create.new("Frame", {
+			Name = "Sheen",
+			Size = UDim2.new(1, 0, 0, 140),
+			ZIndex = 0,
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.94,
+			Parent = root,
+		}, {
+			Create.new("UIGradient", {
+				Rotation = 90,
+				Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
+			}),
+		})
+	end
+	if look.gradient then
+		local gradient = Create.new("UIGradient", { Rotation = 35, Parent = root })
+		local function tint()
+			local base = Theme.color("background")
+			gradient.Color = ColorSequence.new(base:Lerp(Theme.color("accent"), 0.1), base)
+		end
+		tint()
+		-- The gradient multiplies a white fill, so the window's own colour is white.
+		Theme.unbind(root, "BackgroundColor3")
+		root.BackgroundColor3 = Color3.new(1, 1, 1)
+		self.scope:connect(Theme.Changed, tint)
+	end
+	if look.image or options.BackgroundImage then
+		local image = Create.new("ImageLabel", {
+			Name = "Backdrop",
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 0,
+			Image = tostring(options.BackgroundImage or ""),
+			ScaleType = Enum.ScaleType.Crop,
+			-- The page colour lies over the picture so text stays readable.
+			ImageTransparency = math.clamp(tonumber(options.BackgroundImageTransparency) or 0.75, 0, 1),
+			Parent = root,
+		})
+		Create.corner(12, image)
+		self.backdrop = image
+	end
+	self:SetTransparency(tonumber(options.Transparency) or look.transparency or 0)
+end
+
+-- How much of the game shows through the window, 0 (solid) to 0.6.
+function Window:SetTransparency(value)
+	self.transparency = math.clamp(tonumber(value) or 0, 0, 0.6)
+	self.root.BackgroundTransparency = self.transparency
+	return self.transparency
+end
+
+-- The window grows, slides or unrolls into place as it appears, in the
+-- window's Open look. A newer show or hide cancels an older one's ending.
+function Window:pop()
+	if not self.root.Visible then
+		return
+	end
+	self.motionGeneration = (self.motionGeneration or 0) + 1
+	local look = Styles.pick("Open", nil, self)
+	if Motion.reduced then
+		return
+	end
+	local timing = look.timing or "base"
+	if look.scale then
+		self.uiScale.Scale = self.scale * look.scale
+		Motion.tween(self.uiScale, timing, { Scale = self.scale })
+	end
+	if look.offset then
+		local rest = self.root.Position
+		self.root.Position = rest + UDim2.fromOffset(look.offset.X, look.offset.Y)
+		Motion.tween(self.root, timing, { Position = rest })
+	end
+	if look.unroll and not self.minimized then
+		local rest = self.root.Size
+		self.root.Size = UDim2.fromOffset(rest.X.Offset, TOPBAR)
+		Motion.tween(self.root, "slow", { Size = rest })
+	end
+end
+
+-- The reverse of pop, then `done` once the window may be hidden.
+function Window:unpop(done)
+	self.motionGeneration = (self.motionGeneration or 0) + 1
+	local generation = self.motionGeneration
+	local look = Styles.pick("Open", nil, self)
+	-- Leaving is animated only when the hub chose an Open look; the default
+	-- hides at once, as it always has.
+	if Motion.reduced or not self.styles.Open or not self.root.Visible or not (look.scale or look.offset or look.unroll) then
+		done()
+		return
+	end
+	if look.scale then
+		Motion.tween(self.uiScale, "fast", { Scale = self.scale * look.scale })
+	end
+	local rest = self.root.Position
+	if look.offset then
+		Motion.tween(self.root, "fast", { Position = rest + UDim2.fromOffset(look.offset.X, look.offset.Y) })
+	end
+	if look.unroll then
+		Motion.tween(self.root, "fast", { Size = UDim2.fromOffset(self.root.Size.X.Offset, TOPBAR) })
+	end
+	task.delay(0.13, function()
+		if generation ~= self.motionGeneration or self.scope.cleaned then
+			return
+		end
+		done()
+		-- Back to rest, unseen, so the next show starts from the right place.
+		self.uiScale.Scale = self.scale
+		self:layout()
+	end)
 end
 
 function Window:buildTopbar()
@@ -438,7 +588,7 @@ function Window:buildTopbar()
 	Create.list(self.chipHolder, "Horizontal", 0)
 
 	local function action(icon, order, callback)
-		local button = Create.new("TextButton", { Name = icon, Size = UDim2.new(0, 40, 1, 0), LayoutOrder = order, Parent = actions })
+		local button = Create.new("TextButton", { Name = icon, Size = UDim2.new(0, if self.library.touch then 44 else 40, 1, 0), LayoutOrder = order, Parent = actions })
 		local glyph = centred(Create.icon(icon, 16, "textMuted", button))
 		scope:connect(button.MouseEnter, function()
 			Theme.bind(glyph, "ImageColor3", "text")
@@ -449,23 +599,136 @@ function Window:buildTopbar()
 		scope:connect(button.Activated, callback)
 		return glyph
 	end
-	if self.options.Minimizable ~= false then
-		self.minimizeGlyph = action("minus", 2, function()
-			self:Minimize(not self.minimized)
+	self.topbarActions, self.topbarAction = actions, action
+	if self.options.SidebarToggle then
+		-- Folds the sidebar to its icon rail and back.
+		action("panel-left", 1.5, function()
+			self:SetTabStyle(if self.tabStyle == "Sidebar" then "Rail" else "Sidebar")
 		end)
 	end
-	action("x", 3, function()
-		self:Hide()
-	end)
+	if Styles.pick("Controls", nil, self).dots then
+		self:buildDots(brand)
+	else
+		if self.options.Minimizable ~= false then
+			self.minimizeGlyph = action("minus", 2, function()
+				self:Minimize(not self.minimized)
+			end)
+		end
+		action("x", 3, function()
+			self:Hide()
+		end)
+	end
 
 	Drag.move(scope, topbar, self.root, {
 		onMoved = function()
 			local corner = self.root.AbsolutePosition - self.gui.AbsolutePosition
-			self.placed = Vector2.new(math.round(corner.X), math.round(corner.Y))
+			self.placed = self:snap(Vector2.new(math.round(corner.X), math.round(corner.Y)))
 			self:layout()
 			self:savePreferences()
 		end,
 	})
+end
+
+-- Close, minimise and a size switch as three coloured dots on the left of
+-- the top bar. Each shows its glyph while the pointer is over the group.
+function Window:buildDots(brand)
+	local scope = self.scope
+	local size = if self.library.touch then 18 else 13
+	local group = Create.new("Frame", { Name = "Dots", Size = UDim2.fromOffset(size * 3 + 16, size), LayoutOrder = -1, Parent = brand })
+	Create.list(group, "Horizontal", 8)
+	local glyphs = {}
+	local function dot(role, icon, order, callback)
+		local button = Create.new("TextButton", { Name = icon, Size = UDim2.fromOffset(size, size), LayoutOrder = order, Theme = { BackgroundColor3 = role }, Parent = group })
+		Create.corner(-1, button)
+		local glyph = centred(Create.icon(icon, size - 5, "background", button))
+		glyph.ImageTransparency = 1
+		table.insert(glyphs, glyph)
+		scope:connect(button.Activated, callback)
+		return glyph
+	end
+	dot("danger", "x", 1, function()
+		self:Hide()
+	end)
+	if self.options.Minimizable ~= false then
+		self.minimizeGlyph = dot("warning", "minus", 2, function()
+			self:Minimize(not self.minimized)
+		end)
+	end
+	-- The third dot switches between the hub's size and a larger one.
+	dot("success", "maximize-2", 3, function()
+		local large = Vector2.new(1100, 700)
+		if self.size.X >= large.X and self.size.Y >= large.Y and self.smallSize then
+			self.size, self.smallSize = self.smallSize, nil
+		else
+			self.smallSize, self.size = self.size, large
+		end
+		self:layout()
+		self:savePreferences()
+	end)
+	scope:connect(group.MouseEnter, function()
+		for _, glyph in glyphs do
+			Motion.tween(glyph, "fast", { ImageTransparency = 0.2 })
+		end
+	end)
+	scope:connect(group.MouseLeave, function()
+		for _, glyph in glyphs do
+			Motion.tween(glyph, "fast", { ImageTransparency = 1 })
+		end
+	end)
+end
+
+-- With Snap on, a window dropped near a screen edge or the centre line
+-- lines up with it.
+function Window:snap(corner)
+	if not self.options.Snap then
+		return corner
+	end
+	local view = self.gui.AbsoluteSize
+	local shown = self.root.AbsoluteSize
+	local margin = 8
+	local x, y = corner.X, corner.Y
+	if math.abs(x - margin) < SNAP then
+		x = margin
+	elseif math.abs(x + shown.X - (view.X - margin)) < SNAP then
+		x = view.X - margin - shown.X
+	elseif math.abs(x + shown.X / 2 - view.X / 2) < SNAP then
+		x = view.X / 2 - shown.X / 2
+	end
+	if math.abs(y - margin) < SNAP then
+		y = margin
+	elseif math.abs(y + shown.Y - (view.Y - margin)) < SNAP then
+		y = view.Y - margin - shown.Y
+	end
+	return Vector2.new(math.round(x), math.round(y))
+end
+
+-- Adds a button to the top bar, left of the window's own. Options: Icon,
+-- Callback. Returns { Destroy }.
+function Window:AddTopbarButton(options)
+	options = options or {}
+	self.extraButtons = (self.extraButtons or 0) + 1
+	local glyph = self.topbarAction(options.Icon or "circle", 1 + self.extraButtons / 100, function()
+		Env.call("Top bar button", options.Callback)
+	end)
+	local button = glyph.Parent
+	return {
+		Destroy = function()
+			button:Destroy()
+		end,
+	}
+end
+
+-- Greys every control in the window at once, and turns them back on; rows
+-- the hub disabled itself stay disabled.
+function Window:SetEnabled(enabled)
+	self.disabledAll = enabled == false
+	for _, tab in self.tabs do
+		for _, entry in tab.entries do
+			if entry.handle.SetBlocked then
+				entry.handle:SetBlocked(self.disabledAll or (entry.section and entry.section.switchedOff == true))
+			end
+		end
+	end
 end
 
 -- A corner grip for mouse users. The window is anchored at its centre, so the
@@ -519,7 +782,7 @@ function Window:layout()
 
 	local narrow = width < NARROW
 	local style = self.tabStyle
-	if narrow and LANES[style] then
+	if narrow and self:lane(style) then
 		style = "Top"
 	end
 	if style ~= self.activeStyle then
@@ -528,7 +791,7 @@ function Window:layout()
 	end
 	self.searchFrame.Size = UDim2.fromOffset(if narrow then 104 else 170, 30)
 
-	self.wide = width - (LANES[style] or 0) >= COLUMNS
+	self.wide = width - (self:lane(style) or 0) >= COLUMNS
 	for _, tab in self.tabs do
 		tab:reflow(self.wide)
 	end
@@ -544,6 +807,15 @@ function Window:layout()
 	self.root.Position = UDim2.fromOffset(corner.X + shown.X / 2, corner.Y + shown.Y / 2)
 end
 
+-- The width of a side navigation style, or nil for the strips. The hub's
+-- SidebarWidth sets the sidebar's.
+function Window:lane(style)
+	if style == "Sidebar" and tonumber(self.options.SidebarWidth) then
+		return math.clamp(math.floor(self.options.SidebarWidth), 150, 280)
+	end
+	return LANES[style]
+end
+
 -- Rebuilds the tab buttons for the active style. The pages, the selected tab
 -- and every element value stay as they are; only the navigation is redrawn.
 function Window:buildNav()
@@ -554,7 +826,7 @@ function Window:buildNav()
 	local scope = self.scope:child()
 	self.navScope = scope
 	local style = self.activeStyle
-	local lane, strip = LANES[style], STRIPS[style]
+	local lane, strip = self:lane(style), STRIPS[style]
 
 	local host = Create.new("Frame", { Name = "Navigation", Parent = self.body })
 	scope:add(host)
@@ -722,8 +994,13 @@ function Window:SelectTab(tab)
 	end
 	self.selected = tab
 	tab.page.Visible = true
-	tab.page.Position = UDim2.fromOffset(0, 8)
-	Motion.tween(tab.page, "base", { Position = UDim2.fromOffset(0, 0) })
+	local arrive = Styles.pick("PageTransition", nil, self)
+	if arrive.offset and not Motion.reduced then
+		tab.page.Position = UDim2.fromOffset(arrive.offset.X, arrive.offset.Y)
+		Motion.tween(tab.page, "base", { Position = UDim2.fromOffset(0, 0) })
+	else
+		tab.page.Position = UDim2.fromOffset(0, 0)
+	end
 	self:paintTabs()
 	self.TabChanged:Fire(tab)
 end
@@ -940,7 +1217,11 @@ end
 function Window:Hide()
 	Popup.close(self.library)
 	self.Visible = false
-	self:refreshVisibility()
+	self:unpop(function()
+		if not self.Visible then
+			self:refreshVisibility()
+		end
+	end)
 	if not self.openButton.Visible and not self.hinted and self.toggleKey then
 		self.hinted = true
 		self:Notify({ Title = "Menu hidden", Content = `Press {self.toggleKey.Name} to open it again.` })

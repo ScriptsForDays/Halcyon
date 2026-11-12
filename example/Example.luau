@@ -391,7 +391,13 @@ Hud:Toggle({
 -- Looks -----------------------------------------------------------------------
 -- Every registered look side by side, each with the line that opts into it.
 
-local Looks = Window:Tab({ Title = "Looks", Icon = "palette", Group = "Library" })
+local Looks = Window:Tab({
+	Title = "Looks",
+	Icon = "palette",
+	Group = "Library",
+	Description = "Every look each control can take. Copy the line under a name to use it.",
+})
+Looks:Notice({ Title = "Tip", Content = 'Set Preset = "Glass" on CreateWindow to restyle the whole hub in one line.', Kind = "info", Dismissible = true })
 local function opt(kind, name)
 	return string.format('%s = "%s"', if kind == "Button" then "Variant" else "Style", name)
 end
@@ -460,6 +466,18 @@ Pickers:Tiles({
 	},
 })
 Pickers:Rating({ Title = "Rating", Default = 4 })
+
+local Boxed = Looks:Section({ Title = "Tabs in a section", Icon = "layers", Tabs = { "Aim", "Visuals", "Misc" }, Side = "Right" })
+Boxed:Toggle({ Title = "Silent aim" })
+Boxed:Slider({ Title = "Field of view", Min = 10, Max = 180, Default = 90 })
+Boxed:Tab("Visuals"):Toggle({ Title = "Player outlines" })
+Boxed:Tab("Visuals"):ColorPicker({ Title = "Outline colour", Default = Color3.fromRGB(240, 82, 127) })
+Boxed:Tab("Misc"):Label({ Title = "Each inner tab keeps its own rows.", Style = "Note" })
+
+local Switched = Looks:Section({ Title = "Header switch", Icon = "power", Switch = { Default = true }, Side = "Right" })
+local farmMode = Switched:Dropdown({ Title = "Mode", Values = { "Safe", "Fast" } })
+Switched:Slider({ Title = "Fast speed", Min = 1, Max = 10, Default = 6 }):ShowWhen(farmMode, "Fast")
+Switched:Label({ Title = "Pick Fast to reveal the speed row. The switch greys everything here." })
 
 local Extras = Looks:Section({ Title = "More controls", Icon = "sparkles" })
 Extras:Status({ Title = "Server", Status = "Online", Kind = "success", Pulse = true })

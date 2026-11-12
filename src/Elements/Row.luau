@@ -282,7 +282,7 @@ function Row.new(container, options, layout)
 	row.handle = handle
 
 	function refresh()
-		veil.Visible = state.disabled or state.locked
+		veil.Visible = state.disabled or state.locked or state.blocked
 		lock.Visible = state.locked and not state.quiet
 		makeRoom()
 		if slot then
@@ -326,6 +326,40 @@ function Row.new(container, options, layout)
 		refresh()
 	end
 
+	-- Greys the row for its section's switch or the window's SetEnabled,
+	-- apart from the hub's own SetDisabled, so turning one back on never
+	-- re-enables a row the hub turned off.
+	function handle:SetBlocked(blocked)
+		state.blocked = blocked == true
+		refresh()
+	end
+
+	-- Marks where `query` appears in the title while a search is typed.
+	function handle:Highlight(query)
+		if not title then
+			return
+		end
+		local plain = self.Title
+		local from, to = nil, nil
+		if query and query ~= "" then
+			from, to = string.find(string.lower(plain), query, 1, true)
+		end
+		if not from then
+			title.RichText = false
+			title.Text = plain
+			return
+		end
+		local function escape(text)
+			return (string.gsub(string.gsub(string.gsub(text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;"))
+		end
+		title.RichText = true
+		title.Text = escape(string.sub(plain, 1, from - 1))
+			.. `<font color="#{Theme.color("accent"):ToHex()}">`
+			.. escape(string.sub(plain, from, to))
+			.. "</font>"
+			.. escape(string.sub(plain, to + 1))
+	end
+
 	-- `reason` is the wording on the badge and `icon` replaces its lock.
 	-- A `quiet` lock shows no badge: the section's overlay speaks for the row.
 	function handle:Lock(reason, icon, quiet)
@@ -340,7 +374,7 @@ function Row.new(container, options, layout)
 	end
 
 	function handle:IsLocked()
-		return state.locked or state.disabled
+		return state.locked or state.disabled or state.blocked == true
 	end
 
 	function handle:SetVisible(visible)

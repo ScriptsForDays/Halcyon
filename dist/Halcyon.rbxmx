@@ -1613,10 +1613,12 @@ end
 modules["Components/Section"] = function()
 local Create = import("Core/Create")
 local Effects = import("Core/Effects")
+local Env = import("Core/Env")
 local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
 local Registry = import("Elements/Registry")
 local Row = import("Elements/Row")
+local Signal = import("Core/Signal")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
@@ -1715,8 +1717,11 @@ self.header = header
 if options.Badge ~= nil then
 self:SetBadge(options.Badge)
 end
+if type(options.Switch) == "table" then
+self:buildSwitch(header, options.Switch)
+end
 if collapsible then
-local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 3, Parent = header })
+local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(14, 14), LayoutOrder = 4, Parent = header })
 self.chevron = Create.icon("chevron-down", 14, "textMuted", holder)
 self.scope:connect(header.Activated, function()
 self:SetCollapsed(not self.collapsed)
@@ -1741,7 +1746,15 @@ Parent = body,
 })
 Create.corner(-1, stripe)
 end
-local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
+local rows = Create.new(if options.MaxHeight then "ScrollingFrame" else "Frame", {
+Name = "Rows",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Parent = body,
+})
+if options.MaxHeight then
+Create.new("UISizeConstraint", { MaxSize = Vector2.new(math.huge, tonumber(options.MaxHeight) or 240), Parent = rows })
+end
 if not flat then
 local edge = if look.edge then 8 else 0
 Create.padding(rows, 6 + edge, if options.Title and not look.band then 0 else 6, 6, 6)
@@ -1761,11 +1774,14 @@ Parent = rows,
 })
 Create.padding(self.description, 6, 0, 6, 4)
 end
-self.frame = rows
+self.frame, self.rows = rows, rows
 if self.tier then
 self:buildLock()
 end
 Registry.install(self)
+if type(options.Tabs) == "table" and #options.Tabs > 0 then
+self:buildTabs(options.Tabs)
+end
 self:refresh()
 return self
 end
@@ -1840,7 +1856,7 @@ LayoutOrder = 1,
 Theme = { TextColor3 = "textMuted" },
 Parent = text,
 })
-local rows = self.frame
+local rows = self.rows
 self.lockShimmer = Effects.shimmer(self.scope, overlay, 10)
 self.lockMinimum = Create.new("UISizeConstraint", { MinSize = Vector2.new(0, 0), Parent = rows })
 local function cover()
@@ -1883,7 +1899,13 @@ return self.order
 end
 function Section:refresh()
 local open = self.searching or not self.collapsed
-self.frame.Visible = open
+self.rows.Visible = open
+if self.pages then
+for name, page in self.pages do
+page.frame.Visible = self.searching or name == self.page
+end
+self.strip.Visible = not self.searching
+end
 if self.bandFill then
 self.bandFill.Visible = open
 end
@@ -1900,6 +1922,133 @@ end
 function Section:SetCollapsed(collapsed)
 self.collapsed = collapsed == true
 self:refresh()
+end
+function Section:buildSwitch(header, settings)
+local on = settings.Default ~= false
+local track = Create.new("TextButton", {
+Name = "Switch",
+Size = UDim2.fromOffset(30, 16),
+LayoutOrder = 3,
+Theme = { BackgroundColor3 = "stroke" },
+Parent = header,
+})
+Create.corner(-1, track)
+local knob = Create.new("Frame", { Name = "Thumb", Size = UDim2.fromOffset(12, 12), AnchorPoint = Vector2.new(0, 0.5), Parent = track })
+Create.corner(-1, knob)
+local handle = { Title = (self.Title or "Section") .. " switch", Changed = Signal.new(), scope = self.scope }
+self.scope:add(handle.Changed)
+local function draw(timing)
+Theme.bind(track, "BackgroundColor3", if on then "accent" else "stroke", true)
+Theme.bind(knob, "BackgroundColor3", if on then "onAccent" else "textMuted", true)
+Motion.tween(track, timing, { BackgroundColor3 = Theme.color(if on then "accent" else "stroke") })
+Motion.tween(knob, timing, {
+Position = UDim2.new(0, if on then 16 else 2, 0.5, 0),
+BackgroundColor3 = Theme.color(if on then "onAccent" else "textMuted"),
+})
+end
+function handle:Get()
+return on
+end
+function handle.Set(_, value)
+on = value == true
+self.switchedOff = not on
+draw("fast")
+for _, entry in self.entries do
+if entry.section == self then
+entry.handle:SetBlocked(not on or self.window.disabledAll == true)
+end
+end
+handle.Changed:Fire(on)
+Env.call(handle.Title, settings.Callback, on)
+end
+self.scope:connect(track.Activated, function()
+handle:Set(not on)
+end)
+self.switch = handle
+self.switchedOff = not on
+self.window:claimFlag(settings.Flag, handle, self.scope)
+draw(nil)
+task.defer(function()
+if not on and not self.scope.cleaned then
+handle:Set(false)
+end
+end)
+end
+function Section:buildTabs(names)
+local strip = Create.new("Frame", { Name = "Strip", Size = UDim2.new(1, 0, 0, 30), LayoutOrder = -1, Parent = self.rows })
+Create.padding(strip, 2, 0)
+Create.list(strip, "Horizontal", 4)
+self.strip = strip
+self.pages, self.pageButtons, self.pageOrder = {}, {}, {}
+local height = if self.library.touch then 36 else 28
+strip.Size = UDim2.new(1, 0, 0, height + 2)
+for index, name in names do
+name = tostring(name)
+local button = Create.new("TextButton", {
+Name = "Page",
+Size = UDim2.fromScale(0, 1),
+Text = name,
+TextSize = 12,
+Weight = "medium",
+LayoutOrder = index,
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = "raised", TextColor3 = "textMuted" },
+Parent = strip,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+Create.corner(6, button)
+local frame = Create.new("Frame", {
+Name = "Rows",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = index,
+Visible = index == 1,
+Parent = self.rows,
+})
+Create.list(frame, "Vertical", if self.rowFill then Tokens.density.gap else 2)
+local page = setmetatable({ frame = frame, order = 0, Title = name }, { __index = self })
+function page.nextOrder(container)
+rawset(container, "order", rawget(container, "order") + 1)
+return rawget(container, "order")
+end
+Registry.install(page)
+self.pages[name], self.pageButtons[name] = page, button
+table.insert(self.pageOrder, name)
+self.scope:connect(button.Activated, function()
+self:SelectTab(name)
+end)
+end
+self:SelectTab(self.pageOrder[1])
+local first = self.pages[self.pageOrder[1]]
+for kind in first do
+if type(rawget(first, kind)) == "function" and kind ~= "nextOrder" then
+self[kind] = function(_, options)
+return first[kind](first, options)
+end
+end
+end
+end
+function Section:Tab(name)
+local page = self.pages and self.pages[name]
+if not page then
+error(`This section has no tab called "{tostring(name)}"`, 2)
+end
+return page
+end
+function Section:SelectTab(name)
+if not (self.pages and self.pages[name]) then
+return
+end
+self.page = name
+for other, button in self.pageButtons do
+local active = other == name
+Theme.bind(button, "TextColor3", if active then "text" else "textMuted")
+button.FontFace = Create.font(if active then "bold" else "medium")
+Motion.tween(button, "fast", { BackgroundTransparency = if active then 0 else 1 })
+end
+self:refresh()
+end
+function Section:ShowWhen(source, expected)
+Registry.follow(self, source, expected)
 end
 function Section:SetBadge(value)
 if self.badge then
@@ -2079,8 +2228,16 @@ local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Registry = import("Elements/Registry")
 local Section = import("Components/Section")
+local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local GAP = 10
+Styles.register("TabIndicator", "Bar", { marker = "edge", fill = "raised", fillTransparency = 0 })
+Styles.register("TabIndicator", "Pill", { fill = "accent", fillTransparency = 0.85, text = "accent" })
+Styles.register("TabIndicator", "Underline", { marker = "under" })
+Styles.register("TabIndicator", "Dot", { marker = "dot", text = "text" })
+Styles.register("TabIndicator", "Glow", { fill = "raised", fillTransparency = 0, glow = true })
+Styles.register("TabIndicator", "Fill", { fill = "accent", fillTransparency = 0, text = "onAccent", icon = "onAccent" })
+local NOTICE_ICONS = { info = "info", success = "circle-check", warning = "triangle-alert", danger = "circle-x" }
 local Tab = {}
 Tab.__index = Tab
 function Tab.new(window, options)
@@ -2092,6 +2249,7 @@ entries = {},
 sections = {},
 order = 0,
 Title = options.Title,
+Description = options.Description,
 Icon = options.Icon,
 Group = options.Group,
 tier = options.Tier or (options.PaidOnly and true) or nil,
@@ -2104,10 +2262,39 @@ wide = false,
 local page = Create.new("ScrollingFrame", { Name = "Page", Size = UDim2.fromScale(1, 1), Visible = false, Parent = window.pages })
 local inset = Create.new("Frame", { Name = "Inset", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = page })
 Create.padding(inset, 12)
+Create.list(inset, "Vertical", GAP)
+if options.Description then
+local header = Create.new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = inset })
+Create.padding(header, 4, 2, 4, 2)
+Create.list(header, "Vertical", 2)
+Create.new("TextLabel", {
+Name = "Title",
+Size = UDim2.new(1, 0, 0, 24),
+Text = options.Title,
+TextSize = 20,
+Weight = "bold",
+Theme = { TextColor3 = "text" },
+Parent = header,
+})
+Create.new("TextLabel", {
+Name = "Description",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+TextSize = 13,
+LayoutOrder = 1,
+Text = options.Description,
+Theme = { TextColor3 = "textMuted" },
+Parent = header,
+})
+end
+self.notices = Create.new("Frame", { Name = "Notices", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Visible = false, Parent = inset })
+Create.list(self.notices, "Vertical", 6)
 local columns = Create.new("Frame", {
 Name = "Columns",
 Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 2,
 Parent = inset,
 })
 self.page = page
@@ -2153,14 +2340,71 @@ for _, section in self.sections do
 section.root.Parent = if double and section.side == "Right" then self.right else self.left
 end
 end
+function Tab:Notice(options)
+if type(options) == "string" then
+options = { Content = options }
+end
+local role = if NOTICE_ICONS[options.Kind] then options.Kind else "info"
+local scope = self.scope:child()
+local box = Create.new("Frame", {
+Name = "Notice",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+BackgroundTransparency = 0.88,
+Theme = { BackgroundColor3 = role },
+Parent = self.notices,
+})
+scope:add(box)
+Create.corner(10, box)
+Create.stroke(role, box).Transparency = 0.55
+Create.padding(box, 12, 10)
+Create.list(box, "Horizontal", 10, { VerticalAlignment = Enum.VerticalAlignment.Top })
+Create.icon(NOTICE_ICONS[role], 18, role, box)
+local text = Create.new("TextLabel", {
+Name = "Text",
+Size = UDim2.fromScale(0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+RichText = true,
+TextSize = 13,
+LayoutOrder = 1,
+Theme = { TextColor3 = "text" },
+Parent = box,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+local function write(content)
+text.Text = if options.Title then `<b>{options.Title}</b>  {content or ""}` else tostring(content or "")
+end
+write(options.Content)
+self.notices.Visible = true
+local notice = {}
+function notice.SetContent(_, content)
+write(content)
+end
+function notice.Destroy()
+self.scope:release(scope)
+self.notices.Visible = #self.notices:GetChildren() > 1
+end
+if options.Dismissible then
+local close = Create.new("ImageButton", { Name = "Dismiss", Size = UDim2.fromOffset(18, 18), LayoutOrder = 2, Parent = box })
+local glyph = Create.icon("x", 14, "textMuted", close)
+glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+scope:connect(close.Activated, notice.Destroy)
+end
+return notice
+end
 function Tab:filter(query)
 local counts, total = {}, 0
+local named = query ~= "" and string.find(string.lower(self.Title), query, 1, true) ~= nil
 for _, entry in self.entries do
 local handle, section = entry.handle, entry.section
 local match = query == ""
+or named
 or string.find(handle.SearchText or "", query, 1, true) ~= nil
 or (section.searchTitle ~= nil and string.find(section.searchTitle, query, 1, true) ~= nil)
 handle.Frame.Visible = match and not handle.Hidden
+if handle.Highlight then
+handle:Highlight(if match then query else nil)
+end
 if match then
 total += 1
 counts[section] = (counts[section] or 0) + 1
@@ -2191,19 +2435,43 @@ LayoutOrder = 1,
 Theme = { TextColor3 = "textMuted" },
 Parent = button,
 })
-self.bar = nil
+self.bar, self.inner = nil, nil
+local look = Styles.pick("TabIndicator", nil, self.window)
+self.look = look
+local function marker()
+local frame = Create.new("Frame", {
+Name = "Marker",
+Visible = false,
+ZIndex = 2,
+Theme = { BackgroundColor3 = "accent" },
+})
+Create.corner(-1, frame)
+if look.marker == "under" then
+frame.Size = UDim2.new(0.6, 0, 0, 2)
+frame.AnchorPoint = Vector2.new(0.5, 1)
+frame.Position = UDim2.new(0.5, 0, 1, 0)
+elseif look.marker == "dot" then
+frame.Size = UDim2.fromOffset(6, 6)
+frame.AnchorPoint = Vector2.new(1, 0.5)
+frame.Position = UDim2.new(1, -8, 0.5, 0)
+elseif style == "Sidebar" then
+frame.Size = UDim2.fromOffset(3, 16)
+frame.AnchorPoint = Vector2.new(0, 0.5)
+frame.Position = UDim2.fromScale(0, 0.5)
+else
+frame.Size = if style == "Rail" then UDim2.fromOffset(3, 18) else UDim2.new(0.5, 0, 0, 3)
+frame.AnchorPoint = if style == "Rail" then Vector2.new(0, 0.5) else Vector2.new(0.5, 1)
+frame.Position = if style == "Rail" then UDim2.fromScale(0, 0.5) else UDim2.new(0.5, 0, 1, 0)
+end
+return frame
+end
+if look.glow then
+self.glow = Create.new("UIStroke", { Thickness = 1.5, Transparency = 1, Theme = { Color = "accent" }, Parent = button })
+else
+self.glow = nil
+end
 if style == "Sidebar" then
 button.Size = UDim2.new(1, 0, 0, if self.library.touch then 44 else 36)
-self.bar = Create.new("Frame", {
-Name = "Marker",
-Size = UDim2.fromOffset(3, 16),
-AnchorPoint = Vector2.new(0, 0.5),
-Position = UDim2.fromScale(0, 0.5),
-Visible = false,
-Theme = { BackgroundColor3 = "accent" },
-Parent = button,
-})
-Create.corner(-1, self.bar)
 icon.AnchorPoint = Vector2.new(0, 0.5)
 icon.Position = UDim2.new(0, 10, 0.5, 0)
 label.Position = UDim2.fromOffset(38, 0)
@@ -2220,22 +2488,37 @@ icon.AnchorPoint = Vector2.new(0.5, 0.5)
 icon.Position = UDim2.fromScale(0.5, 0.5)
 label.Visible = false
 elseif style == "Top" then
-button.Size = UDim2.fromOffset(0, if self.library.touch then 40 else 32)
-button.AutomaticSize = Enum.AutomaticSize.X
-Create.padding(button, 12, 0)
-Create.list(button, "Horizontal", 6)
+local height = if self.library.touch then 40 else 32
+local inner = Create.new("Frame", { Name = "Inner", Size = UDim2.fromOffset(0, height), AutomaticSize = Enum.AutomaticSize.X, Parent = button })
+Create.padding(inner, 12, 0)
+Create.list(inner, "Horizontal", 6)
+icon.Parent, label.Parent = inner, inner
 label.Size = UDim2.fromScale(0, 1)
 label.AutomaticSize = Enum.AutomaticSize.X
 label.TextSize = 13
+local function fit()
+button.Size = UDim2.fromOffset(inner.AbsoluteSize.X / self.library.scale, height)
+end
+scope:connect(inner:GetPropertyChangedSignal("AbsoluteSize"), fit)
+button.Size = UDim2.fromOffset(80, height)
+fit()
+self.inner = inner
 else
 button.Size = UDim2.new(0, 72, 1, 0)
-Create.list(button, "Vertical", 3, {
+local inner = Create.new("Frame", { Name = "Inner", Size = UDim2.fromScale(1, 1), Parent = button })
+Create.list(inner, "Vertical", 3, {
 HorizontalAlignment = Enum.HorizontalAlignment.Center,
 VerticalAlignment = Enum.VerticalAlignment.Center,
 })
+icon.Parent, label.Parent = inner, inner
 label.Size = UDim2.new(1, -4, 0, 14)
 label.TextSize = 12
 label.TextXAlignment = Enum.TextXAlignment.Center
+self.inner = inner
+end
+if look.marker then
+self.bar = marker()
+self.bar.Parent = button
 end
 local mark = self.badge
 if mark ~= nil and mark ~= false then
@@ -2250,7 +2533,7 @@ Weight = "bold",
 ZIndex = 3,
 LayoutOrder = 3,
 Theme = { BackgroundColor3 = "accent", TextColor3 = "onAccent" },
-Parent = button,
+Parent = if style == "Top" then self.inner else button,
 })
 Create.corner(-1, pill)
 if not dot then
@@ -2289,9 +2572,20 @@ Theme.bind(self.buttonLabel, "TextColor3", textRole)
 self.buttonLabel.FontFace = Create.font(if selected then "bold" else "medium")
 self.buttonLabel.TextTransparency = if dimmed then 0.5 else 0
 self.buttonIcon.ImageTransparency = if dimmed then 0.5 else 0
-Motion.tween(self.button, "fast", { BackgroundTransparency = if selected then 0 else 1 })
+local look = self.look or {}
+if selected and look.text then
+Theme.bind(self.buttonLabel, "TextColor3", look.text)
+end
+if selected and (look.icon or look.text) then
+Theme.bind(self.buttonIcon, "ImageColor3", look.icon or (if look.text == "onAccent" then "onAccent" else "accent"))
+end
+Theme.bind(self.button, "BackgroundColor3", if selected and look.fill then look.fill else "raised")
+Motion.tween(self.button, "fast", { BackgroundTransparency = if selected and look.fill then look.fillTransparency or 0 else 1 })
 if self.bar then
 self.bar.Visible = selected
+end
+if self.glow then
+Motion.tween(self.glow, "fast", { Transparency = if selected then 0.35 else 1 })
 end
 if self.lock then
 self.lock.Visible = not self.window:allows(self.tier)
@@ -2356,6 +2650,23 @@ end
 for _, name in { "Topbar", "Pill", "Chip" } do
 Styles.register("Minimize", name, {})
 end
+Styles.register("Window", "Solid", {})
+Styles.register("Window", "Glass", { transparency = 0.14, sheen = true, edge = "text", edgeTransparency = 0.82 })
+Styles.register("Window", "Gradient", { gradient = true })
+Styles.register("Window", "Image", { image = true })
+Styles.register("Open", "Pop", { scale = 0.96 })
+Styles.register("Open", "Zoom", { scale = 0.86, timing = "spring" })
+Styles.register("Open", "Rise", { offset = Vector2.new(0, 18), scale = 0.99 })
+Styles.register("Open", "Drop", { offset = Vector2.new(0, -18), scale = 0.99 })
+Styles.register("Open", "Slide", { offset = Vector2.new(-28, 0) })
+Styles.register("Open", "Unroll", { unroll = true })
+Styles.register("Open", "None", {})
+Styles.register("PageTransition", "Rise", { offset = Vector2.new(0, 8) })
+Styles.register("PageTransition", "Slide", { offset = Vector2.new(16, 0) })
+Styles.register("PageTransition", "None", {})
+Styles.register("Controls", "Default", {})
+Styles.register("Controls", "Mac", { dots = true })
+local SNAP = 18
 local SHADOW_IMAGE = "rbxassetid://8992230677"
 local SHADOW_SPREAD = 50
 local MIN_SIZE = Vector2.new(420, 300)
@@ -2486,6 +2797,7 @@ Create.new("UISizeConstraint", { MinSize = Vector2.new(240, 48), MaxSize = Vecto
 if options.Shadow ~= false then
 self:buildShadow()
 end
+self:buildSurface()
 self:buildTopbar()
 self.body = Create.new("Frame", {
 Name = "Body",
@@ -2602,11 +2914,112 @@ scope:connect(self.uiScale:GetPropertyChangedSignal("Scale"), follow)
 follow()
 self.shadow = shadow
 end
-function Window:pop()
-if self.root.Visible then
-self.uiScale.Scale = self.scale * 0.96
-Motion.tween(self.uiScale, "base", { Scale = self.scale })
+function Window:buildSurface()
+local look = Styles.pick("Window", nil, self)
+local root, options = self.root, self.options
+self.surfaceLook = look
+if look.edge then
+local stroke = root:FindFirstChildOfClass("UIStroke")
+Theme.bind(stroke, "Color", look.edge)
+stroke.Transparency = look.edgeTransparency or 0
 end
+if look.sheen then
+Create.new("Frame", {
+Name = "Sheen",
+Size = UDim2.new(1, 0, 0, 140),
+ZIndex = 0,
+BackgroundColor3 = Color3.new(1, 1, 1),
+BackgroundTransparency = 0.94,
+Parent = root,
+}, {
+Create.new("UIGradient", {
+Rotation = 90,
+Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
+}),
+})
+end
+if look.gradient then
+local gradient = Create.new("UIGradient", { Rotation = 35, Parent = root })
+local function tint()
+local base = Theme.color("background")
+gradient.Color = ColorSequence.new(base:Lerp(Theme.color("accent"), 0.1), base)
+end
+tint()
+Theme.unbind(root, "BackgroundColor3")
+root.BackgroundColor3 = Color3.new(1, 1, 1)
+self.scope:connect(Theme.Changed, tint)
+end
+if look.image or options.BackgroundImage then
+local image = Create.new("ImageLabel", {
+Name = "Backdrop",
+Size = UDim2.fromScale(1, 1),
+ZIndex = 0,
+Image = tostring(options.BackgroundImage or ""),
+ScaleType = Enum.ScaleType.Crop,
+ImageTransparency = math.clamp(tonumber(options.BackgroundImageTransparency) or 0.75, 0, 1),
+Parent = root,
+})
+Create.corner(12, image)
+self.backdrop = image
+end
+self:SetTransparency(tonumber(options.Transparency) or look.transparency or 0)
+end
+function Window:SetTransparency(value)
+self.transparency = math.clamp(tonumber(value) or 0, 0, 0.6)
+self.root.BackgroundTransparency = self.transparency
+return self.transparency
+end
+function Window:pop()
+if not self.root.Visible then
+return
+end
+self.motionGeneration = (self.motionGeneration or 0) + 1
+local look = Styles.pick("Open", nil, self)
+if Motion.reduced then
+return
+end
+local timing = look.timing or "base"
+if look.scale then
+self.uiScale.Scale = self.scale * look.scale
+Motion.tween(self.uiScale, timing, { Scale = self.scale })
+end
+if look.offset then
+local rest = self.root.Position
+self.root.Position = rest + UDim2.fromOffset(look.offset.X, look.offset.Y)
+Motion.tween(self.root, timing, { Position = rest })
+end
+if look.unroll and not self.minimized then
+local rest = self.root.Size
+self.root.Size = UDim2.fromOffset(rest.X.Offset, TOPBAR)
+Motion.tween(self.root, "slow", { Size = rest })
+end
+end
+function Window:unpop(done)
+self.motionGeneration = (self.motionGeneration or 0) + 1
+local generation = self.motionGeneration
+local look = Styles.pick("Open", nil, self)
+if Motion.reduced or not self.styles.Open or not self.root.Visible or not (look.scale or look.offset or look.unroll) then
+done()
+return
+end
+if look.scale then
+Motion.tween(self.uiScale, "fast", { Scale = self.scale * look.scale })
+end
+local rest = self.root.Position
+if look.offset then
+Motion.tween(self.root, "fast", { Position = rest + UDim2.fromOffset(look.offset.X, look.offset.Y) })
+end
+if look.unroll then
+Motion.tween(self.root, "fast", { Size = UDim2.fromOffset(self.root.Size.X.Offset, TOPBAR) })
+end
+task.delay(0.13, function()
+if generation ~= self.motionGeneration or self.scope.cleaned then
+return
+end
+done()
+self.uiScale.Scale = self.scale
+self:layout()
+end)
 end
 function Window:buildTopbar()
 local scope = self.scope
@@ -2705,7 +3118,7 @@ Parent = actions,
 })
 Create.list(self.chipHolder, "Horizontal", 0)
 local function action(icon, order, callback)
-local button = Create.new("TextButton", { Name = icon, Size = UDim2.new(0, 40, 1, 0), LayoutOrder = order, Parent = actions })
+local button = Create.new("TextButton", { Name = icon, Size = UDim2.new(0, if self.library.touch then 44 else 40, 1, 0), LayoutOrder = order, Parent = actions })
 local glyph = centred(Create.icon(icon, 16, "textMuted", button))
 scope:connect(button.MouseEnter, function()
 Theme.bind(glyph, "ImageColor3", "text")
@@ -2716,6 +3129,15 @@ end)
 scope:connect(button.Activated, callback)
 return glyph
 end
+self.topbarActions, self.topbarAction = actions, action
+if self.options.SidebarToggle then
+action("panel-left", 1.5, function()
+self:SetTabStyle(if self.tabStyle == "Sidebar" then "Rail" else "Sidebar")
+end)
+end
+if Styles.pick("Controls", nil, self).dots then
+self:buildDots(brand)
+else
 if self.options.Minimizable ~= false then
 self.minimizeGlyph = action("minus", 2, function()
 self:Minimize(not self.minimized)
@@ -2724,14 +3146,104 @@ end
 action("x", 3, function()
 self:Hide()
 end)
+end
 Drag.move(scope, topbar, self.root, {
 onMoved = function()
 local corner = self.root.AbsolutePosition - self.gui.AbsolutePosition
-self.placed = Vector2.new(math.round(corner.X), math.round(corner.Y))
+self.placed = self:snap(Vector2.new(math.round(corner.X), math.round(corner.Y)))
 self:layout()
 self:savePreferences()
 end,
 })
+end
+function Window:buildDots(brand)
+local scope = self.scope
+local size = if self.library.touch then 18 else 13
+local group = Create.new("Frame", { Name = "Dots", Size = UDim2.fromOffset(size * 3 + 16, size), LayoutOrder = -1, Parent = brand })
+Create.list(group, "Horizontal", 8)
+local glyphs = {}
+local function dot(role, icon, order, callback)
+local button = Create.new("TextButton", { Name = icon, Size = UDim2.fromOffset(size, size), LayoutOrder = order, Theme = { BackgroundColor3 = role }, Parent = group })
+Create.corner(-1, button)
+local glyph = centred(Create.icon(icon, size - 5, "background", button))
+glyph.ImageTransparency = 1
+table.insert(glyphs, glyph)
+scope:connect(button.Activated, callback)
+return glyph
+end
+dot("danger", "x", 1, function()
+self:Hide()
+end)
+if self.options.Minimizable ~= false then
+self.minimizeGlyph = dot("warning", "minus", 2, function()
+self:Minimize(not self.minimized)
+end)
+end
+dot("success", "maximize-2", 3, function()
+local large = Vector2.new(1100, 700)
+if self.size.X >= large.X and self.size.Y >= large.Y and self.smallSize then
+self.size, self.smallSize = self.smallSize, nil
+else
+self.smallSize, self.size = self.size, large
+end
+self:layout()
+self:savePreferences()
+end)
+scope:connect(group.MouseEnter, function()
+for _, glyph in glyphs do
+Motion.tween(glyph, "fast", { ImageTransparency = 0.2 })
+end
+end)
+scope:connect(group.MouseLeave, function()
+for _, glyph in glyphs do
+Motion.tween(glyph, "fast", { ImageTransparency = 1 })
+end
+end)
+end
+function Window:snap(corner)
+if not self.options.Snap then
+return corner
+end
+local view = self.gui.AbsoluteSize
+local shown = self.root.AbsoluteSize
+local margin = 8
+local x, y = corner.X, corner.Y
+if math.abs(x - margin) < SNAP then
+x = margin
+elseif math.abs(x + shown.X - (view.X - margin)) < SNAP then
+x = view.X - margin - shown.X
+elseif math.abs(x + shown.X / 2 - view.X / 2) < SNAP then
+x = view.X / 2 - shown.X / 2
+end
+if math.abs(y - margin) < SNAP then
+y = margin
+elseif math.abs(y + shown.Y - (view.Y - margin)) < SNAP then
+y = view.Y - margin - shown.Y
+end
+return Vector2.new(math.round(x), math.round(y))
+end
+function Window:AddTopbarButton(options)
+options = options or {}
+self.extraButtons = (self.extraButtons or 0) + 1
+local glyph = self.topbarAction(options.Icon or "circle", 1 + self.extraButtons / 100, function()
+Env.call("Top bar button", options.Callback)
+end)
+local button = glyph.Parent
+return {
+Destroy = function()
+button:Destroy()
+end,
+}
+end
+function Window:SetEnabled(enabled)
+self.disabledAll = enabled == false
+for _, tab in self.tabs do
+for _, entry in tab.entries do
+if entry.handle.SetBlocked then
+entry.handle:SetBlocked(self.disabledAll or (entry.section and entry.section.switchedOff == true))
+end
+end
+end
 end
 function Window:buildGrip()
 local grip = Create.new("TextButton", {
@@ -2776,7 +3288,7 @@ self.grip.Visible = not folded
 end
 local narrow = width < NARROW
 local style = self.tabStyle
-if narrow and LANES[style] then
+if narrow and self:lane(style) then
 style = "Top"
 end
 if style ~= self.activeStyle then
@@ -2784,7 +3296,7 @@ self.activeStyle = style
 self:buildNav()
 end
 self.searchFrame.Size = UDim2.fromOffset(if narrow then 104 else 170, 30)
-self.wide = width - (LANES[style] or 0) >= COLUMNS
+self.wide = width - (self:lane(style) or 0) >= COLUMNS
 for _, tab in self.tabs do
 tab:reflow(self.wide)
 end
@@ -2796,6 +3308,12 @@ math.round(math.clamp(corner.Y, 0, math.max(view.Y - shown.Y, 0)))
 )
 self.root.Position = UDim2.fromOffset(corner.X + shown.X / 2, corner.Y + shown.Y / 2)
 end
+function Window:lane(style)
+if style == "Sidebar" and tonumber(self.options.SidebarWidth) then
+return math.clamp(math.floor(self.options.SidebarWidth), 150, 280)
+end
+return LANES[style]
+end
 function Window:buildNav()
 if self.navScope then
 self.scope:release(self.navScope)
@@ -2804,7 +3322,7 @@ Popup.close(self.library)
 local scope = self.scope:child()
 self.navScope = scope
 local style = self.activeStyle
-local lane, strip = LANES[style], STRIPS[style]
+local lane, strip = self:lane(style), STRIPS[style]
 local host = Create.new("Frame", { Name = "Navigation", Parent = self.body })
 scope:add(host)
 local seam = Hairline.new(if lane then "Y" else "X", "stroke", { ZIndex = 2, Parent = host })
@@ -2958,8 +3476,13 @@ self.selected.page.Visible = false
 end
 self.selected = tab
 tab.page.Visible = true
-tab.page.Position = UDim2.fromOffset(0, 8)
+local arrive = Styles.pick("PageTransition", nil, self)
+if arrive.offset and not Motion.reduced then
+tab.page.Position = UDim2.fromOffset(arrive.offset.X, arrive.offset.Y)
 Motion.tween(tab.page, "base", { Position = UDim2.fromOffset(0, 0) })
+else
+tab.page.Position = UDim2.fromOffset(0, 0)
+end
 self:paintTabs()
 self.TabChanged:Fire(tab)
 end
@@ -3132,7 +3655,11 @@ end
 function Window:Hide()
 Popup.close(self.library)
 self.Visible = false
+self:unpop(function()
+if not self.Visible then
 self:refreshVisibility()
+end
+end)
 if not self.openButton.Visible and not self.hinted and self.toggleKey then
 self.hinted = true
 self:Notify({ Title = "Menu hidden", Content = `Press {self.toggleKey.Name} to open it again.` })
@@ -4721,6 +5248,11 @@ SectionStyle = "Section",
 ButtonEffect = "ButtonEffect",
 TabStyle = "Navigation",
 MinimizeStyle = "Minimize",
+WindowStyle = "Window",
+OpenAnimation = "Open",
+PageTransition = "PageTransition",
+TopbarControls = "Controls",
+TabIndicator = "TabIndicator",
 }
 function Styles.defaults(options)
 local chosen = {}
@@ -5338,6 +5870,15 @@ return handle
 end
 return Buttons
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX2">
+<Properties>
+<string name="Name">Part02</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Choices"] = function()
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
@@ -5954,15 +6495,6 @@ return handle
 end
 return Countdown
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX2">
-<Properties>
-<string name="Name">Part02</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/DatePicker"] = function()
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
@@ -7465,6 +7997,7 @@ error(problem, 3)
 end
 local handle = MODULES[kind].new(container, options)
 handle.Kind = kind
+handle.ownerWindow = window
 window:claimFlag(options.Flag, handle)
 local entry = { handle = handle, section = container.section }
 table.insert(container.entries, entry)
@@ -7488,10 +8021,43 @@ handle.MissingText = "Needs " .. table.concat(missing, ", ")
 handle:Lock(handle.MissingText, "wrench")
 end
 end
+if handle.SetBlocked and ((container.section and container.section.switchedOff) or window.disabledAll) then
+handle:SetBlocked(true)
+end
+function handle.ShowWhen(target, source, expected)
+Registry.follow(target, source, expected)
+end
 if window.query ~= "" then
 window:applySearch()
 end
 return handle
+end
+function Registry.follow(target, source, expected)
+local window = target.window or target.ownerWindow
+if type(source) == "string" then
+source = window and window.Flags[source]
+end
+if type(source) ~= "table" or not source.Changed or not source.Get then
+error("ShowWhen needs an element, or the Flag of one made before it", 3)
+end
+if expected == nil then
+expected = true
+end
+local function check()
+local value = source:Get()
+local shown
+if type(expected) == "function" then
+local ok, result = pcall(expected, value)
+shown = ok and result == true
+elseif type(value) == "table" then
+shown = table.find(value, expected) ~= nil
+else
+shown = value == expected
+end
+target:SetVisible(shown)
+end
+target.scope:connect(source.Changed, check)
+check()
 end
 function Registry.install(container)
 for kind in MODULES do
@@ -7744,7 +8310,7 @@ local handle = { Frame = frame, Title = options.Title or "", Changed = Signal.ne
 scope:add(handle.Changed)
 row.handle = handle
 function refresh()
-veil.Visible = state.disabled or state.locked
+veil.Visible = state.disabled or state.locked or state.blocked
 lock.Visible = state.locked and not state.quiet
 makeRoom()
 if slot then
@@ -7780,6 +8346,34 @@ function handle:SetDisabled(disabled)
 state.disabled = disabled == true
 refresh()
 end
+function handle:SetBlocked(blocked)
+state.blocked = blocked == true
+refresh()
+end
+function handle:Highlight(query)
+if not title then
+return
+end
+local plain = self.Title
+local from, to = nil, nil
+if query and query ~= "" then
+from, to = string.find(string.lower(plain), query, 1, true)
+end
+if not from then
+title.RichText = false
+title.Text = plain
+return
+end
+local function escape(text)
+return (string.gsub(string.gsub(string.gsub(text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;"))
+end
+title.RichText = true
+title.Text = escape(string.sub(plain, 1, from - 1))
+.. `<font color="#{Theme.color("accent"):ToHex()}">`
+.. escape(string.sub(plain, from, to))
+.. "</font>"
+.. escape(string.sub(plain, to + 1))
+end
 function handle:Lock(reason, icon, quiet)
 state.locked, state.reason, state.quiet = true, reason or "Locked", quiet == true
 Icons.apply(lockIcon, icon or "lock")
@@ -7790,7 +8384,7 @@ state.locked = false
 refresh()
 end
 function handle:IsLocked()
-return state.locked or state.disabled
+return state.locked or state.disabled or state.blocked == true
 end
 function handle:SetVisible(visible)
 self.Hidden = not visible
@@ -8741,7 +9335,7 @@ Parent = area,
 local function fit()
 local width = area.AbsoluteSize.X / row.library.scale
 local shown = if width > 0 and width < 300 then math.min(columns, 2) else columns
-grid.CellSize = UDim2.new(1 / shown, -GAP * (shown - 1) / shown, 0, height)
+grid.CellSize = UDim2.new(1 / shown, -GAP * (shown - 1) / shown - 1, 0, height)
 end
 scope:connect(area:GetPropertyChangedSignal("AbsoluteSize"), fit)
 fit()
