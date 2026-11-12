@@ -48,7 +48,14 @@ function Hud.watermark(window, options)
 	if window.Icon then
 		Create.icon(window.Icon, 14, "accent", pill)
 	end
-	local label = Create.new("TextLabel", { AutomaticSize = Enum.AutomaticSize.XY, TextSize = 12, Weight = "medium", LayoutOrder = 1, Theme = { TextColor3 = "text" }, Parent = pill })
+	local label = Create.new("TextLabel", {
+		AutomaticSize = Enum.AutomaticSize.XY,
+		TextSize = 12,
+		Weight = "medium",
+		LayoutOrder = 1,
+		Theme = { TextColor3 = "text" },
+		Parent = pill,
+	})
 
 	local function text(field)
 		if type(field) == "function" then
@@ -114,8 +121,20 @@ function Hud.keybindList(window, options)
 	Create.stroke("stroke", panel)
 	Create.padding(panel, 12, 10)
 	Create.list(panel, "Vertical", 6)
-	Create.new("TextLabel", { Size = UDim2.new(1, 0, 0, 16), Text = options.Title or "Keybinds", TextSize = 12, Weight = "bold", Theme = { TextColor3 = "textMuted" }, Parent = panel })
-	local rows = Create.new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = panel })
+	Create.new("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 16),
+		Text = options.Title or "Keybinds",
+		TextSize = 12,
+		Weight = "bold",
+		Theme = { TextColor3 = "textMuted" },
+		Parent = panel,
+	})
+	local rows = Create.new("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = 1,
+		Parent = panel,
+	})
 
 	local function draw()
 		rows:ClearAllChildren()

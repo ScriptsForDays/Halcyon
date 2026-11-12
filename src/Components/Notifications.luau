@@ -110,6 +110,7 @@ local function show(library, state, toast)
 	-- The card slides in from the side of the screen it sits on.
 	local card = Create.new("TextButton", {
 		Name = "Card",
+		Text = "",
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Position = UDim2.fromOffset(28 * state.side, 0),
@@ -121,7 +122,14 @@ local function show(library, state, toast)
 	Create.stroke("stroke", card)
 	if style == "Banner" then
 		-- Inset from the card's rounded corners, so its ends never poke past them.
-		local strip = Create.new("Frame", { Name = "Strip", Size = UDim2.new(1, -24, 0, 3), Position = UDim2.fromOffset(12, 0), ZIndex = 2, Theme = { BackgroundColor3 = kind.role }, Parent = card })
+		local strip = Create.new("Frame", {
+			Name = "Strip",
+			Size = UDim2.new(1, -24, 0, 3),
+			Position = UDim2.fromOffset(12, 0),
+			ZIndex = 2,
+			Theme = { BackgroundColor3 = kind.role },
+			Parent = card,
+		})
 		Create.corner(-1, strip)
 	end
 
@@ -166,15 +174,32 @@ local function show(library, state, toast)
 	end
 
 	if style == "Progress" then
-		local rail = Create.new("Frame", { Name = "Progress", Size = UDim2.new(1, 0, 0, 4), LayoutOrder = 3, Theme = { BackgroundColor3 = "raised" }, Parent = text })
+		local rail = Create.new("Frame", {
+			Name = "Progress",
+			Size = UDim2.new(1, 0, 0, 4),
+			LayoutOrder = 3,
+			Theme = { BackgroundColor3 = "raised" },
+			Parent = text,
+		})
 		Create.corner(-1, rail)
-		toast.fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(toast.value, 1), Theme = { BackgroundColor3 = kind.role }, Parent = rail })
+		toast.fill = Create.new("Frame", {
+			Name = "Fill",
+			Size = UDim2.fromScale(toast.value, 1),
+			Theme = { BackgroundColor3 = kind.role },
+			Parent = rail,
+		})
 		Create.corner(-1, toast.fill)
 	end
 
 	-- Buttons of the notice's own: each runs its Callback and dismisses it.
 	if not compact and type(options.Actions) == "table" and #options.Actions > 0 then
-		local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = text })
+		local actions = Create.new("Frame", {
+			Name = "Actions",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = 2,
+			Parent = text,
+		})
 		Create.padding(actions, 0, 6, 0, 0)
 		Create.list(actions, "Horizontal", 6, { Wraps = true })
 		for index, settings in options.Actions do
@@ -186,7 +211,10 @@ local function show(library, state, toast)
 				Text = settings.Title or "",
 				TextSize = 12,
 				Weight = "medium",
-				Theme = { BackgroundColor3 = if index == 1 then "accent" else "raised", TextColor3 = if index == 1 then "onAccent" else "text" },
+				Theme = {
+					BackgroundColor3 = if index == 1 then "accent" else "raised",
+					TextColor3 = if index == 1 then "onAccent" else "text",
+				},
 				Parent = actions,
 			})
 			Create.corner(6, button)

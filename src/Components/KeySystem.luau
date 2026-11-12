@@ -67,7 +67,12 @@ local function remoteCheck(remote, key)
 			body = text
 		end
 	end
-	local ok, response, status = Env.http({ Url = url, Method = method, Headers = remote.Headers or { ["Content-Type"] = "application/json" }, Body = body })
+	local ok, response, status = Env.http({
+		Url = url,
+		Method = method,
+		Headers = remote.Headers or { ["Content-Type"] = "application/json" },
+		Body = body,
+	})
 	if type(remote.Accept) == "function" then
 		local valid, detail = remote.Accept(response, status)
 		return valid == true, detail
@@ -263,9 +268,20 @@ function KeySystem.prompt(library, options, context)
 
 	-- Header: an accent tile carrying the icon, the title, the note and the
 	-- close button.
-	local header = Create.new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = card })
+	local header = Create.new("Frame", {
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = card,
+	})
 	Create.list(header, "Horizontal", 12, { VerticalAlignment = Enum.VerticalAlignment.Top })
-	local tile = Create.new("Frame", { Name = "Tile", Size = UDim2.fromOffset(44, 44), BackgroundTransparency = 0.85, Theme = { BackgroundColor3 = "accent" }, Parent = header })
+	local tile = Create.new("Frame", {
+		Name = "Tile",
+		Size = UDim2.fromOffset(44, 44),
+		BackgroundTransparency = 0.85,
+		Theme = { BackgroundColor3 = "accent" },
+		Parent = header,
+	})
 	Create.corner(12, tile)
 	Create.new("UIStroke", { Transparency = 0.55, Theme = { Color = "accent" }, Parent = tile })
 	local glyph = Create.icon(options.Icon or "key-round", 22, "accent", tile)
@@ -308,7 +324,13 @@ function KeySystem.prompt(library, options, context)
 	-- One card per tier, side by side: icon, name, and what it takes.
 	local cards = {}
 	if #tiers > 1 then
-		local group = Create.new("Frame", { Name = "Tiers", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = card })
+		local group = Create.new("Frame", {
+			Name = "Tiers",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = 2,
+			Parent = card,
+		})
 		Create.list(group, "Horizontal", 8, { VerticalAlignment = Enum.VerticalAlignment.Top })
 		for index, tier in tiers do
 			local paid = paidRank ~= nil and index >= paidRank
@@ -345,7 +367,13 @@ function KeySystem.prompt(library, options, context)
 				Theme = { TextColor3 = "text" },
 				Parent = top,
 			}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
-			local check = Create.new("Frame", { Name = "Check", Size = UDim2.fromOffset(16, 16), LayoutOrder = 2, Theme = { BackgroundColor3 = "accent" }, Parent = top })
+			local check = Create.new("Frame", {
+				Name = "Check",
+				Size = UDim2.fromOffset(16, 16),
+				LayoutOrder = 2,
+				Theme = { BackgroundColor3 = "accent" },
+				Parent = top,
+			})
 			Create.corner(-1, check)
 			local tick = Create.icon("check", 11, "onAccent", check)
 			tick.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -370,7 +398,13 @@ function KeySystem.prompt(library, options, context)
 
 	-- The key field: an icon, then the box, inside one outlined surface that
 	-- lights up while it has focus.
-	local field = Create.new("Frame", { Name = "Field", Size = UDim2.new(1, 0, 0, 46), LayoutOrder = 4, Theme = { BackgroundColor3 = "raised" }, Parent = card })
+	local field = Create.new("Frame", {
+		Name = "Field",
+		Size = UDim2.new(1, 0, 0, 46),
+		LayoutOrder = 4,
+		Theme = { BackgroundColor3 = "raised" },
+		Parent = card,
+	})
 	Create.corner(10, field)
 	local fieldEdge = Create.stroke("stroke", field, 1.5)
 	local keyIcon = Create.icon("key-round", 16, "textMuted", field)
@@ -401,7 +435,13 @@ function KeySystem.prompt(library, options, context)
 	Create.list(actions, "Horizontal", 8)
 	local getKey = Dialog.button(scope, actions, { Name = "GetKey", Size = UDim2.fromScale(0, 1), LayoutOrder = 1, Effect = effect })
 	Create.stroke("stroke", getKey)
-	local verify = Dialog.button(scope, actions, { Name = "Verify", Variant = "Primary", Size = UDim2.fromScale(0, 1), LayoutOrder = 2, Effect = effect })
+	local verify = Dialog.button(scope, actions, {
+		Name = "Verify",
+		Variant = "Primary",
+		Size = UDim2.fromScale(0, 1),
+		LayoutOrder = 2,
+		Effect = effect,
+	})
 	for _, button in { getKey, verify } do
 		Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill, Parent = button })
 	end

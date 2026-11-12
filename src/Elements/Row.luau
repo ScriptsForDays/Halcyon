@@ -111,7 +111,12 @@ function Row.new(container, options, layout)
 	Create.corner(8, frame)
 	scope:add(frame)
 
-	local content = Create.new("Frame", { Name = "Content", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = frame })
+	local content = Create.new("Frame", {
+		Name = "Content",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = frame,
+	})
 	Create.padding(content, 12, if layout.compact then 4 else 8)
 	Create.list(content, "Vertical", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
 	if not layout.compact then
@@ -394,7 +399,13 @@ function Row.new(container, options, layout)
 
 	-- A full-width area under the title line, for sliders and progress bars.
 	function row.belowTitle()
-		return Create.new("Frame", { Name = "Below", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = content })
+		return Create.new("Frame", {
+			Name = "Below",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = 2,
+			Parent = content,
+		})
 	end
 
 	-- A tag beside the title (Badge) and an info icon that opens a longer

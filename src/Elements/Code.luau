@@ -34,7 +34,13 @@ function Code.new(container, options)
 		Theme = { TextColor3 = "textMuted" },
 		Parent = header,
 	})
-	local copy = Create.new("TextButton", { Name = "Copy", Size = UDim2.fromOffset(44, 36), AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Parent = header })
+	local copy = Create.new("TextButton", {
+		Name = "Copy",
+		Size = UDim2.fromOffset(44, 36),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Parent = header,
+	})
 	local glyph = Create.icon("copy", 14, "textMuted", copy)
 	glyph.AnchorPoint = Vector2.new(0.5, 0.5)
 	glyph.Position = UDim2.fromScale(0.5, 0.5)

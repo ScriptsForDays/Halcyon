@@ -216,7 +216,12 @@ end
 return shell
 end
 function Dialog.heading(parent, title, icon)
-local head = Create.new("Frame", { Name = "Heading", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent })
+local head = Create.new("Frame", {
+Name = "Heading",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Parent = parent,
+})
 Create.list(head, "Horizontal", 10)
 if icon then
 Create.icon(icon, 20, "accent", head)
@@ -306,7 +311,14 @@ Create.list(pill, "Horizontal", 8)
 if window.Icon then
 Create.icon(window.Icon, 14, "accent", pill)
 end
-local label = Create.new("TextLabel", { AutomaticSize = Enum.AutomaticSize.XY, TextSize = 12, Weight = "medium", LayoutOrder = 1, Theme = { TextColor3 = "text" }, Parent = pill })
+local label = Create.new("TextLabel", {
+AutomaticSize = Enum.AutomaticSize.XY,
+TextSize = 12,
+Weight = "medium",
+LayoutOrder = 1,
+Theme = { TextColor3 = "text" },
+Parent = pill,
+})
 local function text(field)
 if type(field) == "function" then
 local ok, value = pcall(field)
@@ -365,8 +377,20 @@ Create.corner(10, panel)
 Create.stroke("stroke", panel)
 Create.padding(panel, 12, 10)
 Create.list(panel, "Vertical", 6)
-Create.new("TextLabel", { Size = UDim2.new(1, 0, 0, 16), Text = options.Title or "Keybinds", TextSize = 12, Weight = "bold", Theme = { TextColor3 = "textMuted" }, Parent = panel })
-local rows = Create.new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = panel })
+Create.new("TextLabel", {
+Size = UDim2.new(1, 0, 0, 16),
+Text = options.Title or "Keybinds",
+TextSize = 12,
+Weight = "bold",
+Theme = { TextColor3 = "textMuted" },
+Parent = panel,
+})
+local rows = Create.new("Frame", {
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 1,
+Parent = panel,
+})
 local function draw()
 rows:ClearAllChildren()
 Create.list(rows, "Vertical", 4)
@@ -455,7 +479,12 @@ local _, text = Env.encode({ key = key })
 body = text
 end
 end
-local ok, response, status = Env.http({ Url = url, Method = method, Headers = remote.Headers or { ["Content-Type"] = "application/json" }, Body = body })
+local ok, response, status = Env.http({
+Url = url,
+Method = method,
+Headers = remote.Headers or { ["Content-Type"] = "application/json" },
+Body = body,
+})
 if type(remote.Accept) == "function" then
 local valid, detail = remote.Accept(response, status)
 return valid == true, detail
@@ -621,9 +650,20 @@ local selected = tierIndex(tiers, options.DefaultTier) or 1
 local maxAttempts, cooldown = options.MaxAttempts or 5, options.Cooldown or 30
 local attempts, busy, locked = 0, false, false
 local effect = options.ButtonEffect or "Sweep"
-local header = Create.new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = card })
+local header = Create.new("Frame", {
+Name = "Header",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Parent = card,
+})
 Create.list(header, "Horizontal", 12, { VerticalAlignment = Enum.VerticalAlignment.Top })
-local tile = Create.new("Frame", { Name = "Tile", Size = UDim2.fromOffset(44, 44), BackgroundTransparency = 0.85, Theme = { BackgroundColor3 = "accent" }, Parent = header })
+local tile = Create.new("Frame", {
+Name = "Tile",
+Size = UDim2.fromOffset(44, 44),
+BackgroundTransparency = 0.85,
+Theme = { BackgroundColor3 = "accent" },
+Parent = header,
+})
 Create.corner(12, tile)
 Create.new("UIStroke", { Transparency = 0.55, Theme = { Color = "accent" }, Parent = tile })
 local glyph = Create.icon(options.Icon or "key-round", 22, "accent", tile)
@@ -664,7 +704,13 @@ scope:connect(close.Activated, shell.Close)
 Hairline.new("X", "stroke", { LayoutOrder = 1, Parent = card })
 local cards = {}
 if #tiers > 1 then
-local group = Create.new("Frame", { Name = "Tiers", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = card })
+local group = Create.new("Frame", {
+Name = "Tiers",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 2,
+Parent = card,
+})
 Create.list(group, "Horizontal", 8, { VerticalAlignment = Enum.VerticalAlignment.Top })
 for index, tier in tiers do
 local paid = paidRank ~= nil and index >= paidRank
@@ -701,7 +747,13 @@ LayoutOrder = 1,
 Theme = { TextColor3 = "text" },
 Parent = top,
 }, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
-local check = Create.new("Frame", { Name = "Check", Size = UDim2.fromOffset(16, 16), LayoutOrder = 2, Theme = { BackgroundColor3 = "accent" }, Parent = top })
+local check = Create.new("Frame", {
+Name = "Check",
+Size = UDim2.fromOffset(16, 16),
+LayoutOrder = 2,
+Theme = { BackgroundColor3 = "accent" },
+Parent = top,
+})
 Create.corner(-1, check)
 local tick = Create.icon("check", 11, "onAccent", check)
 tick.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -722,7 +774,13 @@ end
 end
 local description = Dialog.text(card, "", 3)
 description.TextSize = 12
-local field = Create.new("Frame", { Name = "Field", Size = UDim2.new(1, 0, 0, 46), LayoutOrder = 4, Theme = { BackgroundColor3 = "raised" }, Parent = card })
+local field = Create.new("Frame", {
+Name = "Field",
+Size = UDim2.new(1, 0, 0, 46),
+LayoutOrder = 4,
+Theme = { BackgroundColor3 = "raised" },
+Parent = card,
+})
 Create.corner(10, field)
 local fieldEdge = Create.stroke("stroke", field, 1.5)
 local keyIcon = Create.icon("key-round", 16, "textMuted", field)
@@ -752,7 +810,13 @@ local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0
 Create.list(actions, "Horizontal", 8)
 local getKey = Dialog.button(scope, actions, { Name = "GetKey", Size = UDim2.fromScale(0, 1), LayoutOrder = 1, Effect = effect })
 Create.stroke("stroke", getKey)
-local verify = Dialog.button(scope, actions, { Name = "Verify", Variant = "Primary", Size = UDim2.fromScale(0, 1), LayoutOrder = 2, Effect = effect })
+local verify = Dialog.button(scope, actions, {
+Name = "Verify",
+Variant = "Primary",
+Size = UDim2.fromScale(0, 1),
+LayoutOrder = 2,
+Effect = effect,
+})
 for _, button in { getKey, verify } do
 Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill, Parent = button })
 end
@@ -992,6 +1056,7 @@ Parent = state.holder,
 scope:add(slot)
 local card = Create.new("TextButton", {
 Name = "Card",
+Text = "",
 Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 Position = UDim2.fromOffset(28 * state.side, 0),
@@ -1002,7 +1067,14 @@ Parent = slot,
 Create.corner(if compact then -1 else 10, card)
 Create.stroke("stroke", card)
 if style == "Banner" then
-local strip = Create.new("Frame", { Name = "Strip", Size = UDim2.new(1, -24, 0, 3), Position = UDim2.fromOffset(12, 0), ZIndex = 2, Theme = { BackgroundColor3 = kind.role }, Parent = card })
+local strip = Create.new("Frame", {
+Name = "Strip",
+Size = UDim2.new(1, -24, 0, 3),
+Position = UDim2.fromOffset(12, 0),
+ZIndex = 2,
+Theme = { BackgroundColor3 = kind.role },
+Parent = card,
+})
 Create.corner(-1, strip)
 end
 local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = card })
@@ -1044,13 +1116,30 @@ Parent = text,
 })
 end
 if style == "Progress" then
-local rail = Create.new("Frame", { Name = "Progress", Size = UDim2.new(1, 0, 0, 4), LayoutOrder = 3, Theme = { BackgroundColor3 = "raised" }, Parent = text })
+local rail = Create.new("Frame", {
+Name = "Progress",
+Size = UDim2.new(1, 0, 0, 4),
+LayoutOrder = 3,
+Theme = { BackgroundColor3 = "raised" },
+Parent = text,
+})
 Create.corner(-1, rail)
-toast.fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(toast.value, 1), Theme = { BackgroundColor3 = kind.role }, Parent = rail })
+toast.fill = Create.new("Frame", {
+Name = "Fill",
+Size = UDim2.fromScale(toast.value, 1),
+Theme = { BackgroundColor3 = kind.role },
+Parent = rail,
+})
 Create.corner(-1, toast.fill)
 end
 if not compact and type(options.Actions) == "table" and #options.Actions > 0 then
-local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = text })
+local actions = Create.new("Frame", {
+Name = "Actions",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 2,
+Parent = text,
+})
 Create.padding(actions, 0, 6, 0, 0)
 Create.list(actions, "Horizontal", 6, { Wraps = true })
 for index, settings in options.Actions do
@@ -1062,7 +1151,10 @@ LayoutOrder = index,
 Text = settings.Title or "",
 TextSize = 12,
 Weight = "medium",
-Theme = { BackgroundColor3 = if index == 1 then "accent" else "raised", TextColor3 = if index == 1 then "onAccent" else "text" },
+Theme = {
+BackgroundColor3 = if index == 1 then "accent" else "raised",
+TextColor3 = if index == 1 then "onAccent" else "text",
+},
 Parent = actions,
 })
 Create.corner(6, button)
@@ -1378,7 +1470,12 @@ return true
 end
 local function avatar(window, scope, parent, size)
 local settings = window.profile
-local holder = Create.new("Frame", { Name = "Avatar", Size = UDim2.fromOffset(size, size), Theme = { BackgroundColor3 = "raised" }, Parent = parent })
+local holder = Create.new("Frame", {
+Name = "Avatar",
+Size = UDim2.fromOffset(size, size),
+Theme = { BackgroundColor3 = "raised" },
+Parent = parent,
+})
 Create.corner(-1, holder)
 if settings.Anonymous or settings.Avatar == "None" then
 local glyph = Create.icon("user", math.floor(size / 2), "textMuted", holder)
@@ -1419,7 +1516,12 @@ Parent = parent,
 end
 function Profile.card(window, scope, parent)
 local settings = window.profile
-local card = Create.new("Frame", { Name = "Profile", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent })
+local card = Create.new("Frame", {
+Name = "Profile",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Parent = parent,
+})
 Create.padding(card, 12, 10)
 Create.list(card, "Horizontal", 10)
 avatar(window, scope, card, 36)
@@ -1559,7 +1661,11 @@ end
 Create.list(root, "Vertical", 0)
 if options.Title then
 local collapsible = options.Collapsible ~= false
-local header = Create.new(if collapsible then "TextButton" else "Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, if flat then 32 else 40), Parent = root })
+local header = Create.new(if collapsible then "TextButton" else "Frame", {
+Name = "Header",
+Size = UDim2.new(1, 0, 0, if flat then 32 else 40),
+Parent = root,
+})
 Create.padding(header, if flat then 4 else 14, 0)
 Create.list(header, "Horizontal", 8)
 if options.Icon then
@@ -1584,7 +1690,13 @@ self:SetCollapsed(not self.collapsed)
 end)
 end
 end
-local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = root })
+local body = Create.new("Frame", {
+Name = "Body",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 1,
+Parent = root,
+})
 self.body = body
 local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
 if not flat then
@@ -1611,10 +1723,19 @@ Parent = self.body,
 })
 Create.corner(10, overlay)
 Create.new("UIStroke", { Transparency = 0.45, Theme = { Color = "accent" }, Parent = overlay })
-local wash = Create.new("Frame", { Name = "Wash", Size = UDim2.fromScale(1, 1), Theme = { BackgroundColor3 = "accent" }, Parent = overlay }, {
+local wash = Create.new("Frame", {
+Name = "Wash",
+Size = UDim2.fromScale(1, 1),
+Theme = { BackgroundColor3 = "accent" },
+Parent = overlay,
+}, {
 Create.new("UIGradient", {
 Rotation = 35,
-Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(0.6, 1), NumberSequenceKeypoint.new(1, 1) }),
+Transparency = NumberSequence.new({
+NumberSequenceKeypoint.new(0, 0.8),
+NumberSequenceKeypoint.new(0.6, 1),
+NumberSequenceKeypoint.new(1, 1),
+}),
 }),
 })
 Create.corner(10, wash)
@@ -1628,7 +1749,12 @@ ZIndex = 2,
 Parent = overlay,
 })
 Create.list(content, "Horizontal", 10)
-local disc = Create.new("Frame", { Name = "Disc", Size = UDim2.fromOffset(34, 34), Theme = { BackgroundColor3 = "accent" }, Parent = content })
+local disc = Create.new("Frame", {
+Name = "Disc",
+Size = UDim2.fromOffset(34, 34),
+Theme = { BackgroundColor3 = "accent" },
+Parent = content,
+})
 Create.corner(-1, disc)
 local icon = Create.icon("lock", 16, "onAccent", disc)
 icon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1907,7 +2033,12 @@ wide = false,
 local page = Create.new("ScrollingFrame", { Name = "Page", Size = UDim2.fromScale(1, 1), Visible = false, Parent = window.pages })
 local inset = Create.new("Frame", { Name = "Inset", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = page })
 Create.padding(inset, 12)
-local columns = Create.new("Frame", { Name = "Columns", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = inset })
+local columns = Create.new("Frame", {
+Name = "Columns",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Parent = inset,
+})
 self.page = page
 self.left = Create.new("Frame", { Name = "Left", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = columns })
 self.right = Create.new("Frame", {
@@ -1972,10 +2103,23 @@ self.matches = total
 return total
 end
 function Tab:buildButton(style, parent, scope, order)
-local button = Create.new("TextButton", { Name = "Tab", LayoutOrder = order, BackgroundTransparency = 1, Theme = { BackgroundColor3 = "raised" }, Parent = parent })
+local button = Create.new("TextButton", {
+Name = "Tab",
+LayoutOrder = order,
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = "raised" },
+Parent = parent,
+})
 Create.corner(8, button)
 local icon = Create.icon(self.Icon or "circle", if style == "Rail" or style == "Dock" then 20 else 18, "textMuted", button)
-local label = Create.new("TextLabel", { Name = "Title", Text = self.Title, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1, Theme = { TextColor3 = "textMuted" }, Parent = button })
+local label = Create.new("TextLabel", {
+Name = "Title",
+Text = self.Title,
+TextTruncate = Enum.TextTruncate.AtEnd,
+LayoutOrder = 1,
+Theme = { TextColor3 = "textMuted" },
+Parent = button,
+})
 self.bar = nil
 if style == "Sidebar" then
 button.Size = UDim2.new(1, 0, 0, if self.library.touch then 44 else 36)
@@ -2014,7 +2158,10 @@ label.AutomaticSize = Enum.AutomaticSize.X
 label.TextSize = 13
 else
 button.Size = UDim2.new(0, 72, 1, 0)
-Create.list(button, "Vertical", 3, { HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center })
+Create.list(button, "Vertical", 3, {
+HorizontalAlignment = Enum.HorizontalAlignment.Center,
+VerticalAlignment = Enum.VerticalAlignment.Center,
+})
 label.Size = UDim2.new(1, -4, 0, 14)
 label.TextSize = 12
 label.TextXAlignment = Enum.TextXAlignment.Center
@@ -2246,18 +2393,32 @@ library.scale = self.scale
 Hairline.setScale(self.scale)
 self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = library.displayOrder, Parent = Mount.parent() })
 self.scope:add(self.gui)
-self.root = centred(Create.new("Frame", { Name = "Window", Active = true, ClipsDescendants = true, Theme = { BackgroundColor3 = "background" }, Parent = self.gui }))
+self.root = centred(Create.new("Frame", {
+Name = "Window",
+Active = true,
+ClipsDescendants = true,
+Theme = { BackgroundColor3 = "background" },
+Parent = self.gui,
+}))
 Create.corner(12, self.root)
 Create.stroke("stroke", self.root)
 self.uiScale = Create.new("UIScale", { Scale = self.scale, Parent = self.root })
+Create.new("UISizeConstraint", { MinSize = Vector2.new(240, 48), MaxSize = Vector2.new(1600, 1000), Parent = self.root })
 if options.Shadow ~= false then
 self:buildShadow()
 end
 self:buildTopbar()
-self.body = Create.new("Frame", { Name = "Body", Position = UDim2.fromOffset(0, TOPBAR), Size = UDim2.new(1, 0, 1, -TOPBAR), ClipsDescendants = true, Parent = self.root })
+self.body = Create.new("Frame", {
+Name = "Body",
+Position = UDim2.fromOffset(0, TOPBAR),
+Size = UDim2.new(1, 0, 1, -TOPBAR),
+ClipsDescendants = true,
+Parent = self.root,
+})
 self.pages = Create.new("Frame", { Name = "Pages", Parent = self.body })
 self.empty = centred(Create.new("TextLabel", {
 Name = "Empty",
+Text = "",
 Size = UDim2.new(1, -32, 0, 40),
 TextWrapped = true,
 TextXAlignment = Enum.TextXAlignment.Center,
@@ -2431,7 +2592,12 @@ Create.list(actions, "Horizontal", 2, { HorizontalAlignment = Enum.HorizontalAli
 scope:connect(actions:GetPropertyChangedSignal("AbsoluteSize"), function()
 inset.PaddingRight = UDim.new(0, actions.AbsoluteSize.X / self.scale + 14)
 end)
-local search = Create.new("Frame", { Name = "Search", Size = UDim2.fromOffset(170, 30), Theme = { BackgroundColor3 = "raised" }, Parent = actions })
+local search = Create.new("Frame", {
+Name = "Search",
+Size = UDim2.fromOffset(170, 30),
+Theme = { BackgroundColor3 = "raised" },
+Parent = actions,
+})
 Create.corner(8, search)
 local glass = Create.icon("search", 14, "textMuted", search)
 glass.AnchorPoint = Vector2.new(0, 0.5)
@@ -2451,7 +2617,13 @@ self:applySearch(box.Text)
 end)
 self.searchFrame, self.searchBox = search, box
 search.Visible = self.options.Search ~= false
-self.chipHolder = Create.new("Frame", { Name = "Profile", Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 1, Parent = actions })
+self.chipHolder = Create.new("Frame", {
+Name = "Profile",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+LayoutOrder = 1,
+Parent = actions,
+})
 Create.list(self.chipHolder, "Horizontal", 0)
 local function action(icon, order, callback)
 local button = Create.new("TextButton", { Name = icon, Size = UDim2.new(0, 40, 1, 0), LayoutOrder = order, Parent = actions })
@@ -2483,10 +2655,22 @@ end,
 })
 end
 function Window:buildGrip()
-local grip = Create.new("TextButton", { Name = "Resize", Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -2, 1, -2), ZIndex = 10, Parent = self.root })
+local grip = Create.new("TextButton", {
+Name = "Resize",
+Size = UDim2.fromOffset(18, 18),
+AnchorPoint = Vector2.new(1, 1),
+Position = UDim2.new(1, -2, 1, -2),
+ZIndex = 10,
+Parent = self.root,
+})
 self.grip = grip
 for _, offset in { Vector2.new(12, 12), Vector2.new(7, 12), Vector2.new(12, 7) } do
-Create.new("Frame", { Size = UDim2.fromOffset(2, 2), Position = UDim2.fromOffset(offset.X, offset.Y), Theme = { BackgroundColor3 = "textMuted" }, Parent = grip })
+Create.new("Frame", {
+Size = UDim2.fromOffset(2, 2),
+Position = UDim2.fromOffset(offset.X, offset.Y),
+Theme = { BackgroundColor3 = "textMuted" },
+Parent = grip,
+})
 end
 local start = self.size
 Drag.track(self.scope, grip, function()
@@ -2561,7 +2745,13 @@ Create.padding(list, 8)
 Create.list(list, "Vertical", 2)
 if self.profile.Enabled then
 Hairline.new("X", "stroke", { LayoutOrder = 1, Parent = column })
-local footer = Create.new("Frame", { Name = "Footer", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = column })
+local footer = Create.new("Frame", {
+Name = "Footer",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 2,
+Parent = column,
+})
 Create.list(footer, "Vertical", 0, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
 if style == "Sidebar" then
 Profile.card(self, scope, footer)
@@ -3534,7 +3724,13 @@ settle(if hovered then 1.03 else 1)
 end)
 end
 local function glow(scope, button)
-local stroke = Create.new("UIStroke", { Name = "Glow", Thickness = 1.5, Transparency = 1, Theme = { Color = "accentHover" }, Parent = button })
+local stroke = Create.new("UIStroke", {
+Name = "Glow",
+Thickness = 1.5,
+Transparency = 1,
+Theme = { Color = "accentHover" },
+Parent = button,
+})
 scope:connect(button.MouseEnter, function()
 Motion.tween(stroke, "base", { Transparency = 0 })
 end)
@@ -4521,7 +4717,13 @@ TextTruncate = Enum.TextTruncate.AtEnd,
 Theme = { TextColor3 = "textMuted" },
 Parent = header,
 })
-local copy = Create.new("TextButton", { Name = "Copy", Size = UDim2.fromOffset(44, 36), AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Parent = header })
+local copy = Create.new("TextButton", {
+Name = "Copy",
+Size = UDim2.fromOffset(44, 36),
+AnchorPoint = Vector2.new(1, 0),
+Position = UDim2.fromScale(1, 0),
+Parent = header,
+})
 local glyph = Create.icon("copy", 14, "textMuted", copy)
 glyph.AnchorPoint = Vector2.new(0.5, 0.5)
 glyph.Position = UDim2.fromScale(0.5, 0.5)
@@ -4641,9 +4843,19 @@ function control:Encode()
 return hexText()
 end
 local function bar(parent, order)
-local track = Create.new("TextButton", { Size = UDim2.new(1, 0, 0, if library.touch then 22 else 14), BackgroundColor3 = WHITE, LayoutOrder = order, Parent = parent })
+local track = Create.new("TextButton", {
+Size = UDim2.new(1, 0, 0, if library.touch then 22 else 14),
+BackgroundColor3 = WHITE,
+LayoutOrder = order,
+Parent = parent,
+})
 Create.corner(-1, track)
-local cursor = Create.new("Frame", { Size = UDim2.new(0, 4, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = WHITE, Parent = track })
+local cursor = Create.new("Frame", {
+Size = UDim2.new(0, 4, 1, 4),
+AnchorPoint = Vector2.new(0.5, 0.5),
+BackgroundColor3 = WHITE,
+Parent = track,
+})
 Create.corner(-1, cursor)
 Create.new("UIStroke", { Color = BLACK, Transparency = 0.5, Parent = cursor })
 return track, cursor
@@ -4669,7 +4881,13 @@ local black = Create.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColo
 Create.new("UIGradient", { Transparency = FADE_IN, Rotation = 90 }),
 })
 Create.corner(6, black)
-local ring = Create.new("Frame", { Size = UDim2.fromOffset(12, 12), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 2, BackgroundTransparency = 1, Parent = area })
+local ring = Create.new("Frame", {
+Size = UDim2.fromOffset(12, 12),
+AnchorPoint = Vector2.new(0.5, 0.5),
+ZIndex = 2,
+BackgroundTransparency = 1,
+Parent = area,
+})
 Create.corner(-1, ring)
 Create.new("UIStroke", { Color = WHITE, Thickness = 2, Parent = ring })
 local hueTrack, hueCursor = bar(panel, 1)
@@ -4928,7 +5146,12 @@ local glyph
 if multi then
 glyph = Create.icon("check", 12, "onAccent", mark)
 else
-glyph = Create.new("Frame", { Name = "Dot", Size = UDim2.fromOffset(8, 8), Theme = { BackgroundColor3 = "accent" }, Parent = mark })
+glyph = Create.new("Frame", {
+Name = "Dot",
+Size = UDim2.fromOffset(8, 8),
+Theme = { BackgroundColor3 = "accent" },
+Parent = mark,
+})
 Create.corner(-1, glyph)
 end
 glyph.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -5088,7 +5311,14 @@ local Create = import("Core/Create")
 local Env = import("Core/Env")
 local Row = import("Elements/Row")
 local Signal = import("Core/Signal")
-local SHORT = { LeftShift = "LShift", RightShift = "RShift", LeftControl = "LCtrl", RightControl = "RCtrl", LeftAlt = "LAlt", RightAlt = "RAlt" }
+local SHORT = {
+LeftShift = "LShift",
+RightShift = "RShift",
+LeftControl = "LCtrl",
+RightControl = "RCtrl",
+LeftAlt = "LAlt",
+RightAlt = "RAlt",
+}
 local Keybind = {}
 function Keybind.control(row, options, onInput)
 local scope, library, window = row.scope, row.library, row.window
@@ -5287,9 +5517,19 @@ TextSize = 13,
 Theme = { TextColor3 = "textMuted" },
 Parent = row.slot,
 })
-local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 6), Theme = { BackgroundColor3 = "stroke" }, Parent = row.belowTitle() })
+local rail = Create.new("Frame", {
+Name = "Rail",
+Size = UDim2.new(1, 0, 0, 6),
+Theme = { BackgroundColor3 = "stroke" },
+Parent = row.belowTitle(),
+})
 Create.corner(-1, rail)
-local fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(0, 1), Theme = { BackgroundColor3 = "accent" }, Parent = rail })
+local fill = Create.new("Frame", {
+Name = "Fill",
+Size = UDim2.fromScale(0, 1),
+Theme = { BackgroundColor3 = "accent" },
+Parent = rail,
+})
 Create.corner(-1, fill)
 function handle:Get()
 return value
@@ -5480,7 +5720,12 @@ Parent = container.frame,
 })
 Create.corner(8, frame)
 scope:add(frame)
-local content = Create.new("Frame", { Name = "Content", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = frame })
+local content = Create.new("Frame", {
+Name = "Content",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+Parent = frame,
+})
 Create.padding(content, 12, if layout.compact then 4 else 8)
 Create.list(content, "Vertical", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
 if not layout.compact then
@@ -5716,7 +5961,13 @@ row.onNarrow(place)
 end
 end
 function row.belowTitle()
-return Create.new("Frame", { Name = "Below", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = content })
+return Create.new("Frame", {
+Name = "Below",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 2,
+Parent = content,
+})
 end
 function row.marks(text, title)
 local line = Create.new("Frame", { Name = "TitleLine", Size = UDim2.new(1, 0, 0, 18), Parent = text })
@@ -5896,7 +6147,14 @@ Create.corner(-1, rail)
 local fill = Create.new("Frame", { Name = "Fill", Theme = { BackgroundColor3 = "accent" }, Parent = rail })
 Create.corner(-1, fill)
 local function newKnob()
-local knob = Create.new("Frame", { Name = "Knob", Size = UDim2.fromOffset(KNOB, KNOB), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 2, Theme = { BackgroundColor3 = "text" }, Parent = rail })
+local knob = Create.new("Frame", {
+Name = "Knob",
+Size = UDim2.fromOffset(KNOB, KNOB),
+AnchorPoint = Vector2.new(0.5, 0.5),
+ZIndex = 2,
+Theme = { BackgroundColor3 = "text" },
+Parent = rail,
+})
 Create.corner(-1, knob)
 return knob
 end
@@ -6266,7 +6524,13 @@ mark.AnchorPoint = Vector2.new(0.5, 0.5)
 mark.Position = UDim2.fromScale(0.5, 0.5)
 outline.Thickness = 1.5
 else
-knob = Create.new("Frame", { Name = "Thumb", Size = UDim2.fromOffset(thumb.width, thumb.height), AnchorPoint = Vector2.new(0, 0.5), Theme = { BackgroundColor3 = "textMuted" }, Parent = track })
+knob = Create.new("Frame", {
+Name = "Thumb",
+Size = UDim2.fromOffset(thumb.width, thumb.height),
+AnchorPoint = Vector2.new(0, 0.5),
+Theme = { BackgroundColor3 = "textMuted" },
+Parent = track,
+})
 Create.corner(thumb.corner, knob)
 end
 local slideGeneration = 0

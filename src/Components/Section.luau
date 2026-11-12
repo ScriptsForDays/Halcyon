@@ -60,7 +60,11 @@ function Section.new(tab, options)
 
 	if options.Title then
 		local collapsible = options.Collapsible ~= false
-		local header = Create.new(if collapsible then "TextButton" else "Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, if flat then 32 else 40), Parent = root })
+		local header = Create.new(if collapsible then "TextButton" else "Frame", {
+			Name = "Header",
+			Size = UDim2.new(1, 0, 0, if flat then 32 else 40),
+			Parent = root,
+		})
 		Create.padding(header, if flat then 4 else 14, 0)
 		Create.list(header, "Horizontal", 8)
 		if options.Icon then
@@ -90,7 +94,13 @@ function Section.new(tab, options)
 
 	-- The body has no layout of its own, so a lock overlay can lie across
 	-- the rows without becoming a row itself.
-	local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = root })
+	local body = Create.new("Frame", {
+		Name = "Body",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = 1,
+		Parent = root,
+	})
 	self.body = body
 	local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
 	if not flat then
@@ -124,10 +134,19 @@ function Section:buildLock()
 	Create.new("UIStroke", { Transparency = 0.45, Theme = { Color = "accent" }, Parent = overlay })
 	-- A wash of the accent, strongest in the top corner, lifts the overlay
 	-- off the plain surface.
-	local wash = Create.new("Frame", { Name = "Wash", Size = UDim2.fromScale(1, 1), Theme = { BackgroundColor3 = "accent" }, Parent = overlay }, {
+	local wash = Create.new("Frame", {
+		Name = "Wash",
+		Size = UDim2.fromScale(1, 1),
+		Theme = { BackgroundColor3 = "accent" },
+		Parent = overlay,
+	}, {
 		Create.new("UIGradient", {
 			Rotation = 35,
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(0.6, 1), NumberSequenceKeypoint.new(1, 1) }),
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.8),
+				NumberSequenceKeypoint.new(0.6, 1),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
 		}),
 	})
 	Create.corner(10, wash)
@@ -142,7 +161,12 @@ function Section:buildLock()
 		Parent = overlay,
 	})
 	Create.list(content, "Horizontal", 10)
-	local disc = Create.new("Frame", { Name = "Disc", Size = UDim2.fromOffset(34, 34), Theme = { BackgroundColor3 = "accent" }, Parent = content })
+	local disc = Create.new("Frame", {
+		Name = "Disc",
+		Size = UDim2.fromOffset(34, 34),
+		Theme = { BackgroundColor3 = "accent" },
+		Parent = content,
+	})
 	Create.corner(-1, disc)
 	local icon = Create.icon("lock", 16, "onAccent", disc)
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)

@@ -117,7 +117,13 @@ local function lift(scope, button)
 end
 
 local function glow(scope, button)
-	local stroke = Create.new("UIStroke", { Name = "Glow", Thickness = 1.5, Transparency = 1, Theme = { Color = "accentHover" }, Parent = button })
+	local stroke = Create.new("UIStroke", {
+		Name = "Glow",
+		Thickness = 1.5,
+		Transparency = 1,
+		Theme = { Color = "accentHover" },
+		Parent = button,
+	})
 	scope:connect(button.MouseEnter, function()
 		Motion.tween(stroke, "base", { Transparency = 0 })
 	end)

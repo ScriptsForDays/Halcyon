@@ -53,7 +53,14 @@ function Slider.new(container, options)
 	Create.corner(-1, fill)
 
 	local function newKnob()
-		local knob = Create.new("Frame", { Name = "Knob", Size = UDim2.fromOffset(KNOB, KNOB), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 2, Theme = { BackgroundColor3 = "text" }, Parent = rail })
+		local knob = Create.new("Frame", {
+			Name = "Knob",
+			Size = UDim2.fromOffset(KNOB, KNOB),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			ZIndex = 2,
+			Theme = { BackgroundColor3 = "text" },
+			Parent = rail,
+		})
 		Create.corner(-1, knob)
 		return knob
 	end

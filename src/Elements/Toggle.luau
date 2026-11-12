@@ -94,7 +94,13 @@ function Toggle.new(container, options)
 		mark.Position = UDim2.fromScale(0.5, 0.5)
 		outline.Thickness = 1.5
 	else
-		knob = Create.new("Frame", { Name = "Thumb", Size = UDim2.fromOffset(thumb.width, thumb.height), AnchorPoint = Vector2.new(0, 0.5), Theme = { BackgroundColor3 = "textMuted" }, Parent = track })
+		knob = Create.new("Frame", {
+			Name = "Thumb",
+			Size = UDim2.fromOffset(thumb.width, thumb.height),
+			AnchorPoint = Vector2.new(0, 0.5),
+			Theme = { BackgroundColor3 = "textMuted" },
+			Parent = track,
+		})
 		Create.corner(thumb.corner, knob)
 	end
 

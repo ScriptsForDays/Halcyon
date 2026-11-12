@@ -90,9 +90,19 @@ function ColorPicker.control(row, options, onCommit)
 	end
 
 	local function bar(parent, order)
-		local track = Create.new("TextButton", { Size = UDim2.new(1, 0, 0, if library.touch then 22 else 14), BackgroundColor3 = WHITE, LayoutOrder = order, Parent = parent })
+		local track = Create.new("TextButton", {
+			Size = UDim2.new(1, 0, 0, if library.touch then 22 else 14),
+			BackgroundColor3 = WHITE,
+			LayoutOrder = order,
+			Parent = parent,
+		})
 		Create.corner(-1, track)
-		local cursor = Create.new("Frame", { Size = UDim2.new(0, 4, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = WHITE, Parent = track })
+		local cursor = Create.new("Frame", {
+			Size = UDim2.new(0, 4, 1, 4),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = WHITE,
+			Parent = track,
+		})
 		Create.corner(-1, cursor)
 		Create.new("UIStroke", { Color = BLACK, Transparency = 0.5, Parent = cursor })
 		return track, cursor
@@ -120,7 +130,13 @@ function ColorPicker.control(row, options, onCommit)
 			Create.new("UIGradient", { Transparency = FADE_IN, Rotation = 90 }),
 		})
 		Create.corner(6, black)
-		local ring = Create.new("Frame", { Size = UDim2.fromOffset(12, 12), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 2, BackgroundTransparency = 1, Parent = area })
+		local ring = Create.new("Frame", {
+			Size = UDim2.fromOffset(12, 12),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			ZIndex = 2,
+			BackgroundTransparency = 1,
+			Parent = area,
+		})
 		Create.corner(-1, ring)
 		Create.new("UIStroke", { Color = WHITE, Thickness = 2, Parent = ring })
 

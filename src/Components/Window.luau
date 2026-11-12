@@ -169,19 +169,35 @@ function Window.new(library, options, access)
 	self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = library.displayOrder, Parent = Mount.parent() })
 	self.scope:add(self.gui)
 	-- Active, so a press on the window never reaches the game underneath.
-	self.root = centred(Create.new("Frame", { Name = "Window", Active = true, ClipsDescendants = true, Theme = { BackgroundColor3 = "background" }, Parent = self.gui }))
+	self.root = centred(Create.new("Frame", {
+		Name = "Window",
+		Active = true,
+		ClipsDescendants = true,
+		Theme = { BackgroundColor3 = "background" },
+		Parent = self.gui,
+	}))
 	Create.corner(12, self.root)
 	Create.stroke("stroke", self.root)
 	self.uiScale = Create.new("UIScale", { Scale = self.scale, Parent = self.root })
+	-- layout() already fits the window to the screen; this floor and ceiling
+	-- hold even when something sets its size directly.
+	Create.new("UISizeConstraint", { MinSize = Vector2.new(240, 48), MaxSize = Vector2.new(1600, 1000), Parent = self.root })
 	if options.Shadow ~= false then
 		self:buildShadow()
 	end
 
 	self:buildTopbar()
-	self.body = Create.new("Frame", { Name = "Body", Position = UDim2.fromOffset(0, TOPBAR), Size = UDim2.new(1, 0, 1, -TOPBAR), ClipsDescendants = true, Parent = self.root })
+	self.body = Create.new("Frame", {
+		Name = "Body",
+		Position = UDim2.fromOffset(0, TOPBAR),
+		Size = UDim2.new(1, 0, 1, -TOPBAR),
+		ClipsDescendants = true,
+		Parent = self.root,
+	})
 	self.pages = Create.new("Frame", { Name = "Pages", Parent = self.body })
 	self.empty = centred(Create.new("TextLabel", {
 		Name = "Empty",
+		Text = "",
 		Size = UDim2.new(1, -32, 0, 40),
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Center,
@@ -376,7 +392,12 @@ function Window:buildTopbar()
 		inset.PaddingRight = UDim.new(0, actions.AbsoluteSize.X / self.scale + 14)
 	end)
 
-	local search = Create.new("Frame", { Name = "Search", Size = UDim2.fromOffset(170, 30), Theme = { BackgroundColor3 = "raised" }, Parent = actions })
+	local search = Create.new("Frame", {
+		Name = "Search",
+		Size = UDim2.fromOffset(170, 30),
+		Theme = { BackgroundColor3 = "raised" },
+		Parent = actions,
+	})
 	Create.corner(8, search)
 	local glass = Create.icon("search", 14, "textMuted", search)
 	glass.AnchorPoint = Vector2.new(0, 0.5)
@@ -397,7 +418,13 @@ function Window:buildTopbar()
 	self.searchFrame, self.searchBox = search, box
 	search.Visible = self.options.Search ~= false
 
-	self.chipHolder = Create.new("Frame", { Name = "Profile", Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 1, Parent = actions })
+	self.chipHolder = Create.new("Frame", {
+		Name = "Profile",
+		Size = UDim2.fromScale(0, 1),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 1,
+		Parent = actions,
+	})
 	Create.list(self.chipHolder, "Horizontal", 0)
 
 	local function action(icon, order, callback)
@@ -434,10 +461,22 @@ end
 -- A corner grip for mouse users. The window is anchored at its centre, so the
 -- size grows by twice the pointer's travel to keep the corner under it.
 function Window:buildGrip()
-	local grip = Create.new("TextButton", { Name = "Resize", Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -2, 1, -2), ZIndex = 10, Parent = self.root })
+	local grip = Create.new("TextButton", {
+		Name = "Resize",
+		Size = UDim2.fromOffset(18, 18),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -2, 1, -2),
+		ZIndex = 10,
+		Parent = self.root,
+	})
 	self.grip = grip
 	for _, offset in { Vector2.new(12, 12), Vector2.new(7, 12), Vector2.new(12, 7) } do
-		Create.new("Frame", { Size = UDim2.fromOffset(2, 2), Position = UDim2.fromOffset(offset.X, offset.Y), Theme = { BackgroundColor3 = "textMuted" }, Parent = grip })
+		Create.new("Frame", {
+			Size = UDim2.fromOffset(2, 2),
+			Position = UDim2.fromOffset(offset.X, offset.Y),
+			Theme = { BackgroundColor3 = "textMuted" },
+			Parent = grip,
+		})
 	end
 	local start = self.size
 	Drag.track(self.scope, grip, function()
@@ -528,7 +567,13 @@ function Window:buildNav()
 		Create.list(list, "Vertical", 2)
 		if self.profile.Enabled then
 			Hairline.new("X", "stroke", { LayoutOrder = 1, Parent = column })
-			local footer = Create.new("Frame", { Name = "Footer", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = column })
+			local footer = Create.new("Frame", {
+				Name = "Footer",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				LayoutOrder = 2,
+				Parent = column,
+			})
 			Create.list(footer, "Vertical", 0, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
 			if style == "Sidebar" then
 				Profile.card(self, scope, footer)

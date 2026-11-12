@@ -5,7 +5,14 @@ local Env = require("../Core/Env")
 local Row = require("./Row")
 local Signal = require("../Core/Signal")
 
-local SHORT = { LeftShift = "LShift", RightShift = "RShift", LeftControl = "LCtrl", RightControl = "RCtrl", LeftAlt = "LAlt", RightAlt = "RAlt" }
+local SHORT = {
+	LeftShift = "LShift",
+	RightShift = "RShift",
+	LeftControl = "LCtrl",
+	RightControl = "RCtrl",
+	LeftAlt = "LAlt",
+	RightAlt = "RAlt",
+}
 
 local Keybind = {}
 

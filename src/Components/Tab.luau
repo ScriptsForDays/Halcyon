@@ -39,7 +39,12 @@ function Tab.new(window, options)
 	-- ScrollingFrame keep the full canvas width and overflow on the right.
 	local inset = Create.new("Frame", { Name = "Inset", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = page })
 	Create.padding(inset, 12)
-	local columns = Create.new("Frame", { Name = "Columns", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = inset })
+	local columns = Create.new("Frame", {
+		Name = "Columns",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = inset,
+	})
 	self.page = page
 	self.left = Create.new("Frame", { Name = "Left", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = columns })
 	self.right = Create.new("Frame", {
@@ -113,10 +118,23 @@ end
 
 -- Builds this tab's button for the active navigation style.
 function Tab:buildButton(style, parent, scope, order)
-	local button = Create.new("TextButton", { Name = "Tab", LayoutOrder = order, BackgroundTransparency = 1, Theme = { BackgroundColor3 = "raised" }, Parent = parent })
+	local button = Create.new("TextButton", {
+		Name = "Tab",
+		LayoutOrder = order,
+		BackgroundTransparency = 1,
+		Theme = { BackgroundColor3 = "raised" },
+		Parent = parent,
+	})
 	Create.corner(8, button)
 	local icon = Create.icon(self.Icon or "circle", if style == "Rail" or style == "Dock" then 20 else 18, "textMuted", button)
-	local label = Create.new("TextLabel", { Name = "Title", Text = self.Title, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1, Theme = { TextColor3 = "textMuted" }, Parent = button })
+	local label = Create.new("TextLabel", {
+		Name = "Title",
+		Text = self.Title,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		LayoutOrder = 1,
+		Theme = { TextColor3 = "textMuted" },
+		Parent = button,
+	})
 
 	self.bar = nil
 	if style == "Sidebar" then
@@ -157,7 +175,10 @@ function Tab:buildButton(style, parent, scope, order)
 		label.TextSize = 13
 	else
 		button.Size = UDim2.new(0, 72, 1, 0)
-		Create.list(button, "Vertical", 3, { HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center })
+		Create.list(button, "Vertical", 3, {
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		})
 		label.Size = UDim2.new(1, -4, 0, 14)
 		label.TextSize = 12
 		label.TextXAlignment = Enum.TextXAlignment.Center

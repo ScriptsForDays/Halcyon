@@ -176,7 +176,12 @@ function Dropdown.new(container, options)
 			if multi then
 				glyph = Create.icon("check", 12, "onAccent", mark)
 			else
-				glyph = Create.new("Frame", { Name = "Dot", Size = UDim2.fromOffset(8, 8), Theme = { BackgroundColor3 = "accent" }, Parent = mark })
+				glyph = Create.new("Frame", {
+					Name = "Dot",
+					Size = UDim2.fromOffset(8, 8),
+					Theme = { BackgroundColor3 = "accent" },
+					Parent = mark,
+				})
 				Create.corner(-1, glyph)
 			end
 			glyph.AnchorPoint = Vector2.new(0.5, 0.5)

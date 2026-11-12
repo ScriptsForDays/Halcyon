@@ -99,7 +99,12 @@ function Dialog.shell(library, options)
 end
 
 function Dialog.heading(parent, title, icon)
-	local head = Create.new("Frame", { Name = "Heading", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent })
+	local head = Create.new("Frame", {
+		Name = "Heading",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = parent,
+	})
 	Create.list(head, "Horizontal", 10)
 	if icon then
 		Create.icon(icon, 20, "accent", head)

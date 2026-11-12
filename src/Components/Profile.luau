@@ -99,7 +99,12 @@ end
 
 local function avatar(window, scope, parent, size)
 	local settings = window.profile
-	local holder = Create.new("Frame", { Name = "Avatar", Size = UDim2.fromOffset(size, size), Theme = { BackgroundColor3 = "raised" }, Parent = parent })
+	local holder = Create.new("Frame", {
+		Name = "Avatar",
+		Size = UDim2.fromOffset(size, size),
+		Theme = { BackgroundColor3 = "raised" },
+		Parent = parent,
+	})
 	Create.corner(-1, holder)
 
 	if settings.Anonymous or settings.Avatar == "None" then
@@ -146,7 +151,12 @@ end
 -- The full card: avatar with three lines of text beside it.
 function Profile.card(window, scope, parent)
 	local settings = window.profile
-	local card = Create.new("Frame", { Name = "Profile", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent })
+	local card = Create.new("Frame", {
+		Name = "Profile",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = parent,
+	})
 	Create.padding(card, 12, 10)
 	Create.list(card, "Horizontal", 10)
 	avatar(window, scope, card, 36)
