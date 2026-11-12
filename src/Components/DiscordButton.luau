@@ -8,6 +8,7 @@ local Motion = require("../Core/Motion")
 
 -- Discord's own brand colour, the same in every theme.
 local BLURPLE = Color3.fromRGB(88, 101, 242)
+local BLURPLE_HOVER = Color3.fromRGB(116, 127, 247)
 -- The white Discord logo on a clear background, a public Creator Store
 -- decal (132364423955781) shown through its thumbnail.
 local LOGO = "rbxthumb://type=Asset&id=132364423955781&w=150&h=150"
@@ -48,13 +49,31 @@ function DiscordButton.new(scope, parent, settings, report)
 	-- The Discord logo unless the hub gives its own: an icon name, an asset
 	-- id, a URL or a file.
 	Icons.apply(glyph, settings.Icon or LOGO)
+	-- Hover: the fill brightens, a soft ring spreads out from the edge and
+	-- the logo lifts with a slight tilt. A press sinks the whole button.
 	local scale = Create.new("UIScale", { Parent = button })
+	local markScale = Create.new("UIScale", { Parent = glyph })
+	local halo = Create.new("UIStroke", { Thickness = 0, Transparency = 1, Color = BLURPLE, Parent = button })
+	local hovered = false
+	local function settle()
+		Motion.tween(button, "fast", { BackgroundColor3 = if hovered then BLURPLE_HOVER else BLURPLE })
+		Motion.tween(halo, "base", { Thickness = if hovered then 4 else 0, Transparency = if hovered then 0.55 else 1 })
+		Motion.tween(markScale, "spring", { Scale = if hovered then 1.12 else 1 })
+		Motion.tween(glyph, "spring", { Rotation = if hovered then -8 else 0 })
+		Motion.tween(scale, "spring", { Scale = if hovered then 1.06 else 1 })
+	end
 	scope:connect(button.MouseEnter, function()
-		Motion.tween(scale, "spring", { Scale = 1.08 })
+		hovered = true
+		settle()
 	end)
 	scope:connect(button.MouseLeave, function()
-		Motion.tween(scale, "spring", { Scale = 1 })
+		hovered = false
+		settle()
 	end)
+	scope:connect(button.MouseButton1Down, function()
+		Motion.tween(scale, "fast", { Scale = 0.92 })
+	end)
+	scope:connect(button.MouseButton1Up, settle)
 	scope:connect(button.Activated, function()
 		local copied = Env.copy(settings.Link)
 		report(copied, settings.Link)
