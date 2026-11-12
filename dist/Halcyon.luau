@@ -553,6 +553,7 @@ local Env = import("Core/Env")
 local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
 local BLURPLE = Color3.fromRGB(88, 101, 242)
+local LOGO = "rbxthumb://type=Asset&id=132364423955781&w=150&h=150"
 local DiscordButton = {}
 function DiscordButton.settings(value)
 if type(value) == "string" and value ~= "" then
@@ -574,13 +575,13 @@ Parent = parent,
 Create.corner(-1, button)
 local glyph = Create.new("ImageLabel", {
 Name = "Mark",
-Size = UDim2.fromOffset(math.floor(size * 0.5), math.floor(size * 0.5)),
+Size = UDim2.fromOffset(math.floor(size * 0.62), math.floor(size * 0.62)),
 AnchorPoint = Vector2.new(0.5, 0.5),
 Position = UDim2.fromScale(0.5, 0.5),
 ImageColor3 = Color3.new(1, 1, 1),
 Parent = button,
 })
-Icons.apply(glyph, settings.Icon or "message-circle")
+Icons.apply(glyph, settings.Icon or LOGO)
 local scale = Create.new("UIScale", { Parent = button })
 scope:connect(button.MouseEnter, function()
 Motion.tween(scale, "spring", { Scale = 1.08 })
@@ -2628,9 +2629,14 @@ Theme = { TextColor3 = "text" },
 Parent = heading,
 }, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
 line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
-if settings.ShowTier then
-local tierLine = Create.new("Frame", { Name = "TierLine", Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 4, Parent = text })
+local discord = DiscordButton.settings(settings.Discord)
+local tierLine
+if settings.ShowTier or discord then
+tierLine = Create.new("Frame", { Name = "TierLine", Size = UDim2.new(1, 0, 0, if discord then 28 else 20), LayoutOrder = 4, Parent = text })
 Create.padding(tierLine, 0, 3, 0, 0)
+Create.list(tierLine, "Horizontal", 6)
+end
+if settings.ShowTier then
 local paid = window:IsPaid()
 local access = window.access
 local icon = access.Icon or (if paid then "crown" elseif access.Keyless or access.NoKey then "lock-open" else "key")
@@ -2659,9 +2665,8 @@ Parent = badge,
 })
 end
 local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
-local discord = DiscordButton.settings(settings.Discord)
 if discord then
-DiscordButton.new(scope, card, { Link = discord.Link, Icon = discord.Icon, Size = 30, LayoutOrder = 2 }, function(copied, link)
+DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(copied, link)
 window:Notify({
 Title = if copied then "Discord invite copied" else "Discord invite",
 Content = if copied then "Paste it into your browser to join." else link,

@@ -8,6 +8,9 @@ local Motion = require("../Core/Motion")
 
 -- Discord's own brand colour, the same in every theme.
 local BLURPLE = Color3.fromRGB(88, 101, 242)
+-- The white Discord logo on a clear background, a public Creator Store
+-- decal (132364423955781) shown through its thumbnail.
+local LOGO = "rbxthumb://type=Asset&id=132364423955781&w=150&h=150"
 
 local DiscordButton = {}
 
@@ -36,14 +39,15 @@ function DiscordButton.new(scope, parent, settings, report)
 	Create.corner(-1, button)
 	local glyph = Create.new("ImageLabel", {
 		Name = "Mark",
-		Size = UDim2.fromOffset(math.floor(size * 0.5), math.floor(size * 0.5)),
+		Size = UDim2.fromOffset(math.floor(size * 0.62), math.floor(size * 0.62)),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		ImageColor3 = Color3.new(1, 1, 1),
 		Parent = button,
 	})
-	-- Any image works as the mark: an icon name, an asset id, a URL or a file.
-	Icons.apply(glyph, settings.Icon or "message-circle")
+	-- The Discord logo unless the hub gives its own: an icon name, an asset
+	-- id, a URL or a file.
+	Icons.apply(glyph, settings.Icon or LOGO)
 	local scale = Create.new("UIScale", { Parent = button })
 	scope:connect(button.MouseEnter, function()
 		Motion.tween(scale, "spring", { Scale = 1.08 })

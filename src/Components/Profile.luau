@@ -182,9 +182,16 @@ function Profile.card(window, scope, parent)
 	line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
 	-- The tier badge has a line of its own under the others: the sidebar is
 	-- too narrow to share one without cutting the name or username short.
-	if settings.ShowTier then
-		local tierLine = Create.new("Frame", { Name = "TierLine", Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 4, Parent = text })
+	-- The Discord button shares the tier line rather than the name's, so a
+	-- long name keeps the whole width.
+	local discord = DiscordButton.settings(settings.Discord)
+	local tierLine
+	if settings.ShowTier or discord then
+		tierLine = Create.new("Frame", { Name = "TierLine", Size = UDim2.new(1, 0, 0, if discord then 28 else 20), LayoutOrder = 4, Parent = text })
 		Create.padding(tierLine, 0, 3, 0, 0)
+		Create.list(tierLine, "Horizontal", 6)
+	end
+	if settings.ShowTier then
 		-- The tier the player holds: Keyless, or a key system tier. Paid tiers take the accent.
 		local paid = window:IsPaid()
 		local access = window.access
@@ -215,10 +222,9 @@ function Profile.card(window, scope, parent)
 	end
 	local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
 	-- Profile = { Discord = "https://discord.gg/..." } adds a round invite
-	-- button at the card's right edge; separate from the key prompt's.
-	local discord = DiscordButton.settings(settings.Discord)
+	-- button beside the tier; separate from the key prompt's.
 	if discord then
-		DiscordButton.new(scope, card, { Link = discord.Link, Icon = discord.Icon, Size = 30, LayoutOrder = 2 }, function(copied, link)
+		DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(copied, link)
 			window:Notify({
 				Title = if copied then "Discord invite copied" else "Discord invite",
 				Content = if copied then "Paste it into your browser to join." else link,
