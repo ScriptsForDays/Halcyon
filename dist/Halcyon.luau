@@ -310,7 +310,15 @@ return string.match(tostring(text or ""), "^%s*(.-)%s*$")
 end
 function KeySystem.tiers(options)
 if type(options.Tiers) == "table" and #options.Tiers > 0 then
-return options.Tiers
+local tiers = {}
+for index, tier in options.Tiers do
+if tier.Name == nil and tier.NoKey then
+tier = table.clone(tier)
+tier.Name = "Keyless"
+end
+tiers[index] = tier
+end
+return tiers
 end
 return { { Name = "Access", Keys = options.Keys, Remote = options.Remote, Link = options.Link } }
 end

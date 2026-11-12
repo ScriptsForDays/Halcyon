@@ -24,9 +24,20 @@ end
 
 -- `Tiers` may be left out for a single tier described by the top-level
 -- Keys, Validate, Remote and Link.
+-- Free means a key the player earns, usually through the hub's ad link;
+-- a tier that needs no key at all is Keyless, and takes that name unless
+-- the hub gives it another.
 function KeySystem.tiers(options)
 	if type(options.Tiers) == "table" and #options.Tiers > 0 then
-		return options.Tiers
+		local tiers = {}
+		for index, tier in options.Tiers do
+			if tier.Name == nil and tier.NoKey then
+				tier = table.clone(tier)
+				tier.Name = "Keyless"
+			end
+			tiers[index] = tier
+		end
+		return tiers
 	end
 	return { { Name = "Access", Keys = options.Keys, Remote = options.Remote, Link = options.Link } }
 end

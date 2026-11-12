@@ -134,7 +134,7 @@ KeySystem = {
 	OnSuccess = function(access) end, OnFail = function(message) end,
 	Tiers = { -- lowest to highest
 		{ Name = "Free", Description = "…", Keys = { "KEY" }, Link = "https://…", LinkLabel = "Get a key", Duration = 86400 },
-		{ Name = "Free", NoKey = true }, -- continue with no key
+		{ NoKey = true }, -- the Keyless tier: continue with no key; Name defaults to "Keyless"
 		{ Name = "Free", AdService = { Name = "Linkvertise", Link = "https://…", Confirm = function(key) return ok, message end } },
 		{ Name = "Free", AdService = { Name = "Lootlabs", RequiresKey = false, Link = "https://…", Confirm = function() return ok end } },
 		{ Name = "Paid", Validate = function(key) return ok, message end },
@@ -144,6 +144,7 @@ KeySystem = {
 }
 ```
 
+- "Free" means a key the player earns (usually through an ad service); never give the Free tier `NoKey`. A tier with no key is "Keyless" and is listed first.
 - One tier only: put `Keys`, `Remote`, `Link` at the top level and omit `Tiers`. A top-level `Validate(key)` may return `true` or a tier name.
 - `access` = `{ Tier, Rank, Tiers, PaidRank, Key, Saved, Data, ExpiresAt, ShowExpiry }`. A tier may also set `Icon` and `Tag` for its card in the prompt.
 - A section or tab with `Tier`/`PaidOnly` shows one overlay over its rows with `LockText` and `LockHint`.

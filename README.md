@@ -12,7 +12,7 @@ Run the example in your executor. It opens a hub that uses every control:
 loadstring(game:HttpGet("https://raw.githubusercontent.com/ScriptsForDays/Halcyon/main/example/Example.luau"))()
 ```
 
-The example asks for a key first. **Free** needs none; to see the paid tier, enter `HALCYON-PAID`.
+The example opens on its key prompt. **Keyless** needs no key; the demo keys are `HALCYON-FREE` and `HALCYON-PAID`.
 
 ## Use it
 
@@ -128,7 +128,7 @@ Tab:Section({ Title = "Raids", PaidOnly = true, LockHint = "Buy a key in our Dis
 
 A key with a `Duration` shows a countdown on the profile card; `ShowExpiry = false` in the `KeySystem` table hides it.
 
-Free keys can be tied to an ad service, rows can be locked to a tier, and the lock wording is yours to set. A window with no key system reports its tier as `Keyless`. See [docs/key-system.md](docs/key-system.md).
+**Free** is a key the player earns, usually through your ad link, and can be tied to an ad service. **Keyless** needs no key: add a tier with `NoKey = true`, or leave the key system out and the window is Keyless. Rows can be locked to a tier, and the lock wording is yours to set. See [docs/key-system.md](docs/key-system.md).
 
 > **A key prompt in a script is not security.** It runs on the player's machine, so anyone who reads the script can skip it. Halcyon's prompt is a gate for honest users. To protect a script, have your server hand it out only after the key is checked there.
 

@@ -39,7 +39,7 @@ end
 | `AdService` | Tie the tier to an ad step; see below |
 | `Link`, `GetLink`, `LinkLabel` | What the "Get a key" button copies, as text or as a function returning text, and the button's label |
 | `Duration` | Seconds a saved key lasts before the prompt returns |
-| `NoKey` | `true` lets the player continue on this tier with no key |
+| `NoKey` | `true` lets the player continue on this tier with no key. Such a tier is named `Keyless` unless you give it a `Name`; list it first, as the lowest tier |
 | `Icon`, `Tag` | The icon and the line shown on the tier's card in the prompt *(defaults depend on the tier: "No key needed", "Via Linkvertise", "Premium", "Key required")* |
 | `Paid` | Marks the tier as paid. By default the tier named `"Paid"` is paid, and so is every tier above a paid one |
 
@@ -117,9 +117,19 @@ AdService = {
 
 Halcyon cannot see whether an ad was watched. `Confirm` (or `Remote`) is the only proof it has, so that function must ask something you trust: your server, or the ad service's own API. Check that service's current documentation for how; Halcyon does not bundle any service's endpoints.
 
-## Keyless
+## Free and Keyless
 
-A window created without a `KeySystem` (and without `Tiers`) is **Keyless**: `Window:GetTier()` returns `"Keyless"` and the profile card shows it. Keyless ranks below every tier, so ordinary rows are open and rows marked `Tier` or `PaidOnly` stay locked.
+**Free** is a tier that still needs a key: the one players earn through your ad link, usually tied to an `AdService`. **Keyless** is the tier that needs none:
+
+```lua
+Tiers = {
+	{ NoKey = true }, -- named "Keyless"
+	{ Name = "Free", Duration = 86400, AdService = { Name = "Linkvertise", Link = "https://…", Confirm = confirmWithMyServer } },
+	{ Name = "Paid", Validate = checkPaidKey },
+}
+```
+
+A window created without a `KeySystem` (and without `Tiers`) is also **Keyless**: `Window:GetTier()` returns `"Keyless"` and the profile card shows it. Keyless ranks below every tier, so ordinary rows are open and rows marked `Tier` or `PaidOnly` stay locked.
 
 ## Locking features
 

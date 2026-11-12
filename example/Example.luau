@@ -40,9 +40,16 @@ local Window = Halcyon:CreateWindow({
 	Profile = { Avatar = "Headshot", ShowClock = true },
 	KeySystem = {
 		Title = "Halcyon example",
-		Note = "Free needs no key. To try the paid tier, enter HALCYON-PAID.",
+		Note = "Demo keys: HALCYON-FREE and HALCYON-PAID. Keyless needs none.",
 		Tiers = {
-			{ Name = "Free", NoKey = true, Description = "Everything except the rows marked Paid." },
+			{ Name = "Keyless", NoKey = true, Description = "Try it with no key. Rows marked Free or Paid stay locked." },
+			{
+				Name = "Free",
+				Keys = { "HALCYON-FREE" },
+				Duration = 86400,
+				Description = "In a real hub this key comes from your ad link. Lasts a day.",
+				Link = "https://github.com/ScriptsForDays/Halcyon",
+			},
 			{ Name = "Paid", Keys = { "HALCYON-PAID" }, Description = "Unlocks every row.", Link = "https://github.com/ScriptsForDays/Halcyon" },
 		},
 	},
@@ -293,6 +300,7 @@ Content:Code({
 
 local Tiers = Components:Section({ Title = "Tiers", Icon = "crown" })
 Tiers:Paragraph({ Title = "Your tier", Content = "Signed in as " .. Window:GetTier() .. ". Rows above your tier show locked.", Icon = "badge-check" })
+Tiers:Toggle({ Title = "Free key switch", Description = "Needs a Free key or better", Tier = "Free", Callback = show("Free key switch") })
 Tiers:Toggle({ Title = "Paid switch", Description = "One row locked on its own", PaidOnly = true, Callback = show("Paid switch") })
 
 local Vault = Components:Section({ Title = "Paid section", Icon = "gem", Side = "Right", PaidOnly = true, LockHint = "Enter HALCYON-PAID at the key prompt" })

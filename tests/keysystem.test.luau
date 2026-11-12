@@ -150,15 +150,20 @@ open({
 	Title = "Open Hub",
 	Folder = "OpenHub",
 	KeySystem = {
-		Tiers = { { Name = "Free", NoKey = true }, { Name = "Premium", Keys = { "P-1" } } },
+		Tiers = { { NoKey = true }, { Name = "Free", Keys = { "F-1" } }, { Name = "Premium", Keys = { "P-1" } } },
 		OnSuccess = function(access)
 			succeeded = access.Tier
 		end,
 	},
 })
-Stub.click(Stub.byText(dialog(), "Continue with Free"))
-Stub.check(type(result) == "table" and result:GetTier() == "Free", "a NoKey tier continues without a key")
-Stub.equal(succeeded, "Free", "OnSuccess receives the access table")
+Stub.check(tierCard(dialog(), "Keyless") ~= nil, "a tier that needs no key is called Keyless")
+Stub.click(tierCard(dialog(), "Free"))
+Stub.check(Stub.byName(dialog(), "Key").Visible, "the Free tier asks for a key")
+Stub.click(tierCard(dialog(), "Keyless"))
+Stub.click(Stub.byText(dialog(), "Continue with Keyless"))
+Stub.check(type(result) == "table" and result:GetTier() == "Keyless", "Keyless continues without a key")
+Stub.equal(succeeded, "Keyless", "OnSuccess receives the access table")
+Stub.check(result:Tab({ Title = "Farm" }):Toggle({ Title = "Free row", Tier = "Free" }):IsLocked(), "Keyless ranks below Free")
 Stub.equal(Stub.files["Halcyon/OpenHub/key.json"], nil, "no key file is written for a keyless tier")
 local gated = result:Tab({ Title = "Main" }):Toggle({ Title = "Auto farm", Tier = "Premium" })
 Stub.check(gated:IsLocked(), "free players see premium rows locked")
