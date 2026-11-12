@@ -1,6 +1,6 @@
 # Halcyon
 
-A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gives you a window with tabs, sections and over thirty controls, a named look for every one of them, presets, a key system with tiers, saved configs, sixteen themes the player can extend, six icon packs, and a layout that reflows from a desktop monitor down to a phone.
+A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gives you a window with tabs, sections and 27 controls, a named look for every one of them, presets, a key system with tiers, saved configs, sixteen themes the player can extend, six icon packs, and a layout that reflows from a desktop monitor down to a phone.
 
 ![The Halcyon example hub](assets/hero.jpg)
 
@@ -23,7 +23,7 @@ local Window = Halcyon:CreateWindow({
 	Title = "My Hub",
 	Subtitle = "Universal",
 	Version = "v1.0.0", -- the tag beside the title; ShowVersion = false hides it
-	Icon = "sparkles",
+	Icon = "gamepad-2",
 	Folder = "MyHub", -- configs and settings save under Halcyon/MyHub/
 })
 

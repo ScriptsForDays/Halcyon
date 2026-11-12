@@ -9,7 +9,7 @@ local Styles = require("../Core/Styles")
 
 local KINDS = { "New", "Improved", "Fixed", "Removed", "Security" }
 local ROLES = { New = "accent", Improved = "info", Fixed = "success", Removed = "danger", Security = "warning" }
-local ICONS = { New = "sparkles", Improved = "zap", Fixed = "wrench", Removed = "trash-2", Security = "shield-check" }
+local ICONS = { New = "plus", Improved = "zap", Fixed = "wrench", Removed = "trash-2", Security = "shield-check" }
 
 -- How releases are drawn (kind "UpdateLog").
 --   section  the Section look each release uses
@@ -243,7 +243,7 @@ function UpdateLog.build(window, settings)
 			end
 			local section = tab:Section({
 				Title = title,
-				Icon = if latest then "sparkles" else "clock",
+				Icon = if latest then "tag" else "clock",
 				IconColor = if latest then "accent" else nil,
 				Style = look.section,
 				Description = if #subtitle > 0 then table.concat(subtitle, "  \u{2014}  ") else nil,

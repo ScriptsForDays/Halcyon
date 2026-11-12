@@ -1803,6 +1803,7 @@ BackgroundTransparency = 0.04,
 Theme = { BackgroundColor3 = "background" },
 Parent = window.body,
 })
+Create.corner(12, veil)
 local card = Create.new("Frame", {
 Name = "Card",
 Size = UDim2.new(1, -48, 0, 0),
@@ -1837,7 +1838,7 @@ local scope = window.scope:child()
 local veil, card = cover(window, "Loading")
 veil.BackgroundTransparency = 0
 scope:add(veil)
-local icon = Create.icon(options.Icon or window.Icon or "sparkles", 32, "accent", card)
+local icon = Create.icon(options.Icon or window.Icon or "layers", 32, "accent", card)
 icon.ZIndex = 52
 line(card, options.Title or window.Title, 16, "text", "bold", 1)
 local status = line(card, options.Text or "Getting ready", 13, "textMuted", "regular", 2)
@@ -1876,7 +1877,7 @@ if window.changelogSeen == version and not options.Force then
 return nil
 end
 local shell = Dialog.shell(window.library, { Width = 400, Dismissible = true })
-Dialog.heading(shell.card, options.Title or `What's new in {version}`, options.Icon or "sparkles")
+Dialog.heading(shell.card, options.Title or `What's new in {version}`, options.Icon or "bell")
 local list = Create.new("Frame", { Name = "Entries", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = shell.card })
 Create.list(list, "Vertical", 8)
 for index, entry in options.Entries or {} do
@@ -4069,7 +4070,7 @@ local Row = import("Elements/Row")
 local Styles = import("Core/Styles")
 local KINDS = { "New", "Improved", "Fixed", "Removed", "Security" }
 local ROLES = { New = "accent", Improved = "info", Fixed = "success", Removed = "danger", Security = "warning" }
-local ICONS = { New = "sparkles", Improved = "zap", Fixed = "wrench", Removed = "trash-2", Security = "shield-check" }
+local ICONS = { New = "plus", Improved = "zap", Fixed = "wrench", Removed = "trash-2", Security = "shield-check" }
 Styles.register("UpdateLog", "Timeline", { section = "Accent" })
 Styles.register("UpdateLog", "Cards", { section = "Card" })
 Styles.register("UpdateLog", "Compact", { section = "Outlined", compact = true })
@@ -4284,7 +4285,7 @@ table.insert(subtitle, tostring(update.Summary))
 end
 local section = tab:Section({
 Title = title,
-Icon = if latest then "sparkles" else "clock",
+Icon = if latest then "tag" else "clock",
 IconColor = if latest then "accent" else nil,
 Style = look.section,
 Description = if #subtitle > 0 then table.concat(subtitle, "  \u{2014}  ") else nil,
@@ -9766,7 +9767,7 @@ Styles.register("Label", "Info", { role = "info", icon = "info" })
 Styles.register("Label", "Success", { role = "success", icon = "circle-check" })
 Styles.register("Label", "Warning", { role = "warning", icon = "triangle-alert" })
 Styles.register("Label", "Danger", { role = "danger", icon = "circle-x" })
-Styles.register("Label", "Note", { role = "accent", icon = "sparkles" })
+Styles.register("Label", "Note", { role = "accent", icon = "pin" })
 local Label = {}
 function Label.new(container, options)
 local row = Row.new(container, options, { bare = true, compact = true })

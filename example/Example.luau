@@ -45,7 +45,7 @@ local function start(look)
 		Title = "Halcyon",
 		Subtitle = "Example hub",
 		Version = "v2.1.0",
-		Icon = "sparkles",
+		Icon = "layers",
 		-- Any image works here: an asset id, a workspace file or a URL. URLs
 		-- and files need an executor with getcustomasset; Studio shows the
 		-- fallback icon instead.
@@ -462,7 +462,7 @@ local function start(look)
 
 	-- Try a look: the window-wide choices that need a rebuild.
 	local chosen = table.clone(look)
-	local Trial = Looks:Section({ Title = "Try a look", Icon = "sparkles", Description = "Pick any of these, then rebuild the hub to see it." })
+	local Trial = Looks:Section({ Title = "Try a look", Icon = "palette", Description = "Pick any of these, then rebuild the hub to see it." })
 	local function picker(title, kind, key)
 		local names = Halcyon:GetStyles(kind)
 		Trial:Dropdown({
@@ -676,7 +676,7 @@ local function start(look)
 	Switched:Slider({ Title = "Fast speed", Min = 1, Max = 10, Default = 6 }):ShowWhen(farmMode, "Fast")
 	Switched:Label({ Title = "Pick Fast to reveal the speed row. The switch greys everything here." })
 
-	local Extras = Looks:Section({ Title = "More controls", Icon = "sparkles" })
+	local Extras = Looks:Section({ Title = "More controls", Icon = "layout-grid" })
 	Extras:Status({ Title = "Server", Status = "Online", Kind = "success", Pulse = true })
 	Extras:Countdown({ Title = "Boss spawns in", Seconds = 300, Done = "Spawned" })
 	Extras:DatePicker({ Title = "Event date", Time = true })

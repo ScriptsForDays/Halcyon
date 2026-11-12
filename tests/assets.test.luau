@@ -76,7 +76,7 @@ for _, look in Halcyon:GetStyles("TopbarImage") do
 	Stub.check(test.topbarImage ~= nil, "top-bar image look " .. look .. " builds")
 	test:Unload()
 end
-local plainWindow = Halcyon:CreateWindow({ Title = "Plain", Folder = "PlainTop", Icon = "sparkles", TopbarImage = false })
+local plainWindow = Halcyon:CreateWindow({ Title = "Plain", Folder = "PlainTop", Icon = "layers", TopbarImage = false })
 Stub.check(plainWindow.topbarImage == nil, "TopbarImage = false keeps the plain icon")
 plainWindow:Unload()
 

@@ -27,6 +27,8 @@ local function cover(window, name)
 		Theme = { BackgroundColor3 = "background" },
 		Parent = window.body,
 	})
+	-- Rounded like the window, so the cover's lower corners never show past it.
+	Create.corner(12, veil)
 	local card = Create.new("Frame", {
 		Name = "Card",
 		Size = UDim2.new(1, -48, 0, 0),
@@ -66,7 +68,7 @@ function Panels.loading(window, options)
 	local veil, card = cover(window, "Loading")
 	veil.BackgroundTransparency = 0
 	scope:add(veil)
-	local icon = Create.icon(options.Icon or window.Icon or "sparkles", 32, "accent", card)
+	local icon = Create.icon(options.Icon or window.Icon or "layers", 32, "accent", card)
 	icon.ZIndex = 52
 	line(card, options.Title or window.Title, 16, "text", "bold", 1)
 	local status = line(card, options.Text or "Getting ready", 13, "textMuted", "regular", 2)
@@ -111,7 +113,7 @@ function Panels.changelog(window, options)
 		return nil
 	end
 	local shell = Dialog.shell(window.library, { Width = 400, Dismissible = true })
-	Dialog.heading(shell.card, options.Title or `What's new in {version}`, options.Icon or "sparkles")
+	Dialog.heading(shell.card, options.Title or `What's new in {version}`, options.Icon or "bell")
 	local list = Create.new("Frame", { Name = "Entries", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = shell.card })
 	Create.list(list, "Vertical", 8)
 	for index, entry in options.Entries or {} do

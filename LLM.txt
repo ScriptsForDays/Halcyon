@@ -20,7 +20,7 @@ Roblox Studio: paste dist/Halcyon.luau into a ModuleScript named Halcyon in Repl
 ## Minimal hub
 
 ```lua
-local Window = Halcyon:CreateWindow({ Title = "My Hub", Icon = "sparkles", Folder = "MyHub" })
+local Window = Halcyon:CreateWindow({ Title = "My Hub", Icon = "gamepad-2", Folder = "MyHub" })
 if not Window then return end -- needed only with a KeySystem (the player can close the prompt)
 
 local Player = Window:Tab({ Title = "Player", Icon = "user" })

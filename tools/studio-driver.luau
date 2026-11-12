@@ -52,6 +52,11 @@ local function run(command)
 			chosen[key] = value
 		end
 		start(chosen)
+	elseif name == "notices" then
+		Window:Notify({ Title = "Connected", Style = "Island", Kind = "success", Duration = 60 })
+		Window:Notify({ Title = "Config saved", Content = "Your settings were written to disk.", Style = "Accent", Kind = "success", Duration = 60 })
+		Window:Notify({ Title = "Level 10 reached", Content = "Shows how this look sits on screen.", Style = "Achievement", Kind = "success", Duration = 60 })
+		Window:Notify({ Title = "Item sold", Style = "Snackbar", Duration = 60, Actions = { { Title = "Undo" } } })
 	elseif name == "palette" then
 		Window:OpenPalette()
 	elseif name == "set" then

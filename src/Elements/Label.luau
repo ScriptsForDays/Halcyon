@@ -12,7 +12,7 @@ Styles.register("Label", "Info", { role = "info", icon = "info" })
 Styles.register("Label", "Success", { role = "success", icon = "circle-check" })
 Styles.register("Label", "Warning", { role = "warning", icon = "triangle-alert" })
 Styles.register("Label", "Danger", { role = "danger", icon = "circle-x" })
-Styles.register("Label", "Note", { role = "accent", icon = "sparkles" })
+Styles.register("Label", "Note", { role = "accent", icon = "pin" })
 
 local Label = {}
 
