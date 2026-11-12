@@ -1,6 +1,7 @@
 local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Env = require("../Core/Env")
+local Icons = require("../Core/Icons")
 local Popup = require("../Components/Popup")
 local Row = require("./Row")
 local Signal = require("../Core/Signal")
@@ -12,6 +13,22 @@ for index = 0, 6 do
 end
 local FADE_IN = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
 local FADE_OUT = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+-- Palette = true offers these: the status colours, a few hues, and greys.
+local PALETTE = {
+	Color3.fromHex("F0616D"),
+	Color3.fromHex("F08C3A"),
+	Color3.fromHex("F5B74F"),
+	Color3.fromHex("3FCF8E"),
+	Color3.fromHex("22D3EE"),
+	Color3.fromHex("5B8DEF"),
+	Color3.fromHex("9D7BF5"),
+	Color3.fromHex("F0527F"),
+	Color3.fromHex("FFFFFF"),
+	Color3.fromHex("9BA3B2"),
+	Color3.fromHex("2A2F3A"),
+	Color3.fromHex("000000"),
+}
+local RECENT = 8
 
 local ColorPicker = {}
 
@@ -28,6 +45,9 @@ end
 -- The swatch and its popup, usable on its own row or beside a Toggle.
 -- `onCommit(color, transparency)` runs when a drag ends or a hex is entered,
 -- not on every move: a colour change often rebuilds something expensive.
+-- Options beyond Default, Alpha and Transparency: Palette (true for the
+-- built-in swatches, or a list of Color3), Recent (default true: the last
+-- colours picked in any picker, shared for the session).
 function ColorPicker.control(row, options, onCommit)
 	local scope, library = row.scope, row.library
 	local color = options.Default or WHITE
@@ -52,6 +72,16 @@ function ColorPicker.control(row, options, onCommit)
 	end
 
 	local function commit()
+		-- Remembered for every picker's Recent row, newest first, no repeats.
+		library.recentColors = library.recentColors or {}
+		local recent = library.recentColors
+		for index = #recent, 1, -1 do
+			if recent[index]:ToHex() == color:ToHex() then
+				table.remove(recent, index)
+			end
+		end
+		table.insert(recent, 1, color)
+		recent[RECENT + 1] = nil
 		control.Changed:Fire(color, transparency)
 		onCommit(color, transparency)
 	end
@@ -149,16 +179,68 @@ function ColorPicker.control(row, options, onCommit)
 			alphaGradient = Create.new("UIGradient", { Transparency = FADE_OUT, Parent = alphaTrack })
 		end
 
+		local fieldHeight = if library.touch then 40 else 28
+		local hexLine = Create.new("Frame", { Name = "HexLine", Size = UDim2.new(1, 0, 0, fieldHeight), LayoutOrder = 3, Parent = panel })
+		Create.list(hexLine, "Horizontal", 6)
 		local box = Create.new("TextBox", {
 			Name = "Hex",
-			Size = UDim2.new(1, 0, 0, if library.touch then 40 else 28),
+			Size = UDim2.fromScale(0, 1),
 			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Center,
-			LayoutOrder = 3,
 			Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
-			Parent = panel,
-		})
+			Parent = hexLine,
+		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
 		Create.corner(6, box)
+		if Env.setclipboard then
+			-- Copies the hex, to paste into another picker or a config.
+			local copy = Create.new("TextButton", {
+				Name = "Copy",
+				Size = UDim2.fromOffset(fieldHeight, fieldHeight),
+				LayoutOrder = 1,
+				Theme = { BackgroundColor3 = "raised" },
+				Parent = hexLine,
+			})
+			Create.corner(6, copy)
+			local glyph = Create.icon("copy", 14, "textMuted", copy)
+			glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+			session:connect(copy.Activated, function()
+				Env.copy("#" .. string.upper(hexText()))
+				Icons.apply(glyph, "check")
+				task.delay(1, function()
+					if glyph.Parent then
+						Icons.apply(glyph, "copy")
+					end
+				end)
+			end)
+		end
+
+		-- Rows of swatches: the palette, then recent colours.
+		local function swatchRow(name, colors, order)
+			if #colors == 0 then
+				return
+			end
+			local line = Create.new("Frame", { Name = name, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = panel })
+			Create.list(line, "Horizontal", 6, { Wraps = true })
+			for index, swatchColor in colors do
+				local chip = Create.new("TextButton", {
+					Name = "Swatch",
+					Size = UDim2.fromOffset(20, 20),
+					LayoutOrder = index,
+					BackgroundColor3 = swatchColor,
+					Parent = line,
+				})
+				Create.corner(-1, chip)
+				Create.new("UIStroke", { Transparency = 0.6, Theme = { Color = "text" }, Parent = chip })
+				session:connect(chip.Activated, function()
+					control:Set(swatchColor, transparency)
+				end)
+			end
+		end
+		local palette = if options.Palette == true then PALETTE elseif type(options.Palette) == "table" then options.Palette else {}
+		swatchRow("Palette", palette, 4)
+		if options.Recent ~= false then
+			swatchRow("Recent", library.recentColors or {}, 5)
+		end
 
 		function redraw()
 			area.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)

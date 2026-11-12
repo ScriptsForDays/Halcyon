@@ -2,6 +2,7 @@
 -- each element needs: claim its Flag, make it searchable, apply its tier
 -- lock, and undo all three when it is destroyed.
 
+local Choices = require("./Choices")
 local Env = require("../Core/Env")
 
 local MODULES = {
@@ -20,8 +21,20 @@ local MODULES = {
 	Divider = require("./Divider"),
 	Code = require("./Code"),
 	Image = require("./Image"),
+	Radio = { new = Choices.radio },
+	Checklist = { new = Choices.checklist },
+	Chips = { new = Choices.chips },
+	Tiles = require("./Tiles"),
+	Rating = require("./Rating"),
+	Accordion = require("./Accordion"),
+	Status = require("./Status"),
+	Countdown = require("./Countdown"),
+	Buttons = require("./Buttons"),
+	Space = require("./Space"),
+	Table = require("./Table"),
+	DatePicker = require("./DatePicker"),
 }
-local UNTITLED = { Divider = true, Code = true, Image = true }
+local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true }
 
 local Registry = { Kinds = {} }
 for kind in MODULES do

@@ -566,7 +566,8 @@ for _, name in
 	string.split(
 		"Activated,MouseEnter,MouseLeave,MouseButton1Down,MouseButton1Up,MouseButton1Click,InputBegan,InputChanged,"
 			.. "InputEnded,FocusLost,Focused,Destroying,ChildAdded,ChildRemoved,Changed,Heartbeat,RenderStepped,"
-			.. "CharacterAdded,Completed,SelectionGained,SelectionLost,TouchTap,ReturnPressedFromOnScreenKeyboard",
+			.. "CharacterAdded,Completed,SelectionGained,SelectionLost,TouchTap,ReturnPressedFromOnScreenKeyboard,"
+			.. "PlayerAdded,PlayerRemoving,MouseButton2Click,DescendantAdded",
 		","
 	)
 do
@@ -702,6 +703,16 @@ function Methods:FindFirstChild(name, recursive)
 end
 
 Methods.WaitForChild = Methods.FindFirstChild
+
+function Methods:GetPlayers()
+	local list = {}
+	for _, child in self:GetChildren() do
+		if child.ClassName == "Player" then
+			table.insert(list, child)
+		end
+	end
+	return list
+end
 
 function Methods:IsA(className)
 	local own = self.ClassName
@@ -1010,7 +1021,11 @@ function Stub.byName(root, name)
 	return root:FindFirstChild(name, true)
 end
 
+-- A press on a label or icon reaches the button under it, as on screen.
 function Stub.click(button)
+	while button and button.ClassName ~= "TextButton" and button.ClassName ~= "ImageButton" and button.Parent do
+		button = button.Parent
+	end
 	button.Activated:Fire()
 	Stub.flush()
 end

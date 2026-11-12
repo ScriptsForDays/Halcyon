@@ -388,6 +388,98 @@ Hud:Toggle({
 	end,
 })
 
+-- Looks -----------------------------------------------------------------------
+-- Every registered look side by side, each with the line that opts into it.
+
+local Looks = Window:Tab({ Title = "Looks", Icon = "palette", Group = "Library" })
+local function opt(kind, name)
+	return string.format('%s = "%s"', if kind == "Button" then "Variant" else "Style", name)
+end
+
+local ToggleLooks = Looks:Section({ Title = "Toggles", Icon = "toggle-left", Badge = #Halcyon:GetStyles("Toggle") })
+for _, name in Halcyon:GetStyles("Toggle") do
+	ToggleLooks:Toggle({ Title = name, Description = opt("Toggle", name), Style = name, Default = name == "Switch" })
+end
+
+local SliderLooks = Looks:Section({ Title = "Sliders", Icon = "sliders-horizontal", Side = "Right", Badge = #Halcyon:GetStyles("Slider") })
+for _, name in Halcyon:GetStyles("Slider") do
+	SliderLooks:Slider({ Title = name, Description = opt("Slider", name), Style = name, Min = 0, Max = 10, Default = 6, Stacked = true })
+end
+SliderLooks:Slider({ Title = "Percent", Description = 'Percent = true, Display = "Text"', Min = 0, Max = 200, Default = 120, Percent = true, Display = "Text" })
+SliderLooks:Slider({ Title = "Fraction", Description = 'Prefix = "$", Display = "Fraction"', Min = 0, Max = 50, Default = 20, Prefix = "$", Display = "Fraction" })
+
+local ButtonLooks = Looks:Section({ Title = "Buttons", Icon = "mouse-pointer-2" })
+for _, name in Halcyon:GetStyles("Button") do
+	ButtonLooks:Button({ Title = name, Description = if name == "Row" then opt("Button", name) else nil, Variant = name })
+end
+ButtonLooks:Button({ Title = "Hold to reset", Variant = "Danger", Hold = 1.2, Icon = "refresh-cw" })
+ButtonLooks:Button({ Title = "Delete save", Variant = "Outline", Confirm = "Press again to delete", Icon = "trash-2" })
+local fetch
+fetch = ButtonLooks:Button({ Title = "Fetch data", Variant = "Soft", ShowDone = true, Icon = "download", Callback = function()
+	fetch:SetLoading(true, "Fetching")
+	task.wait(1.5)
+	fetch:SetLoading(false)
+end })
+ButtonLooks:Buttons({ Buttons = { { Title = "Accept", Icon = "check" }, { Title = "Decline", Variant = "Ghost" } } })
+
+local InputLooks = Looks:Section({ Title = "Inputs", Icon = "text-cursor-input", Side = "Right" })
+for _, name in Halcyon:GetStyles("Input") do
+	InputLooks:Input({ Title = name, Description = opt("Input", name), Style = name, Placeholder = "Type here", LeadingIcon = "search", Clearable = true })
+end
+InputLooks:Input({ Title = "Password", Description = "Password = true", Password = true, Default = "hunter2" })
+InputLooks:Input({ Title = "Bio", Description = "MultiLine = true, Counter = true", MultiLine = true, MaxLength = 120, Counter = true, Lines = 3 })
+
+local DropdownLooks = Looks:Section({ Title = "Dropdowns", Icon = "list" })
+DropdownLooks:Dropdown({
+	Title = "Box",
+	Description = 'Style = "Box", rich options',
+	Values = {
+		{ Heading = "Melee" },
+		{ Text = "Sword", Icon = "sword", Description = "Close range" },
+		{ Text = "Hammer", Icon = "hammer", Description = "Slow, heavy" },
+		{ Heading = "Ranged" },
+		{ Text = "Bow", Icon = "crosshair" },
+		{ Text = "Railgun", Icon = "zap", Disabled = true },
+	},
+})
+DropdownLooks:Dropdown({ Title = "Minimal", Description = 'Style = "Minimal"', Style = "Minimal", Values = { "Low", "Medium", "High" } })
+DropdownLooks:Dropdown({ Title = "Chips", Description = 'Style = "Chips", Multi = true', Style = "Chips", Multi = true, Values = { "Coins", "Gems", "Keys", "Eggs" }, Default = { "Coins", "Gems" } })
+DropdownLooks:Dropdown({ Title = "Inline", Description = 'Style = "Inline"', Style = "Inline", Values = { "North", "South", "East", "West" } })
+DropdownLooks:Dropdown({ Title = "Player", Description = "Players = true", Players = true, AllowNone = true, Placeholder = "Pick a player" })
+
+local Pickers = Looks:Section({ Title = "Choices", Icon = "layout-grid", Side = "Right" })
+Pickers:Radio({ Title = "Radio", Values = { "Safe", "Balanced", "Fast" }, Default = "Balanced" })
+Pickers:Checklist({ Title = "Checklist", Values = { "Gold", "Gems", "Keys" }, SelectAll = true })
+Pickers:Chips({ Title = "Chips", Values = { "PvP", "PvE", "Trading", "Events" }, Multi = true, Default = { "PvE" } })
+Pickers:Tiles({
+	Title = "Tiles",
+	Items = {
+		{ Title = "Lobby", Icon = "house", Description = "Spawn" },
+		{ Title = "Arena", Icon = "swords", Description = "PvP" },
+		{ Title = "Shop", Icon = "shopping-cart", Description = "Buy" },
+	},
+})
+Pickers:Rating({ Title = "Rating", Default = 4 })
+
+local Extras = Looks:Section({ Title = "More controls", Icon = "sparkles" })
+Extras:Status({ Title = "Server", Status = "Online", Kind = "success", Pulse = true })
+Extras:Countdown({ Title = "Boss spawns in", Seconds = 300, Done = "Spawned" })
+Extras:DatePicker({ Title = "Event date", Time = true })
+Extras:Keybind({ Title = "Dash", Default = Enum.KeyCode.Q, Style = "Keycap", ModePicker = true, Description = "Right-click the key to change its mode" })
+Extras:Keybind({ Title = "Sprint", Default = Enum.KeyCode.LeftShift, Style = "Brackets" })
+Extras:ColorPicker({ Title = "Tint", Palette = true, Default = Color3.fromRGB(91, 141, 239) })
+Extras:Stepper({ Title = "Amount", Min = 0, Max = 99, Default = 5, Description = "Drag the number sideways" })
+Extras:Accordion({ Title = "How do the looks work?", Content = 'Each control has a Style option. Set one look per control, or set Styles = { Toggle = "Slim" } on the window for all of them.' })
+Extras:Label({ Title = "Info callouts explain a setting.", Style = "Info" })
+Extras:Label({ Title = "Warnings flag something risky.", Style = "Warning" })
+Extras:Label({ Title = "Success confirms it worked.", Style = "Success" })
+Extras:Paragraph({ Title = "Paragraph with buttons", Content = "Text can carry <b>bold</b> and <i>italic</i> words.", Buttons = { { Title = "Docs" }, { Title = "Discord", Variant = "Outline" } } })
+Extras:Table({
+	Title = "Leaderboard",
+	Columns = { "Player", { Title = "Kills", Align = "Right", Width = 0.25 }, { Title = "Level", Align = "Right", Width = 0.25 } },
+	Rows = { { "Nova", 42, 18 }, { "Kite", 17, 31 }, { "Rook", 88, 12 }, { "Ash", 5, 40 } },
+})
+
 local Saves = Window:Tab({ Title = "Configs", Icon = "save", Group = "Library" })
 Window:ConfigSection(Saves)
 Window:SettingsTab({ Group = "Library", ScaleControl = "Slider" })

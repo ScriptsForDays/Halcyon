@@ -303,7 +303,9 @@ function Row.new(container, options, layout)
 			description.Visible = shown ~= nil and shown ~= ""
 			Theme.bind(description, "TextColor3", if state.locked and narrowLock then "accent" else "textMuted")
 		end
-		handle.SearchText = string.lower(handle.Title .. " " .. (state.description or ""))
+		-- SearchExtra holds words an element shows besides its title, such as
+		-- a status or an accordion's text.
+		handle.SearchText = string.lower(handle.Title .. " " .. (state.description or "") .. " " .. (handle.SearchExtra or ""))
 	end
 
 	function handle:SetTitle(text)

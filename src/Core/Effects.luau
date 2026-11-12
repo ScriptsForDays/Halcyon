@@ -6,6 +6,8 @@
 --   Ripple  a circle spreads from the point that was pressed
 --   Lift    the button grows a little on hover and sinks when pressed
 --   Glow    an accent outline fades in on hover
+--   Press   the button sinks while held, with no hover change
+--   Fill    the accent wipes across the button from the left on hover
 --   None    nothing
 --
 -- With reduced motion on, every effect is skipped.
@@ -26,8 +28,11 @@ local BAND_FADE = NumberSequence.new({
 	NumberSequenceKeypoint.new(1, 1),
 })
 
-local Effects = { Kinds = { Sweep = true, Ripple = true, Lift = true, Glow = true, None = true } }
-for _, name in { "Sweep", "Ripple", "Lift", "Glow", "None" } do
+local PULSE = TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, -1)
+local SPIN = TweenInfo.new(0.8, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
+
+local Effects = { Kinds = { Sweep = true, Ripple = true, Lift = true, Glow = true, Press = true, Fill = true, None = true } }
+for _, name in { "Sweep", "Ripple", "Lift", "Glow", "Press", "Fill", "None" } do
 	Styles.register("ButtonEffect", name, {})
 end
 
@@ -136,6 +141,103 @@ local function glow(scope, button)
 	end)
 end
 
+local function press(scope, button)
+	local scale = button:FindFirstChildOfClass("UIScale") or Create.new("UIScale", { Parent = button })
+	scope:connect(button.MouseButton1Down, function()
+		Motion.tween(scale, "fast", { Scale = 0.96 })
+	end)
+	scope:connect(button.MouseButton1Up, function()
+		Motion.tween(scale, "spring", { Scale = 1 })
+	end)
+	scope:connect(button.MouseLeave, function()
+		Motion.tween(scale, "spring", { Scale = 1 })
+	end)
+end
+
+-- The wipe lies under the text: the text keeps its own colour, so this suits
+-- buttons whose text reads on the accent too (Soft, Ghost, Outline).
+local function fill(scope, button, radius)
+	local wipe = Create.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.fromScale(0, 1),
+		BackgroundTransparency = 0.82,
+		Theme = { BackgroundColor3 = "accent" },
+		Parent = layer(button, radius),
+	})
+	scope:connect(button.MouseEnter, function()
+		Motion.tween(wipe, "base", { Size = UDim2.fromScale(1, 1) })
+	end)
+	scope:connect(button.MouseLeave, function()
+		Motion.tween(wipe, "base", { Size = UDim2.fromScale(0, 1) })
+	end)
+end
+
+-- A turning arc for a busy state, drawn with an outline and a gradient so it
+-- needs no image. The engine repeats the turn; no Lua runs per frame.
+-- Returns { frame, start, stop }; it starts stopped and hidden.
+function Effects.spinner(scope, parent, size, role)
+	local frame = Create.new("Frame", {
+		Name = "Spinner",
+		Size = UDim2.fromOffset(size, size),
+		Visible = false,
+		Parent = parent,
+	})
+	Create.corner(-1, frame)
+	local ring = Create.new("UIStroke", { Thickness = 2, Theme = { Color = role or "text" }, Parent = frame })
+	Create.new("UIGradient", {
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.7, 0.85),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = ring,
+	})
+	local tween
+	local spinner = { frame = frame }
+	function spinner.start()
+		frame.Visible = true
+		if tween or Motion.reduced then
+			return
+		end
+		frame.Rotation = 0
+		tween = TweenService:Create(frame, SPIN, { Rotation = 360 })
+		tween:Play()
+	end
+	function spinner.stop()
+		frame.Visible = false
+		if tween then
+			tween:Cancel()
+			tween = nil
+		end
+	end
+	scope:add(spinner.stop)
+	return spinner
+end
+
+-- A ring that spreads from a status dot and fades, repeated by the engine.
+-- `ring` is a UIStroke on the dot. Returns start and stop.
+function Effects.pulse(scope, ring)
+	local tween
+	local pulse = {}
+	function pulse.start()
+		if tween or Motion.reduced then
+			return
+		end
+		ring.Thickness, ring.Transparency = 0, 0.3
+		tween = TweenService:Create(ring, PULSE, { Thickness = 5, Transparency = 1 })
+		tween:Play()
+	end
+	function pulse.stop()
+		if tween then
+			tween:Cancel()
+			tween = nil
+		end
+		ring.Thickness, ring.Transparency = 0, 1
+	end
+	scope:add(pulse.stop)
+	return pulse
+end
+
 -- A light band that crosses `target` every few seconds, for locked rows and
 -- sections. Returns start and stop; it starts stopped. The clipping layer
 -- is made on the first start, so unlocked rows carry no CanvasGroup.
@@ -183,7 +285,14 @@ function Effects.apply(scope, button, kind, radius)
 		lift(scope, button)
 	elseif kind == "Glow" then
 		glow(scope, button)
+	elseif kind == "Press" then
+		press(scope, button)
+	elseif kind == "Fill" then
+		fill(scope, button, radius or 8)
 	end
 end
+
+-- The clipping layer, for other effects drawn inside a button.
+Effects.layer = layer
 
 return Effects

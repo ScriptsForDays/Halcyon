@@ -3707,8 +3707,10 @@ NumberSequenceKeypoint.new(0, 1),
 NumberSequenceKeypoint.new(0.5, 0.7),
 NumberSequenceKeypoint.new(1, 1),
 })
-local Effects = { Kinds = { Sweep = true, Ripple = true, Lift = true, Glow = true, None = true } }
-for _, name in { "Sweep", "Ripple", "Lift", "Glow", "None" } do
+local PULSE = TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, -1)
+local SPIN = TweenInfo.new(0.8, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
+local Effects = { Kinds = { Sweep = true, Ripple = true, Lift = true, Glow = true, Press = true, Fill = true, None = true } }
+for _, name in { "Sweep", "Ripple", "Lift", "Glow", "Press", "Fill", "None" } do
 Styles.register("ButtonEffect", name, {})
 end
 local function layer(button, radius)
@@ -3808,6 +3810,92 @@ scope:connect(button.MouseLeave, function()
 Motion.tween(stroke, "base", { Transparency = 1 })
 end)
 end
+local function press(scope, button)
+local scale = button:FindFirstChildOfClass("UIScale") or Create.new("UIScale", { Parent = button })
+scope:connect(button.MouseButton1Down, function()
+Motion.tween(scale, "fast", { Scale = 0.96 })
+end)
+scope:connect(button.MouseButton1Up, function()
+Motion.tween(scale, "spring", { Scale = 1 })
+end)
+scope:connect(button.MouseLeave, function()
+Motion.tween(scale, "spring", { Scale = 1 })
+end)
+end
+local function fill(scope, button, radius)
+local wipe = Create.new("Frame", {
+Name = "Fill",
+Size = UDim2.fromScale(0, 1),
+BackgroundTransparency = 0.82,
+Theme = { BackgroundColor3 = "accent" },
+Parent = layer(button, radius),
+})
+scope:connect(button.MouseEnter, function()
+Motion.tween(wipe, "base", { Size = UDim2.fromScale(1, 1) })
+end)
+scope:connect(button.MouseLeave, function()
+Motion.tween(wipe, "base", { Size = UDim2.fromScale(0, 1) })
+end)
+end
+function Effects.spinner(scope, parent, size, role)
+local frame = Create.new("Frame", {
+Name = "Spinner",
+Size = UDim2.fromOffset(size, size),
+Visible = false,
+Parent = parent,
+})
+Create.corner(-1, frame)
+local ring = Create.new("UIStroke", { Thickness = 2, Theme = { Color = role or "text" }, Parent = frame })
+Create.new("UIGradient", {
+Transparency = NumberSequence.new({
+NumberSequenceKeypoint.new(0, 0),
+NumberSequenceKeypoint.new(0.7, 0.85),
+NumberSequenceKeypoint.new(1, 1),
+}),
+Parent = ring,
+})
+local tween
+local spinner = { frame = frame }
+function spinner.start()
+frame.Visible = true
+if tween or Motion.reduced then
+return
+end
+frame.Rotation = 0
+tween = TweenService:Create(frame, SPIN, { Rotation = 360 })
+tween:Play()
+end
+function spinner.stop()
+frame.Visible = false
+if tween then
+tween:Cancel()
+tween = nil
+end
+end
+scope:add(spinner.stop)
+return spinner
+end
+function Effects.pulse(scope, ring)
+local tween
+local pulse = {}
+function pulse.start()
+if tween or Motion.reduced then
+return
+end
+ring.Thickness, ring.Transparency = 0, 0.3
+tween = TweenService:Create(ring, PULSE, { Thickness = 5, Transparency = 1 })
+tween:Play()
+end
+function pulse.stop()
+if tween then
+tween:Cancel()
+tween = nil
+end
+ring.Thickness, ring.Transparency = 0, 1
+end
+scope:add(pulse.stop)
+return pulse
+end
 function Effects.shimmer(scope, target, radius)
 local band, tween
 local shimmer = {}
@@ -3849,8 +3937,13 @@ elseif kind == "Lift" then
 lift(scope, button)
 elseif kind == "Glow" then
 glow(scope, button)
+elseif kind == "Press" then
+press(scope, button)
+elseif kind == "Fill" then
+fill(scope, button, radius or 8)
 end
 end
+Effects.layer = layer
 return Effects
 end
 modules["Core/Env"] = function()
@@ -4849,69 +4942,563 @@ return if Tokens.touch then math.max(height, 44) else height
 end
 return Tokens
 end
-modules["Elements/Button"] = function()
+modules["Elements/Accordion"] = function()
 local Create = import("Core/Create")
-local Effects = import("Core/Effects")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
 local Theme = import("Core/Theme")
-local VARIANTS = {
-Filled = { fill = "accent", hover = "accentHover", text = "onAccent" },
-Outline = { fill = "raised", hover = "hover", text = "text" },
-Danger = { fill = "danger", hover = "danger", text = "onAccent" },
-}
+local Accordion = {}
+function Accordion.new(container, options)
+local row = Row.new(container, { Title = options.Title, Icon = options.Icon }, { button = true })
+local handle, scope = row.handle, row.scope
+local open = options.Open == true
+local holder = Create.new("Frame", { Name = "Arrow", Size = UDim2.fromOffset(16, 16), Parent = row.slot })
+local chevron = Create.icon("chevron-down", 16, "textMuted", holder)
+local body = row.belowTitle()
+local text = Create.new("TextLabel", {
+Name = "Content",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+RichText = true,
+TextSize = 13,
+Text = tostring(options.Content or ""),
+Theme = { TextColor3 = "textMuted" },
+Parent = body,
+})
+local function draw(timing)
+body.Visible = open
+Motion.tween(chevron, timing, { Rotation = if open then 180 else 0 })
+end
+function handle:Get()
+return open
+end
+function handle:SetOpen(wanted)
+open = wanted == true
+draw("fast")
+self.Changed:Fire(open)
+end
+function handle:Set(content)
+text.Text = tostring(content)
+self.SearchExtra = text.Text
+self.SearchText = string.lower(self.Title .. " " .. text.Text)
+end
+scope:connect(row.frame.Activated, function()
+handle:SetOpen(not open)
+end)
+row.onHover(function(active)
+Theme.bind(chevron, "ImageColor3", if active then "text" else "textMuted")
+end)
+draw(nil)
+handle.SearchExtra = text.Text
+handle.SearchText = string.lower(handle.Title .. " " .. text.Text)
+return handle
+end
+return Accordion
+end
+modules["Elements/Button"] = function()
+local Create = import("Core/Create")
+local Effects = import("Core/Effects")
+local Icons = import("Core/Icons")
+local Motion = import("Core/Motion")
+local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
+local CONFIRM_WINDOW = 3
+local FLASH = 1.2
+Styles.register("Button", "Row", { row = true })
+Styles.register("Button", "Filled", { fill = "accent", hover = "accentHover", text = "onAccent" })
+Styles.register("Button", "Outline", { fill = "raised", hover = "hover", text = "text", stroke = "stroke" })
+Styles.register("Button", "Danger", { fill = "danger", hover = "danger", text = "onAccent" })
+Styles.register("Button", "Soft", { fill = "accent", fillTransparency = 0.82, hover = "accent", hoverTransparency = 0.72, text = "accent" })
+Styles.register("Button", "Ghost", { fill = "hover", fillTransparency = 1, hover = "hover", hoverTransparency = 0, text = "text" })
+Styles.register("Button", "Gradient", { fill = "accent", hover = "accentHover", text = "onAccent", gradient = true })
+Styles.register("Button", "Success", { fill = "success", hover = "success", text = "onAccent" })
 local Button = {}
 function Button.new(container, options)
-local roles = VARIANTS[options.Variant]
-if not roles then
-local row = Row.new(container, options, { button = true })
-local mark = Create.icon(options.TrailingIcon or "chevron-right", 16, "textMuted", row.slot)
+local look = Styles.pick("Button", options.Variant or options.Style, container.window)
+local row, handle, target, label, indicator
+local title = options.Title or ""
+if look.row then
+row = Row.new(container, options, { button = true })
+handle, target, label = row.handle, row.frame, row.title
+indicator = Create.icon(options.TrailingIcon or "chevron-right", 16, "textMuted", row.slot)
 row.onHover(function(active)
-Theme.bind(mark, "ImageColor3", if active then "accent" else "textMuted")
+Theme.bind(indicator, "ImageColor3", if active then "accent" else "textMuted")
 end)
-row.scope:connect(row.frame.Activated, row.fire)
-function row.handle:Press()
-row.fire()
-end
-return row.handle
-end
-local row = Row.new(container, options, { bare = true })
-local handle = row.handle
-local button = Create.new("TextButton", {
+else
+row = Row.new(container, options, { bare = true })
+handle = row.handle
+target = Create.new("TextButton", {
 Name = "Button",
 Size = UDim2.new(1, 0, 0, 36),
-Text = options.Title,
-Weight = "medium",
-Theme = { BackgroundColor3 = roles.fill, TextColor3 = roles.text },
+BackgroundTransparency = look.fillTransparency or 0,
+Theme = { BackgroundColor3 = look.fill },
 Parent = row.content,
 })
-Create.corner(8, button)
-if options.Variant == "Outline" then
-Create.stroke("stroke", button)
+Create.corner(8, target)
+if look.stroke then
+Create.stroke(look.stroke, target)
 end
-local function paint(role)
-Theme.bind(button, "BackgroundColor3", role, true)
-Motion.tween(button, "fast", { BackgroundColor3 = Theme.color(role) })
+if look.gradient then
+local gradient = Create.new("UIGradient", { Rotation = 20, Parent = target })
+local function tint()
+gradient.Color = ColorSequence.new(Theme.color("accent"), Theme.color("accentHover"))
 end
-row.scope:connect(button.MouseEnter, function()
-paint(roles.hover)
+tint()
+row.scope:connect(Theme.Changed, tint)
+end
+local inner = Create.new("Frame", {
+Name = "Inner",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+AnchorPoint = Vector2.new(0.5, 0),
+Position = UDim2.fromScale(0.5, 0),
+ZIndex = 3,
+Parent = target,
+})
+Create.list(inner, "Horizontal", 8)
+indicator = Create.icon(options.Icon or "check", 16, look.text, inner)
+indicator.Visible = options.Icon ~= nil
+label = Create.new("TextLabel", {
+Name = "Label",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = title,
+Weight = "medium",
+LayoutOrder = 2,
+Theme = { TextColor3 = look.text },
+Parent = inner,
+})
+local function paint(hovered)
+local role = if hovered then look.hover else look.fill
+Theme.bind(target, "BackgroundColor3", role, true)
+Motion.tween(target, "fast", {
+BackgroundColor3 = Theme.color(role),
+BackgroundTransparency = if hovered then look.hoverTransparency or look.fillTransparency or 0 else look.fillTransparency or 0,
+})
+end
+row.scope:connect(target.MouseEnter, function()
+paint(true)
 end)
-row.scope:connect(button.MouseLeave, function()
-paint(roles.fill)
+row.scope:connect(target.MouseLeave, function()
+paint(false)
 end)
-row.scope:connect(button.Activated, row.fire)
-Effects.apply(row.scope, button, options.Effect or row.window.styles.ButtonEffect or row.window.buttonEffect, 8)
+Effects.apply(row.scope, target, options.Effect or row.window.styles.ButtonEffect or row.window.buttonEffect, 8)
+end
+local spinner = Effects.spinner(row.scope, indicator.Parent, 14, if look.row then "accent" else look.text)
+spinner.frame.LayoutOrder = indicator.LayoutOrder
+local busy, armed, flashing = false, false, 0
+local resting = { icon = if look.row then options.TrailingIcon or "chevron-right" else options.Icon, visible = indicator.Visible }
+local function setText(text)
+if label then
+label.Text = text
+end
+end
+local function flash(ok)
+flashing += 1
+local mine = flashing
+Icons.apply(indicator, if ok then "check" else "x")
+Theme.bind(indicator, "ImageColor3", if ok then "success" else "danger")
+indicator.Visible = true
+task.delay(FLASH, function()
+if mine ~= flashing or row.scope.cleaned then
+return
+end
+indicator.Visible = resting.visible
+if resting.icon then
+Icons.apply(indicator, resting.icon)
+end
+Theme.bind(indicator, "ImageColor3", if look.row then "textMuted" else look.text)
+end)
+end
+local function run()
+if busy then
+return
+end
+if options.ShowDone then
+handle.Changed:Fire()
+if type(options.Callback) ~= "function" then
+flash(true)
+return
+end
+task.spawn(function()
+local ok, message = pcall(options.Callback)
+if not ok then
+warn(`[Halcyon] {handle.Title} callback failed: {message}`)
+end
+if not row.scope.cleaned then
+flash(ok)
+end
+end)
+else
+row.fire()
+end
+end
+local confirmText = if type(options.Confirm) == "string" then options.Confirm else "Press again to confirm"
+local function activate()
+if busy then
+return
+end
+if options.Confirm and not armed then
+armed = true
+setText(confirmText)
+task.delay(CONFIRM_WINDOW, function()
+if armed and not row.scope.cleaned then
+armed = false
+setText(handle.Title)
+end
+end)
+return
+end
+if armed then
+armed = false
+setText(handle.Title)
+end
+run()
+end
+local hold = if options.Hold == true then 1 elseif type(options.Hold) == "number" then options.Hold else nil
+if hold then
+local bar = Create.new("Frame", {
+Name = "Hold",
+Size = UDim2.fromScale(0, 1),
+BackgroundTransparency = 0.7,
+Theme = { BackgroundColor3 = if look.row then "accent" else "text" },
+Parent = Effects.layer(target, 8),
+})
+local holding = 0
+local function release()
+holding += 1
+Motion.tween(bar, "fast", { Size = UDim2.fromScale(0, 1) })
+end
+row.scope:connect(target.InputBegan, function(input)
+local kind = input.UserInputType
+if busy or (kind ~= Enum.UserInputType.MouseButton1 and kind ~= Enum.UserInputType.Touch) then
+return
+end
+holding += 1
+local mine = holding
+bar.Size = UDim2.fromScale(0, 1)
+Motion.tween(bar, TweenInfo.new(hold, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1) })
+task.delay(hold, function()
+if mine == holding and not row.scope.cleaned then
+release()
+run()
+end
+end)
+end)
+row.scope:connect(target.InputEnded, function(input)
+local kind = input.UserInputType
+if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
+release()
+end
+end)
+row.scope:connect(target.MouseLeave, release)
+else
+row.scope:connect(target.Activated, activate)
+end
 function handle:SetTitle(text)
 self.Title = text
-button.Text = text
+armed = false
+setText(text)
 self.SearchText = string.lower(text)
 end
+function handle:SetLoading(loading, text)
+busy = loading == true
+if busy then
+spinner.start()
+indicator.Visible = false
+if text then
+setText(text)
+end
+else
+spinner.stop()
+indicator.Visible = resting.visible
+setText(self.Title)
+end
+end
+function handle:IsLoading()
+return busy
+end
 function handle:Press()
-row.fire()
+run()
 end
 return handle
 end
 return Button
+end
+modules["Elements/Buttons"] = function()
+local Create = import("Core/Create")
+local Effects = import("Core/Effects")
+local Env = import("Core/Env")
+local Motion = import("Core/Motion")
+local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
+local Buttons = {}
+function Buttons.new(container, options)
+local row = Row.new(container, options, { bare = options.Title == nil })
+local handle, scope = row.handle, row.scope
+local holder = Create.new("Frame", {
+Name = "Buttons",
+Size = UDim2.new(1, 0, 0, 36),
+LayoutOrder = 3,
+Parent = row.content,
+})
+Create.list(holder, "Horizontal", 8, { Wraps = false })
+handle.Buttons = {}
+for index, spec in options.Buttons or {} do
+local look = Styles.get("Button", spec.Variant or spec.Style)
+if not look or look.row then
+look = Styles.get("Button", if index == 1 then "Filled" else "Outline")
+end
+local button = Create.new("TextButton", {
+Name = "Button",
+Size = UDim2.fromScale(0, 1),
+LayoutOrder = index,
+BackgroundTransparency = look.fillTransparency or 0,
+Theme = { BackgroundColor3 = look.fill },
+Parent = holder,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+Create.corner(8, button)
+if look.stroke then
+Create.stroke(look.stroke, button)
+end
+local inner = Create.new("Frame", {
+Name = "Inner",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+AnchorPoint = Vector2.new(0.5, 0),
+Position = UDim2.fromScale(0.5, 0),
+ZIndex = 3,
+Parent = button,
+})
+Create.list(inner, "Horizontal", 6)
+if spec.Icon then
+Create.icon(spec.Icon, 15, look.text, inner)
+end
+Create.new("TextLabel", {
+Name = "Label",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = tostring(spec.Title or ""),
+Weight = "medium",
+TextSize = 13,
+LayoutOrder = 1,
+Theme = { TextColor3 = look.text },
+Parent = inner,
+})
+local function paint(hovered)
+local role = if hovered then look.hover else look.fill
+Theme.bind(button, "BackgroundColor3", role, true)
+Motion.tween(button, "fast", {
+BackgroundColor3 = Theme.color(role),
+BackgroundTransparency = if hovered then look.hoverTransparency or look.fillTransparency or 0 else look.fillTransparency or 0,
+})
+end
+scope:connect(button.MouseEnter, function()
+paint(true)
+end)
+scope:connect(button.MouseLeave, function()
+paint(false)
+end)
+scope:connect(button.Activated, function()
+handle.Changed:Fire(spec.Title)
+Env.call(tostring(spec.Title), spec.Callback)
+end)
+Effects.apply(scope, button, spec.Effect or row.window.styles.ButtonEffect or row.window.buttonEffect, 8)
+handle.Buttons[index] = button
+end
+local words = {}
+for _, spec in options.Buttons or {} do
+table.insert(words, tostring(spec.Title or ""))
+end
+handle.SearchExtra = table.concat(words, " ")
+handle.SearchText = string.lower((options.Title or "") .. " " .. handle.SearchExtra)
+return handle
+end
+return Buttons
+end
+modules["Elements/Choices"] = function()
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local Options = import("Elements/Options")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local Choices = {}
+local function build(container, options, mode)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local multi = mode == "checklist" or (mode == "chips" and options.Multi == true)
+local entries, values = Options.entries(options.Values)
+local picked = {}
+local items = {}
+local chips = mode == "chips"
+local area = row.belowTitle()
+if chips or options.Inline then
+Create.list(area, "Horizontal", if chips then 6 else 14, { Wraps = true, VerticalAlignment = Enum.VerticalAlignment.Top })
+else
+Create.list(area, "Vertical", 2)
+end
+local height = if row.library.touch then 40 else (if chips then 28 else 30)
+local function draw(timing)
+for _, item in items do
+local on = if item.all then #Options.ordered(values, picked) == #values else picked[item.value] == true
+local some = item.all and not on and next(picked) ~= nil
+if chips then
+Theme.bind(item.button, "BackgroundColor3", if on then "accent" else row.controlRole)
+Theme.bind(item.label, "TextColor3", if on then "onAccent" else "text")
+Theme.bind(item.edge, "Color", if on then "accent" else "stroke")
+else
+Theme.bind(item.edge, "Color", if on or some then "accent" else "stroke")
+Theme.bind(item.mark, "BackgroundColor3", "accent")
+Motion.tween(item.mark, timing, { BackgroundTransparency = if multi and (on or some) then 0 else 1 })
+local size = if multi then (if on then 12 else 0) else (if on then 8 else 0)
+Motion.tween(item.glyph, if timing and on then "spring" else timing, { Size = UDim2.fromOffset(size, size) })
+if item.bar then
+item.bar.Visible = some
+end
+item.label.FontFace = Create.font(if on then "medium" else "regular")
+end
+end
+end
+local function store(value)
+Options.pick(values, picked, value, multi)
+draw("fast")
+end
+function handle:Get()
+local list = Options.ordered(values, picked)
+return if multi then list else list[1]
+end
+function handle:Set(value)
+store(value)
+row.fire(self:Get())
+end
+local function press(item)
+if item.disabled then
+return
+end
+if item.all then
+local everything = #Options.ordered(values, picked) == #values
+handle:Set(if everything then {} else table.clone(values))
+elseif multi then
+local chosen = Options.ordered(values, picked)
+local found = table.find(chosen, item.value)
+if found then
+table.remove(chosen, found)
+else
+table.insert(chosen, item.value)
+end
+handle:Set(chosen)
+else
+handle:Set(if picked[item.value] and options.AllowNone then nil else item.value)
+end
+end
+local function addItem(entry, order, all)
+local button = Create.new("TextButton", {
+Name = "Option",
+Size = if chips then UDim2.fromOffset(0, height) elseif options.Inline then UDim2.fromOffset(0, height) else UDim2.new(1, 0, 0, height),
+AutomaticSize = if chips or options.Inline then Enum.AutomaticSize.X else Enum.AutomaticSize.None,
+LayoutOrder = order,
+BackgroundTransparency = if chips then 0 else 1,
+Theme = { BackgroundColor3 = if chips then row.controlRole else "hover" },
+Parent = area,
+})
+local item = { button = button, value = entry.value, all = all, disabled = entry.disabled }
+if chips then
+Create.corner(-1, button)
+item.edge = Create.stroke("stroke", button)
+Create.padding(button, 12, 0)
+Create.list(button, "Horizontal", 6)
+if entry.icon then
+Create.icon(entry.icon, 14, "textMuted", button)
+end
+else
+Create.corner(6, button)
+Create.padding(button, if options.Inline then 0 else 6, 0)
+Create.list(button, "Horizontal", 10)
+local mark = Create.new("Frame", { Name = "Mark", Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, Parent = button })
+Create.corner(if multi then 5 else -1, mark)
+item.mark = mark
+item.edge = Create.stroke("stroke", mark, 1.5)
+if multi then
+local check = Create.icon("check", 12, "onAccent", mark)
+check.AnchorPoint, check.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+item.glyph = check
+if all then
+item.bar = Create.new("Frame", {
+Name = "Some",
+Size = UDim2.fromOffset(10, 2),
+AnchorPoint = Vector2.new(0.5, 0.5),
+Position = UDim2.fromScale(0.5, 0.5),
+Visible = false,
+Theme = { BackgroundColor3 = "onAccent" },
+Parent = mark,
+})
+end
+else
+local dot = Create.new("Frame", { Name = "Dot", Size = UDim2.fromOffset(0, 0), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Theme = { BackgroundColor3 = "accent" }, Parent = mark })
+Create.corner(-1, dot)
+item.glyph = dot
+end
+end
+item.label = Create.new("TextLabel", {
+Name = "Text",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = entry.text,
+TextSize = 13,
+LayoutOrder = 2,
+Theme = { TextColor3 = if entry.disabled then "textMuted" else "text" },
+Parent = button,
+})
+if entry.description and not chips then
+item.label.Text = `{entry.text}  <font transparency="0.4" size="12">{entry.description}</font>`
+item.label.RichText = true
+end
+if not chips then
+scope:connect(button.MouseEnter, function()
+if not item.disabled then
+Motion.tween(button, "fast", { BackgroundTransparency = if options.Inline then 1 else 0.4 })
+Theme.bind(item.edge, "Color", "textMuted")
+end
+end)
+scope:connect(button.MouseLeave, function()
+Motion.tween(button, "fast", { BackgroundTransparency = 1 })
+draw("fast")
+end)
+end
+scope:connect(button.Activated, function()
+press(item)
+end)
+table.insert(items, item)
+end
+if mode == "checklist" and options.SelectAll then
+addItem({ text = if type(options.SelectAll) == "string" then options.SelectAll else "Select all" }, 0, true)
+end
+for index, entry in entries do
+if entry.heading == nil then
+addItem(entry, index, false)
+end
+end
+local default = options.Default
+if default == nil and not multi and not options.AllowNone then
+default = values[1]
+end
+Options.pick(values, picked, default, multi)
+draw(nil)
+return handle
+end
+function Choices.radio(container, options)
+return build(container, options, "radio")
+end
+function Choices.checklist(container, options)
+return build(container, options, "checklist")
+end
+function Choices.chips(container, options)
+return build(container, options, "chips")
+end
+return Choices
 end
 modules["Elements/Code"] = function()
 local Create = import("Core/Create")
@@ -5000,6 +5587,7 @@ modules["Elements/ColorPicker"] = function()
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Env = import("Core/Env")
+local Icons = import("Core/Icons")
 local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
 local Signal = import("Core/Signal")
@@ -5010,6 +5598,21 @@ table.insert(HUES, ColorSequenceKeypoint.new(index / 6, Color3.fromHSV(index / 6
 end
 local FADE_IN = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
 local FADE_OUT = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+local PALETTE = {
+Color3.fromHex("F0616D"),
+Color3.fromHex("F08C3A"),
+Color3.fromHex("F5B74F"),
+Color3.fromHex("3FCF8E"),
+Color3.fromHex("22D3EE"),
+Color3.fromHex("5B8DEF"),
+Color3.fromHex("9D7BF5"),
+Color3.fromHex("F0527F"),
+Color3.fromHex("FFFFFF"),
+Color3.fromHex("9BA3B2"),
+Color3.fromHex("2A2F3A"),
+Color3.fromHex("000000"),
+}
+local RECENT = 8
 local ColorPicker = {}
 local function parseHex(text)
 local hex = string.gsub(text, "[#%s]", "")
@@ -5040,6 +5643,15 @@ local text = color:ToHex()
 return if options.Alpha then text .. string.format("%02x", math.round((1 - transparency) * 255)) else text
 end
 local function commit()
+library.recentColors = library.recentColors or {}
+local recent = library.recentColors
+for index = #recent, 1, -1 do
+if recent[index]:ToHex() == color:ToHex() then
+table.remove(recent, index)
+end
+end
+table.insert(recent, 1, color)
+recent[RECENT + 1] = nil
 control.Changed:Fire(color, transparency)
 onCommit(color, transparency)
 end
@@ -5124,16 +5736,65 @@ if options.Alpha then
 alphaTrack, alphaCursor = bar(panel, 2)
 alphaGradient = Create.new("UIGradient", { Transparency = FADE_OUT, Parent = alphaTrack })
 end
+local fieldHeight = if library.touch then 40 else 28
+local hexLine = Create.new("Frame", { Name = "HexLine", Size = UDim2.new(1, 0, 0, fieldHeight), LayoutOrder = 3, Parent = panel })
+Create.list(hexLine, "Horizontal", 6)
 local box = Create.new("TextBox", {
 Name = "Hex",
-Size = UDim2.new(1, 0, 0, if library.touch then 40 else 28),
+Size = UDim2.fromScale(0, 1),
 TextSize = 13,
 TextXAlignment = Enum.TextXAlignment.Center,
-LayoutOrder = 3,
 Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
-Parent = panel,
-})
+Parent = hexLine,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
 Create.corner(6, box)
+if Env.setclipboard then
+local copy = Create.new("TextButton", {
+Name = "Copy",
+Size = UDim2.fromOffset(fieldHeight, fieldHeight),
+LayoutOrder = 1,
+Theme = { BackgroundColor3 = "raised" },
+Parent = hexLine,
+})
+Create.corner(6, copy)
+local glyph = Create.icon("copy", 14, "textMuted", copy)
+glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+session:connect(copy.Activated, function()
+Env.copy("#" .. string.upper(hexText()))
+Icons.apply(glyph, "check")
+task.delay(1, function()
+if glyph.Parent then
+Icons.apply(glyph, "copy")
+end
+end)
+end)
+end
+local function swatchRow(name, colors, order)
+if #colors == 0 then
+return
+end
+local line = Create.new("Frame", { Name = name, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = panel })
+Create.list(line, "Horizontal", 6, { Wraps = true })
+for index, swatchColor in colors do
+local chip = Create.new("TextButton", {
+Name = "Swatch",
+Size = UDim2.fromOffset(20, 20),
+LayoutOrder = index,
+BackgroundColor3 = swatchColor,
+Parent = line,
+})
+Create.corner(-1, chip)
+Create.new("UIStroke", { Transparency = 0.6, Theme = { Color = "text" }, Parent = chip })
+session:connect(chip.Activated, function()
+control:Set(swatchColor, transparency)
+end)
+end
+end
+local palette = if options.Palette == true then PALETTE elseif type(options.Palette) == "table" then options.Palette else {}
+swatchRow("Palette", palette, 4)
+if options.Recent ~= false then
+swatchRow("Recent", library.recentColors or {}, 5)
+end
 function redraw()
 area.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
 ring.Position = UDim2.fromScale(saturation, 1 - value)
@@ -5189,6 +5850,321 @@ return handle
 end
 return ColorPicker
 end
+modules["Elements/Countdown"] = function()
+local Create = import("Core/Create")
+local Env = import("Core/Env")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local Countdown = {}
+local function clock(seconds)
+seconds = math.max(0, math.floor(seconds))
+local hours, minutes = seconds // 3600, (seconds // 60) % 60
+if hours > 0 then
+return string.format("%d:%02d:%02d", hours, minutes, seconds % 60)
+end
+return string.format("%d:%02d", minutes, seconds % 60)
+end
+function Countdown.new(container, options)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local remaining
+local generation = 0
+local readout = Create.new("TextLabel", {
+Name = "Time",
+Size = UDim2.fromOffset(0, 20),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 14,
+Weight = "bold",
+Theme = { TextColor3 = "text" },
+Parent = row.slot,
+})
+local function text(left)
+if left <= 0 and options.Done then
+return tostring(options.Done)
+end
+if type(options.Format) == "function" then
+local ok, shown = pcall(options.Format, left)
+if ok and shown ~= nil then
+return tostring(shown)
+end
+end
+return clock(left)
+end
+local function run()
+generation += 1
+local mine = generation
+task.spawn(function()
+while mine == generation and not scope.cleaned do
+local left = math.max(math.ceil(remaining or 0), 0)
+readout.Text = text(left)
+Theme.bind(readout, "TextColor3", if remaining and left <= 10 and left > 0 then "warning" else "text")
+if not remaining or left <= 0 then
+if remaining then
+remaining = nil
+Env.call(handle.Title, options.Callback)
+handle.Changed:Fire(0)
+end
+return
+end
+local waited = task.wait(math.min(1, remaining))
+if mine == generation and remaining then
+remaining -= waited
+end
+end
+end)
+end
+function handle:Get()
+return if remaining then math.max(0, math.ceil(remaining)) else 0
+end
+function handle:Set(seconds)
+seconds = tonumber(seconds)
+remaining = if seconds and seconds > 0 then seconds else nil
+run()
+end
+function handle:SetEnd(timestamp)
+timestamp = tonumber(timestamp)
+remaining = if timestamp and timestamp > os.time() then timestamp - os.time() else nil
+run()
+end
+if options.Ends then
+handle:SetEnd(options.Ends)
+else
+handle:Set(options.Seconds)
+end
+return handle
+end
+return Countdown
+end
+modules["Elements/DatePicker"] = function()
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local Popup = import("Components/Popup")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }
+local DatePicker = {}
+local function daysIn(year, month)
+return os.date("*t", os.time({ year = year, month = month + 1, day = 0, hour = 12 })).day
+end
+local function firstColumn(year, month, mondayFirst)
+local weekday = os.date("*t", os.time({ year = year, month = month, day = 1, hour = 12 })).wday
+return if mondayFirst then (weekday + 5) % 7 + 1 else weekday
+end
+local function copy(date)
+return { Year = date.Year, Month = date.Month, Day = date.Day, Hour = date.Hour, Minute = date.Minute }
+end
+function DatePicker.new(container, options)
+local row = Row.new(container, options, { button = true })
+local handle, scope, library = row.handle, row.scope, row.library
+local now = os.date("*t")
+local default = options.Default or {}
+local value = {
+Year = tonumber(default.Year) or now.year,
+Month = math.clamp(tonumber(default.Month) or now.month, 1, 12),
+Day = tonumber(default.Day) or now.day,
+Hour = math.clamp(tonumber(default.Hour) or 12, 0, 23),
+Minute = math.clamp(tonumber(default.Minute) or 0, 0, 59),
+}
+value.Day = math.clamp(value.Day, 1, daysIn(value.Year, value.Month))
+local mondayFirst = options.WeekStart ~= "Sunday"
+local withTime = options.Time == true
+local chip = Create.new("Frame", { Name = "Value", Theme = { BackgroundColor3 = row.controlRole } })
+row.placeControl(chip, options.Width or (if withTime then 170 else 140), math.max(row.reach, 30))
+Create.corner(6, chip)
+Create.stroke("stroke", chip)
+Create.padding(chip, 10, 0)
+Create.list(chip, "Horizontal", 8)
+Create.icon("calendar", 14, "textMuted", chip)
+local label = Create.new("TextLabel", {
+Size = UDim2.fromScale(0, 1),
+TextSize = 13,
+LayoutOrder = 1,
+TextTruncate = Enum.TextTruncate.AtEnd,
+Theme = { TextColor3 = "text" },
+Parent = chip,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+row.onHover(function(active)
+local role = if active then "hover" else row.controlRole
+Theme.bind(chip, "BackgroundColor3", role, true)
+Motion.tween(chip, "fast", { BackgroundColor3 = Theme.color(role) })
+end, chip)
+local function draw()
+local text = string.format("%d %s %d", value.Day, string.sub(MONTHS[value.Month], 1, 3), value.Year)
+if withTime then
+text ..= string.format("  %02d:%02d", value.Hour, value.Minute)
+end
+label.Text = text
+end
+function handle:Get()
+return copy(value)
+end
+function handle:Set(date)
+if type(date) ~= "table" then
+return
+end
+value.Year = tonumber(date.Year) or value.Year
+value.Month = math.clamp(tonumber(date.Month) or value.Month, 1, 12)
+value.Day = math.clamp(tonumber(date.Day) or value.Day, 1, daysIn(value.Year, value.Month))
+value.Hour = math.clamp(tonumber(date.Hour) or value.Hour, 0, 23)
+value.Minute = math.clamp(tonumber(date.Minute) or value.Minute, 0, 59)
+draw()
+row.fire(self:Get())
+end
+function handle:GetTimestamp()
+return os.time({ year = value.Year, month = value.Month, day = value.Day, hour = value.Hour, min = value.Minute })
+end
+scope:connect(row.frame.Activated, function()
+local popup = Popup.toggle(library, chip, { Width = 252 })
+if not popup then
+return
+end
+local session = popup.scope
+local shown = { Year = value.Year, Month = value.Month }
+local cell = if library.touch then 34 else 30
+local header = Create.new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 28), Parent = popup.frame })
+local title = Create.new("TextLabel", {
+Size = UDim2.new(1, -64, 1, 0),
+Position = UDim2.fromOffset(32, 0),
+TextSize = 13,
+Weight = "bold",
+TextXAlignment = Enum.TextXAlignment.Center,
+Theme = { TextColor3 = "text" },
+Parent = header,
+})
+local function arrow(icon, side)
+local button = Create.new("ImageButton", {
+Name = icon,
+Size = UDim2.fromOffset(28, 28),
+AnchorPoint = Vector2.new(side, 0),
+Position = UDim2.fromScale(side, 0),
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = "hover" },
+Parent = header,
+})
+Create.corner(6, button)
+local glyph = Create.icon(icon, 14, "text", button)
+glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+session:connect(button.MouseEnter, function()
+button.BackgroundTransparency = 0
+end)
+session:connect(button.MouseLeave, function()
+button.BackgroundTransparency = 1
+end)
+return button
+end
+local previous, following = arrow("chevron-left", 0), arrow("chevron-right", 1)
+local grid = Create.new("Frame", { Name = "Days", Size = UDim2.new(1, 0, 0, cell * 7), LayoutOrder = 1, Parent = popup.frame })
+Create.new("UIGridLayout", {
+CellSize = UDim2.new(1 / 7, 0, 0, cell),
+CellPadding = UDim2.fromOffset(0, 0),
+SortOrder = Enum.SortOrder.LayoutOrder,
+Parent = grid,
+})
+local names = if mondayFirst then { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" } else { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" }
+for index, name in names do
+Create.new("TextLabel", {
+Text = name,
+TextSize = 11,
+Weight = "bold",
+TextXAlignment = Enum.TextXAlignment.Center,
+LayoutOrder = index,
+Theme = { TextColor3 = "textMuted" },
+Parent = grid,
+})
+end
+local days = {}
+for index = 1, 42 do
+local button = Create.new("TextButton", {
+Name = "Day",
+TextSize = 13,
+LayoutOrder = 7 + index,
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = "accent", TextColor3 = "text" },
+Parent = grid,
+})
+Create.corner(-1, button)
+days[index] = button
+end
+local function fill()
+title.Text = MONTHS[shown.Month] .. " " .. shown.Year
+local offset = firstColumn(shown.Year, shown.Month, mondayFirst) - 1
+local count = daysIn(shown.Year, shown.Month)
+for index, button in days do
+local day = index - offset
+local inMonth = day >= 1 and day <= count
+button.Visible = inMonth
+button.Text = if inMonth then tostring(day) else ""
+local picked = inMonth and day == value.Day and shown.Month == value.Month and shown.Year == value.Year
+local today = inMonth and day == now.day and shown.Month == now.month and shown.Year == now.year
+button.BackgroundTransparency = if picked then 0 else 1
+Theme.bind(button, "TextColor3", if picked then "onAccent" elseif today then "accent" else "text")
+button.FontFace = Create.font(if picked or today then "bold" else "regular")
+end
+end
+for index, button in days do
+session:connect(button.Activated, function()
+local day = index - (firstColumn(shown.Year, shown.Month, mondayFirst) - 1)
+local picked = copy(value)
+picked.Year, picked.Month, picked.Day = shown.Year, shown.Month, day
+handle:Set(picked)
+if withTime then
+fill()
+else
+popup.close()
+end
+end)
+end
+session:connect(previous.Activated, function()
+shown.Month -= 1
+if shown.Month < 1 then
+shown.Month, shown.Year = 12, shown.Year - 1
+end
+fill()
+end)
+session:connect(following.Activated, function()
+shown.Month += 1
+if shown.Month > 12 then
+shown.Month, shown.Year = 1, shown.Year + 1
+end
+fill()
+end)
+fill()
+if withTime then
+local line = Create.new("Frame", { Name = "Time", Size = UDim2.new(1, 0, 0, 32), LayoutOrder = 2, Parent = popup.frame })
+Create.list(line, "Horizontal", 6, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
+local function field(key, limit, order)
+local box = Create.new("TextBox", {
+Name = key,
+Size = UDim2.fromOffset(52, 30),
+Text = string.format("%02d", value[key]),
+TextSize = 14,
+TextXAlignment = Enum.TextXAlignment.Center,
+LayoutOrder = order,
+Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
+Parent = line,
+})
+Create.corner(6, box)
+Create.stroke("stroke", box)
+session:connect(box.FocusLost, function()
+local typed = tonumber(box.Text)
+local picked = copy(value)
+if typed then
+picked[key] = math.clamp(math.floor(typed), 0, limit)
+end
+handle:Set(picked)
+box.Text = string.format("%02d", value[key])
+end)
+end
+field("Hour", 23, 1)
+Create.new("TextLabel", { Size = UDim2.fromOffset(6, 30), Text = ":", TextXAlignment = Enum.TextXAlignment.Center, LayoutOrder = 2, Theme = { TextColor3 = "text" }, Parent = line })
+field("Minute", 59, 3)
+end
+end)
+draw()
+return handle
+end
+return DatePicker
+end
 modules["Elements/Divider"] = function()
 local Create = import("Core/Create")
 local Hairline = import("Core/Hairline")
@@ -5216,41 +6192,93 @@ end
 return Divider
 end
 modules["Elements/Dropdown"] = function()
+local Players = game:GetService("Players")
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
+local Options = import("Elements/Options")
 local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local SEARCHABLE_FROM = 8
 local LIST_HEIGHT = 216
+Styles.register("Dropdown", "Box", { box = true })
+Styles.register("Dropdown", "Minimal", {})
+Styles.register("Dropdown", "Chips", { box = true, chips = true })
+Styles.register("Dropdown", "Inline", { box = true, inline = true })
 local Dropdown = {}
+local entriesFrom = Options.entries
+local function playerOptions(excludeSelf)
+local list = {}
+for _, player in Players:GetPlayers() do
+if not (excludeSelf and player == Players.LocalPlayer) then
+table.insert(list, {
+Value = player.Name,
+Text = if player.DisplayName ~= player.Name then `{player.DisplayName} (@{player.Name})` else player.Name,
+Image = `rbxthumb://type=AvatarHeadShot&id={player.UserId}&w=48&h=48`,
+})
+end
+end
+table.sort(list, function(a, b)
+return string.lower(a.Value) < string.lower(b.Value)
+end)
+return list
+end
 function Dropdown.new(container, options)
 local row = Row.new(container, options, { button = true })
 local handle, scope, library = row.handle, row.scope, row.library
 local multi = options.Multi == true
-local values = table.clone(options.Values or {})
+local look = Styles.pick("Dropdown", options.Style, row.window)
+local source = if options.Players then playerOptions(options.ExcludeSelf) else options.Values or {}
+local entries, values = entriesFrom(source)
 local picked = {}
-local repaint
-local chip = Create.new("Frame", { Name = "Value", Theme = { BackgroundColor3 = row.controlRole } })
-row.placeControl(chip, options.Width or 150, math.max(row.reach, 30))
+local repaint, inlineList
+local chip = Create.new("Frame", {
+Name = "Value",
+BackgroundTransparency = if look.box then 0 else 1,
+Theme = { BackgroundColor3 = row.controlRole },
+})
+row.placeControl(chip, options.Width or (if look.box then 150 else 120), math.max(row.reach, 30))
+if look.box then
 Create.corner(6, chip)
 Create.stroke("stroke", chip)
+end
 local label = Create.new("TextLabel", {
-Size = UDim2.new(1, -34, 1, 0),
-Position = UDim2.fromOffset(10, 0),
+Size = UDim2.new(1, if look.box then -34 else -22, 1, 0),
+Position = UDim2.fromOffset(if look.box then 10 else 0, 0),
 TextSize = 13,
 TextTruncate = Enum.TextTruncate.AtEnd,
-Theme = { TextColor3 = "text" },
+TextXAlignment = if look.box then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+Theme = { TextColor3 = if look.box then "text" else "textMuted" },
 Parent = chip,
 })
 local chevron = Create.icon("chevron-down", 14, "textMuted", chip)
 chevron.AnchorPoint = Vector2.new(1, 0.5)
-chevron.Position = UDim2.new(1, -8, 0.5, 0)
+chevron.Position = UDim2.new(1, if look.box then -8 else 0, 0.5, 0)
 row.onHover(function(active)
+if look.box then
 local role = if active then "hover" else row.controlRole
 Theme.bind(chip, "BackgroundColor3", role, true)
 Motion.tween(chip, "fast", { BackgroundColor3 = Theme.color(role) })
+else
+Theme.bind(label, "TextColor3", if active then "text" else "textMuted")
+end
 end, chip)
+local chipArea
+if look.chips and multi then
+chipArea = row.belowTitle()
+Create.list(chipArea, "Horizontal", 6, { Wraps = true, VerticalAlignment = Enum.VerticalAlignment.Top })
+local layout = chipArea:FindFirstChildOfClass("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+end
+local function textOf(value)
+for _, entry in entries do
+if entry.value == value then
+return entry.text
+end
+end
+return tostring(value)
+end
 local function selection()
 local list = {}
 for _, value in values do
@@ -5260,19 +6288,23 @@ end
 end
 return list
 end
+local drawChips
 local function draw()
 local list = selection()
 local text = options.Placeholder or "None"
 if #list == 1 or (#list == 2 and multi) then
 local names = {}
 for index, value in list do
-names[index] = tostring(value)
+names[index] = textOf(value)
 end
 text = table.concat(names, ", ")
 elseif #list > 2 then
 text = #list .. " selected"
 end
 label.Text = text
+if drawChips then
+drawChips(list)
+end
 if repaint then
 repaint()
 end
@@ -5298,25 +6330,53 @@ function handle:Set(value)
 store(value)
 row.fire(self:Get())
 end
-function handle:Refresh(newValues)
-local kept = selection()
-values = table.clone(newValues)
-Popup.close(library)
-store(if multi then kept else kept[1])
+if chipArea then
+local chipScope
+function drawChips(list)
+if chipScope then
+scope:release(chipScope)
 end
-scope:connect(row.frame.Activated, function()
-local popup = Popup.toggle(library, chip, {
-Width = math.max(chip.AbsoluteSize.X / library.scale, 190),
-OnClose = function()
-repaint = nil
-Motion.tween(chevron, "fast", { Rotation = 0 })
-end,
+chipScope = scope:child()
+chipArea.Visible = #list > 0
+for index, value in list do
+local pill = Create.new("Frame", {
+Name = "Chip",
+Size = UDim2.fromOffset(0, 24),
+AutomaticSize = Enum.AutomaticSize.X,
+LayoutOrder = index,
+BackgroundTransparency = 0.85,
+Theme = { BackgroundColor3 = "accent" },
+Parent = chipArea,
 })
-if not popup then
-return
+chipScope:add(pill)
+Create.corner(-1, pill)
+Create.padding(pill, 10, 0, 4, 0)
+Create.list(pill, "Horizontal", 4)
+Create.new("TextLabel", {
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = textOf(value),
+TextSize = 12,
+Weight = "medium",
+Theme = { TextColor3 = "accent" },
+Parent = pill,
+})
+local remove = Create.new("ImageButton", { Name = "Remove", Size = UDim2.fromOffset(18, 18), LayoutOrder = 1, Parent = pill })
+local glyph = Create.icon("x", 12, "accent", remove)
+glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+glyph.Position = UDim2.fromScale(0.5, 0.5)
+chipScope:connect(remove.Activated, function()
+local chosen = selection()
+local found = table.find(chosen, value)
+if found then
+table.remove(chosen, found)
+handle:Set(chosen)
 end
-Motion.tween(chevron, "fast", { Rotation = 180 })
-local session = popup.scope
+end)
+end
+end
+end
+local function buildList(parent, session, close)
 local height = if library.touch then 40 else 32
 local items = {}
 local search
@@ -5327,37 +6387,91 @@ Size = UDim2.new(1, 0, 0, height),
 PlaceholderText = "Search",
 TextSize = 13,
 Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
-Parent = popup.frame,
+Parent = parent,
 })
+session:add(search)
 Create.corner(6, search)
 Create.padding(search, 10, 0)
 end
+local total = 0
+for _, entry in entries do
+total += if entry.heading then 24 elseif entry.description then height + 14 else height
+total += 2
+end
 local list = Create.new("ScrollingFrame", {
 Name = "Options",
-Size = UDim2.new(1, 0, 0, math.min(#values * (height + 2), LIST_HEIGHT)),
+Size = UDim2.new(1, 0, 0, math.min(total, LIST_HEIGHT)),
 LayoutOrder = 1,
-Parent = popup.frame,
+Parent = parent,
 })
+session:add(list)
 Create.list(list, "Vertical", 2)
-for index, value in values do
+for index, entry in entries do
+if entry.heading then
+local heading = Create.new("TextLabel", {
+Name = "Heading",
+Size = UDim2.new(1, 0, 0, 24),
+LayoutOrder = index,
+Text = string.upper(entry.heading),
+TextSize = 10,
+Weight = "bold",
+Theme = { TextColor3 = "textMuted" },
+Parent = list,
+})
+Create.padding(heading, 10, 6, 10, 0)
+items[index] = { heading = heading, entry = entry }
+continue
+end
+local value = entry.value
 local item = Create.new("TextButton", {
 Name = "Option",
-Size = UDim2.new(1, 0, 0, height),
+Size = UDim2.new(1, 0, 0, if entry.description then height + 14 else height),
 LayoutOrder = index,
 BackgroundTransparency = 1,
 Theme = { BackgroundColor3 = "hover" },
 Parent = list,
 })
 Create.corner(6, item)
-local text = Create.new("TextLabel", {
-Size = UDim2.new(1, -44, 1, 0),
-Position = UDim2.fromOffset(10, 0),
-Text = tostring(value),
-TextSize = 13,
-TextTruncate = Enum.TextTruncate.AtEnd,
-Theme = { TextColor3 = "text" },
+local lead = 10
+if entry.icon or entry.image then
+local picture = Create.new("ImageLabel", {
+Name = "Icon",
+Size = UDim2.fromOffset(if entry.image then 22 else 16, if entry.image then 22 else 16),
+AnchorPoint = Vector2.new(0, 0.5),
+Position = UDim2.new(0, 10, 0.5, 0),
+Icon = entry.icon,
+Theme = if entry.icon then { ImageColor3 = "textMuted" } else nil,
 Parent = item,
 })
+if entry.image then
+picture.Image = entry.image
+Create.corner(-1, picture)
+end
+lead = 10 + picture.Size.X.Offset + 8
+end
+local text = Create.new("TextLabel", {
+Size = UDim2.new(1, -(lead + 34), 0, 16),
+AnchorPoint = Vector2.new(0, 0.5),
+Position = UDim2.new(0, lead, 0.5, if entry.description then -8 else 0),
+Text = entry.text,
+TextSize = 13,
+TextTruncate = Enum.TextTruncate.AtEnd,
+Theme = { TextColor3 = if entry.disabled then "textMuted" else "text" },
+Parent = item,
+})
+if entry.description then
+Create.new("TextLabel", {
+Name = "Description",
+Size = UDim2.new(1, -(lead + 34), 0, 14),
+AnchorPoint = Vector2.new(0, 0.5),
+Position = UDim2.new(0, lead, 0.5, 9),
+Text = tostring(entry.description),
+TextSize = 11,
+TextTruncate = Enum.TextTruncate.AtEnd,
+Theme = { TextColor3 = "textMuted" },
+Parent = item,
+})
+end
 local mark = Create.new("Frame", {
 Name = "Mark",
 Size = UDim2.fromOffset(18, 18),
@@ -5383,13 +6497,19 @@ Create.corner(-1, glyph)
 end
 glyph.AnchorPoint = Vector2.new(0.5, 0.5)
 glyph.Position = UDim2.fromScale(0.5, 0.5)
-local entry = { button = item, text = text, mark = mark, edge = edge, glyph = glyph, value = value, on = false }
-items[index] = entry
+if entry.disabled then
+mark.Visible = false
+item.AutoButtonColor = false
+items[index] = { entry = entry, button = item, disabled = true }
+continue
+end
+local slot = { button = item, text = text, mark = mark, edge = edge, glyph = glyph, value = value, entry = entry, on = false }
+items[index] = slot
 session:connect(item.MouseEnter, function()
-Motion.tween(item, "fast", { BackgroundTransparency = if entry.on then 0.8 else 0 })
+Motion.tween(item, "fast", { BackgroundTransparency = if slot.on then 0.8 else 0 })
 end)
 session:connect(item.MouseLeave, function()
-Motion.tween(item, "fast", { BackgroundTransparency = if entry.on then 0.88 else 1 })
+Motion.tween(item, "fast", { BackgroundTransparency = if slot.on then 0.88 else 1 })
 end)
 session:connect(item.Activated, function()
 if multi then
@@ -5403,12 +6523,15 @@ end
 handle:Set(chosen)
 else
 handle:Set(if picked[value] and options.AllowNone then nil else value)
-popup.close()
+close()
 end
 end)
 end
 function repaint()
 for _, item in items do
+if item.value == nil then
+continue
+end
 local on = picked[item.value] == true
 item.on = on
 item.glyph.Visible = on
@@ -5426,11 +6549,71 @@ if search then
 session:connect(search:GetPropertyChangedSignal("Text"), function()
 local query = string.lower(search.Text)
 for _, item in items do
-item.button.Visible = query == "" or string.find(string.lower(tostring(item.value)), query, 1, true) ~= nil
+if item.heading then
+item.heading.Visible = query == ""
+else
+local words = string.lower(item.entry.text .. " " .. tostring(item.entry.description or ""))
+item.button.Visible = query == "" or string.find(words, query, 1, true) ~= nil
+end
 end
 end)
 end
+end
+local function closeInline()
+if inlineList then
+scope:release(inlineList.scope)
+inlineList.holder.Visible = false
+inlineList = nil
+repaint = nil
+Motion.tween(chevron, "fast", { Rotation = 0 })
+end
+end
+function handle:Refresh(newValues)
+local kept = selection()
+entries, values = entriesFrom(newValues)
+Popup.close(library)
+closeInline()
+store(if multi then kept else kept[1])
+end
+local inlineHolder
+scope:connect(row.frame.Activated, function()
+if look.inline then
+if inlineList then
+closeInline()
+return
+end
+inlineHolder = inlineHolder or row.belowTitle()
+inlineHolder.Visible = true
+Create.list(inlineHolder, "Vertical", 4)
+local session = scope:child()
+inlineList = { scope = session, holder = inlineHolder }
+Motion.tween(chevron, "fast", { Rotation = 180 })
+buildList(inlineHolder, session, closeInline)
+session:add(inlineHolder:FindFirstChildOfClass("UIListLayout"))
+return
+end
+local popup = Popup.toggle(library, chip, {
+Width = math.max(chip.AbsoluteSize.X / library.scale, 190),
+OnClose = function()
+repaint = nil
+Motion.tween(chevron, "fast", { Rotation = 0 })
+end,
+})
+if not popup then
+return
+end
+Motion.tween(chevron, "fast", { Rotation = 180 })
+buildList(popup.frame, popup.scope, popup.close)
 end)
+if options.Players then
+local function follow()
+handle:Refresh(playerOptions(options.ExcludeSelf))
+end
+scope:connect(Players.PlayerAdded, follow)
+scope:connect(Players.PlayerRemoving, function()
+task.defer(follow)
+end)
+end
 local default = options.Default
 if default == nil and not multi and not options.AllowNone and options.Placeholder == nil then
 default = values[1]
@@ -5466,29 +6649,122 @@ return Image
 end
 modules["Elements/Input"] = function()
 local Create = import("Core/Create")
+local Icons = import("Core/Icons")
+local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
+Styles.register("Input", "Boxed", { fill = "control", stroke = true, corner = 6 })
+Styles.register("Input", "Underline", { underline = true, corner = 0 })
+Styles.register("Input", "Filled", { fill = "hover", corner = 6 })
+Styles.register("Input", "Pill", { fill = "control", stroke = true, corner = -1 })
+local MASK = "\u{2022}"
 local Input = {}
 function Input.new(container, options)
 local row = Row.new(container, options)
 local handle, scope = row.handle, row.scope
 local numeric = options.Numeric == true
+local multiLine = options.MultiLine == true and not numeric
+local password = options.Password == true and not multiLine
 local value = if numeric then tonumber(options.Default) or 0 else tostring(options.Default or "")
-local writing = false
+local writing, focused, revealed = false, false, false
+local look = Styles.pick("Input", options.Style, row.window)
+local fillRole = if look.fill == "control" then row.controlRole else look.fill
+local lines = math.clamp(tonumber(options.Lines) or 4, 2, 12)
+local height = if multiLine then lines * 17 + 14 else math.max(row.reach, 30)
+local field = Create.new("Frame", {
+Name = "Field",
+BackgroundTransparency = if fillRole then 0 else 1,
+Theme = { BackgroundColor3 = fillRole or "raised" },
+})
+if look.corner ~= 0 then
+Create.corner(look.corner or 6, field)
+end
+local outline = if look.stroke then Create.stroke("stroke", field) else nil
+local underline
+if look.underline then
+underline = Create.new("Frame", {
+Name = "Underline",
+Size = UDim2.new(1, 0, 0, 1),
+AnchorPoint = Vector2.new(0, 1),
+Position = UDim2.fromScale(0, 1),
+ZIndex = 2,
+Theme = { BackgroundColor3 = "stroke" },
+Parent = field,
+})
+end
+local inner = Create.new("Frame", { Name = "Inner", Size = UDim2.fromScale(1, 1), Parent = field })
+Create.padding(inner, if look.underline then 2 else 10, 0)
+Create.list(inner, "Horizontal", 6, { VerticalAlignment = if multiLine then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Center })
+if options.LeadingIcon then
+local icon = Create.icon(options.LeadingIcon, 14, "textMuted", inner)
+icon.LayoutOrder = 0
+end
 local box = Create.new("TextBox", {
 Name = "Input",
+Size = UDim2.fromScale(0, 1),
 PlaceholderText = options.Placeholder or "",
 TextSize = 13,
 ClipsDescendants = true,
-Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text" },
+MultiLine = multiLine,
+TextWrapped = multiLine,
+TextYAlignment = if multiLine then Enum.TextYAlignment.Top else Enum.TextYAlignment.Center,
+LayoutOrder = 1,
+Theme = { TextColor3 = "text" },
+Parent = inner,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+if multiLine then
+Create.padding(box, 0, 7)
+end
+local counter
+if options.Counter and options.MaxLength and not numeric then
+counter = Create.new("TextLabel", {
+Name = "Counter",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 11,
+LayoutOrder = 4,
+Theme = { TextColor3 = "textMuted" },
+Parent = inner,
 })
-Create.corner(6, box)
-Create.stroke("stroke", box)
-Create.padding(box, 10, 0)
-row.placeControl(box, options.Width or 150, math.max(row.reach, 30))
+if multiLine then
+counter.Size = UDim2.fromOffset(0, 30)
+end
+end
+local function fieldButton(icon, order)
+local button = Create.new("ImageButton", { Name = "Action", Size = UDim2.fromOffset(18, 18), LayoutOrder = order, Parent = inner })
+local glyph = Create.icon(icon, 14, "textMuted", button)
+glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+glyph.Position = UDim2.fromScale(0.5, 0.5)
+scope:connect(button.MouseEnter, function()
+Theme.bind(glyph, "ImageColor3", "text")
+end)
+scope:connect(button.MouseLeave, function()
+Theme.bind(glyph, "ImageColor3", "textMuted")
+end)
+return button, glyph
+end
+local clear = if options.Clearable then fieldButton("x", 2) else nil
+local eye, eyeGlyph
+if password then
+eye, eyeGlyph = fieldButton("eye", 3)
+end
+row.placeControl(field, options.Width or 150, height, multiLine)
+local function decorate()
+local text = tostring(value)
+if clear then
+clear.Visible = text ~= "" and not (numeric and value == 0 and options.Default == nil)
+end
+if counter then
+counter.Text = #box.Text .. "/" .. options.MaxLength
+end
+end
 local function show()
 writing = true
-box.Text = if numeric and options.Default == nil and value == 0 then "" else tostring(value)
+local text = if numeric and options.Default == nil and value == 0 then "" else tostring(value)
+box.Text = if password and not focused and not revealed then string.rep(MASK, utf8.len(text) or #text) else text
 writing = false
+decorate()
 end
 local function store(text)
 if numeric then
@@ -5503,6 +6779,15 @@ value = if options.MaxLength then string.sub(text, 1, options.MaxLength) else te
 end
 return true
 end
+local function focusLook(active)
+if outline then
+Theme.bind(outline, "Color", if active then "accent" else "stroke")
+end
+if underline then
+Theme.bind(underline, "BackgroundColor3", if active then "accent" else "stroke")
+Motion.tween(underline, "fast", { Size = UDim2.new(1, 0, 0, if active then 2 else 1) })
+end
+end
 function handle:Get()
 return value
 end
@@ -5512,7 +6797,16 @@ show()
 row.fire(value)
 end
 end
+scope:connect(box.Focused, function()
+focused = true
+focusLook(true)
+if password then
+show()
+end
+end)
 scope:connect(box.FocusLost, function()
+focused = false
+focusLook(false)
 local previous = value
 local accepted = store(box.Text)
 show()
@@ -5520,11 +6814,30 @@ if accepted and (value ~= previous or not options.Live) then
 row.fire(value)
 end
 end)
-if options.Live and not numeric then
 scope:connect(box:GetPropertyChangedSignal("Text"), function()
-if not writing and store(box.Text) then
+if writing then
+return
+end
+if options.MaxLength and not numeric and #box.Text > options.MaxLength then
+writing = true
+box.Text = string.sub(box.Text, 1, options.MaxLength)
+writing = false
+end
+if options.Live and not numeric and store(box.Text) then
 row.fire(value)
 end
+decorate()
+end)
+if clear then
+scope:connect(clear.Activated, function()
+handle:Set(if numeric then options.Min or 0 else "")
+end)
+end
+if eye then
+scope:connect(eye.Activated, function()
+revealed = not revealed
+Icons.apply(eyeGlyph, if revealed then "eye-off" else "eye")
+show()
 end)
 end
 show()
@@ -5536,8 +6849,16 @@ modules["Elements/Keybind"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
 local Env = import("Core/Env")
+local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
 local Signal = import("Core/Signal")
+local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
+Styles.register("Keybind", "Chip", { box = true })
+Styles.register("Keybind", "Keycap", { box = true, keycap = true })
+Styles.register("Keybind", "Brackets", { brackets = true })
+local MODES = { "Press", "Toggle", "Hold" }
+local LONG_PRESS = 0.5
 local SHORT = {
 LeftShift = "LShift",
 RightShift = "RShift",
@@ -5553,20 +6874,42 @@ local key = options.Default
 local listening, held = false, false
 local control = { Changed = Signal.new(), Active = false, Mode = options.Mode or "Press" }
 scope:add(control.Changed)
+local look = Styles.pick("Keybind", options.Style, window)
 local chip = Create.new("TextButton", {
 Name = "Key",
-Size = UDim2.fromOffset(0, row.reach),
+Size = UDim2.fromOffset(0, if look.keycap then row.reach - 2 else row.reach),
 AutomaticSize = Enum.AutomaticSize.X,
 TextSize = 12,
-Weight = "medium",
-Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "textMuted" },
+Weight = if look.keycap then "bold" else "medium",
+BackgroundTransparency = if look.box then 0 else 1,
+Theme = { BackgroundColor3 = if look.keycap then "raised" else row.controlRole, TextColor3 = if look.keycap then "text" else "textMuted" },
 Parent = row.slot,
 })
+Create.padding(chip, if look.box then 8 else 2, 0)
+if look.box then
 Create.corner(6, chip)
-Create.padding(chip, 8, 0)
 Create.stroke("stroke", chip)
+end
+if look.keycap then
+local lip = Create.new("Frame", {
+Name = "Lip",
+Size = UDim2.new(1, 16, 0, 4),
+AnchorPoint = Vector2.new(0.5, 1),
+Position = UDim2.new(0.5, 0, 1, 2),
+ZIndex = 0,
+Theme = { BackgroundColor3 = "stroke" },
+Parent = chip,
+})
+Create.corner(6, lip)
+end
 local function draw()
-chip.Text = if listening then "Press a key" elseif key then SHORT[key.Name] or key.Name else "None"
+local name = if listening then "Press a key" elseif key then SHORT[key.Name] or key.Name else "None"
+chip.Text = if look.brackets then "[ " .. name .. " ]" else name
+if listening then
+Theme.bind(chip, "TextColor3", "accent")
+else
+Theme.bind(chip, "TextColor3", if look.keycap then "text" else "textMuted")
+end
 end
 local function stopListening()
 listening = false
@@ -5598,6 +6941,10 @@ end)
 return if ok then item else nil
 end
 scope:connect(chip.Activated, function()
+if control.longPressed then
+control.longPressed = false
+return
+end
 if listening then
 stopListening()
 else
@@ -5605,6 +6952,7 @@ listening, library.listeningForKey = true, true
 draw()
 end
 end)
+control.chip = chip
 scope:connect(UserInputService.InputBegan, function(input, processed)
 if input.UserInputType ~= Enum.UserInputType.Keyboard then
 return
@@ -5642,11 +6990,12 @@ end
 function Keybind.new(container, options)
 local row = Row.new(container, options)
 local handle = row.handle
-local mode = options.Mode or "Press"
+local mode = if table.find(MODES, options.Mode) then options.Mode else "Press"
 local control
 control = Keybind.control(row, {
 Default = options.Default,
 Mode = mode,
+Style = options.Style,
 ChangedCallback = options.ChangedCallback,
 }, function(pressed)
 if mode == "Hold" then
@@ -5663,6 +7012,62 @@ end)
 row.scope:add(control.Changed:Connect(function(key)
 handle.Changed:Fire(key)
 end))
+function handle:GetMode()
+return mode
+end
+function handle:SetMode(newMode)
+if table.find(MODES, newMode) and newMode ~= mode then
+mode = newMode
+control.Mode = mode
+control.Active = false
+row.window.KeybindsChanged:Fire()
+Env.call(handle.Title .. " mode", options.ModeChangedCallback, mode)
+end
+end
+if options.ModePicker then
+local chip = control.chip
+local function pick()
+local popup = Popup.toggle(row.library, chip, { Width = 150 })
+if not popup then
+return
+end
+for index, name in MODES do
+local item = Create.new("TextButton", {
+Name = name,
+Size = UDim2.new(1, 0, 0, if row.library.touch then 40 else 30),
+Text = name,
+TextSize = 13,
+Weight = if name == mode then "bold" else "regular",
+LayoutOrder = index,
+BackgroundTransparency = if name == mode then 0.86 else 1,
+Theme = { BackgroundColor3 = "accent", TextColor3 = if name == mode then "accent" else "text" },
+Parent = popup.frame,
+})
+Create.corner(6, item)
+popup.scope:connect(item.Activated, function()
+handle:SetMode(name)
+popup.close()
+end)
+end
+end
+row.scope:connect(chip.MouseButton2Click, pick)
+row.scope:connect(chip.InputBegan, function(input)
+if input.UserInputType ~= Enum.UserInputType.Touch then
+return
+end
+local started = os.clock()
+control.pressStarted = started
+task.delay(LONG_PRESS, function()
+if control.pressStarted == started then
+control.longPressed = true
+pick()
+end
+end)
+end)
+row.scope:connect(chip.InputEnded, function()
+control.pressStarted = nil
+end)
+end
 function handle:Get()
 return control:Get()
 end
@@ -5681,37 +7086,184 @@ return Keybind
 end
 modules["Elements/Label"] = function()
 local Create = import("Core/Create")
+local Icons = import("Core/Icons")
 local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
+local Theme = import("Core/Theme")
+Styles.register("Label", "Plain", {})
+Styles.register("Label", "Info", { role = "info", icon = "info" })
+Styles.register("Label", "Success", { role = "success", icon = "circle-check" })
+Styles.register("Label", "Warning", { role = "warning", icon = "triangle-alert" })
+Styles.register("Label", "Danger", { role = "danger", icon = "circle-x" })
+Styles.register("Label", "Note", { role = "accent", icon = "sparkles" })
 local Label = {}
 function Label.new(container, options)
 local row = Row.new(container, options, { bare = true, compact = true })
 local handle = row.handle
-local text = Create.new("TextLabel", {
-Name = "Label",
+local look = Styles.pick("Label", options.Style, row.window)
+local parent = row.content
+if look.role then
+local box = Create.new("Frame", {
+Name = "Callout",
 Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
-TextWrapped = true,
-TextSize = 13,
-Text = options.Title,
-Theme = { TextColor3 = "textMuted" },
+BackgroundTransparency = 0.88,
+Theme = { BackgroundColor3 = look.role },
 Parent = row.content,
 })
+Create.corner(8, box)
+local edge = Create.stroke(look.role, box)
+edge.Transparency = 0.6
+Create.padding(box, 10, 8)
+Create.list(box, "Horizontal", 8, { VerticalAlignment = Enum.VerticalAlignment.Top })
+Create.icon(options.Icon or look.icon, 16, look.role, box)
+parent = box
+end
+local text = Create.new("TextLabel", {
+Name = "Label",
+Size = UDim2.new(if look.role then 0 else 1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+RichText = true,
+TextSize = 13,
+LayoutOrder = 1,
+Text = options.Title,
+Theme = { TextColor3 = if look.role then "text" else "textMuted" },
+Parent = parent,
+})
+if look.role then
+Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill, Parent = text })
+end
 function handle:SetTitle(newText)
 self.Title = newText
 text.Text = newText
 self.SearchText = string.lower(newText)
+end
+function handle:SetKind(name)
+local chosen = Styles.get("Label", name)
+if chosen and chosen.role and look.role then
+Theme.bind(parent, "BackgroundColor3", chosen.role)
+Theme.bind(parent:FindFirstChildOfClass("UIStroke"), "Color", chosen.role)
+local icon = parent:FindFirstChild("Icon")
+if icon then
+Theme.bind(icon, "ImageColor3", chosen.role)
+Icons.apply(icon, options.Icon or chosen.icon)
+end
+look = chosen
+end
 end
 handle.Set = handle.SetTitle
 return handle
 end
 return Label
 end
+modules["Elements/Options"] = function()
+local Options = {}
+function Options.entries(list)
+local entries, values = {}, {}
+for _, raw in list or {} do
+if type(raw) == "table" then
+if raw.Heading ~= nil then
+table.insert(entries, { heading = tostring(raw.Heading) })
+else
+local value = if raw.Value ~= nil then raw.Value else (raw.Text or raw.Title)
+if value ~= nil then
+table.insert(entries, {
+value = value,
+text = tostring(raw.Text or raw.Title or value),
+icon = raw.Icon,
+image = raw.Image,
+description = raw.Description,
+disabled = raw.Disabled == true,
+})
+table.insert(values, value)
+end
+end
+else
+table.insert(entries, { value = raw, text = tostring(raw) })
+table.insert(values, raw)
+end
+end
+return entries, values
+end
+function Options.ordered(values, picked)
+local list = {}
+for _, value in values do
+if picked[value] then
+table.insert(list, value)
+end
+end
+return list
+end
+function Options.pick(values, picked, wanted, multi)
+table.clear(picked)
+wanted = if multi and type(wanted) == "table" then wanted else { wanted }
+for _, item in wanted do
+if table.find(values, item) then
+picked[item] = true
+if not multi then
+break
+end
+end
+end
+end
+return Options
+end
 modules["Elements/Paragraph"] = function()
+local Create = import("Core/Create")
+local Env = import("Core/Env")
 local Row = import("Elements/Row")
+local Styles = import("Core/Styles")
 local Paragraph = {}
 function Paragraph.new(container, options)
 local row = Row.new(container, { Title = options.Title, Description = options.Content, Icon = options.Icon })
 local handle = row.handle
+local description = row.titleBlock and row.titleBlock:FindFirstChild("Description")
+if description then
+description.RichText = true
+end
+if options.Image then
+local size = tonumber(options.ImageSize) or 48
+local picture = Create.new("ImageLabel", {
+Name = "Picture",
+Size = UDim2.fromOffset(size, size),
+Image = tostring(options.Image),
+ScaleType = Enum.ScaleType.Crop,
+LayoutOrder = -1,
+Parent = row.titleBlock.Parent,
+})
+Create.corner(8, picture)
+end
+if type(options.Buttons) == "table" then
+local line = row.belowTitle()
+Create.list(line, "Horizontal", 8)
+for index, spec in options.Buttons do
+local look = Styles.get("Button", spec.Variant or "Soft") or Styles.get("Button", "Soft")
+if look.row then
+look = Styles.get("Button", "Soft")
+end
+local button = Create.new("TextButton", {
+Name = "Button",
+Size = UDim2.fromOffset(0, 28),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = tostring(spec.Title or ""),
+TextSize = 13,
+Weight = "medium",
+LayoutOrder = index,
+BackgroundTransparency = look.fillTransparency or 0,
+Theme = { BackgroundColor3 = look.fill, TextColor3 = look.text },
+Parent = line,
+})
+Create.corner(6, button)
+Create.padding(button, 12, 0)
+if look.stroke then
+Create.stroke(look.stroke, button)
+end
+row.scope:connect(button.Activated, function()
+Env.call(tostring(spec.Title), spec.Callback)
+end)
+end
+end
 function handle:Set(value)
 if type(value) == "table" then
 if value.Title then
@@ -5773,7 +7325,65 @@ return handle
 end
 return Progress
 end
+modules["Elements/Rating"] = function()
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local Rating = {}
+function Rating.new(container, options)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local max = math.clamp(math.floor(tonumber(options.Max) or 5), 1, 10)
+local value = math.clamp(math.floor(tonumber(options.Default) or 0), 0, max)
+local preview
+local marks = {}
+local size = if row.library.touch then 30 else 22
+local holder = Create.new("Frame", { Name = "Rating", Size = UDim2.fromOffset(0, size), AutomaticSize = Enum.AutomaticSize.X, Parent = row.slot })
+Create.list(holder, "Horizontal", 2)
+local function draw()
+local shown = preview or value
+for index, mark in marks do
+local on = index <= shown
+Theme.bind(mark.glyph, "ImageColor3", if on then "warning" else "stroke")
+Motion.tween(mark.scale, "fast", { Scale = if preview and index == preview then 1.15 else 1 })
+end
+end
+function handle:Get()
+return value
+end
+function handle:Set(newValue)
+value = math.clamp(math.floor(tonumber(newValue) or 0), 0, max)
+draw()
+row.fire(value)
+end
+for index = 1, max do
+local button = Create.new("ImageButton", { Name = "Mark", Size = UDim2.fromOffset(size, size), LayoutOrder = index, Parent = holder })
+local glyph = Create.icon(options.Icon or "star", size - 6, "stroke", button)
+glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+local mark = { glyph = glyph, scale = Create.new("UIScale", { Parent = glyph }) }
+marks[index] = mark
+scope:connect(button.MouseEnter, function()
+preview = index
+draw()
+end)
+scope:connect(button.MouseLeave, function()
+if preview == index then
+preview = nil
+draw()
+end
+end)
+scope:connect(button.Activated, function()
+handle:Set(if index == value and options.AllowNone then 0 else index)
+end)
+end
+draw()
+return handle
+end
+return Rating
+end
 modules["Elements/Registry"] = function()
+local Choices = import("Elements/Choices")
 local Env = import("Core/Env")
 local MODULES = {
 Button = import("Elements/Button"),
@@ -5791,8 +7401,20 @@ Label = import("Elements/Label"),
 Divider = import("Elements/Divider"),
 Code = import("Elements/Code"),
 Image = import("Elements/Image"),
+Radio = { new = Choices.radio },
+Checklist = { new = Choices.checklist },
+Chips = { new = Choices.chips },
+Tiles = import("Elements/Tiles"),
+Rating = import("Elements/Rating"),
+Accordion = import("Elements/Accordion"),
+Status = import("Elements/Status"),
+Countdown = import("Elements/Countdown"),
+Buttons = import("Elements/Buttons"),
+Space = import("Elements/Space"),
+Table = import("Elements/Table"),
+DatePicker = import("Elements/DatePicker"),
 }
-local UNTITLED = { Divider = true, Code = true, Image = true }
+local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true }
 local Registry = { Kinds = {} }
 for kind in MODULES do
 table.insert(Registry.Kinds, kind)
@@ -6113,7 +7735,7 @@ description.Text = shown or ""
 description.Visible = shown ~= nil and shown ~= ""
 Theme.bind(description, "TextColor3", if state.locked and narrowLock then "accent" else "textMuted")
 end
-handle.SearchText = string.lower(handle.Title .. " " .. (state.description or ""))
+handle.SearchText = string.lower(handle.Title .. " " .. (state.description or "") .. " " .. (handle.SearchExtra or ""))
 end
 function handle:SetTitle(text)
 self.Title = text
@@ -6328,9 +7950,17 @@ end
 modules["Elements/Slider"] = function()
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
+local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
 local SliderTooltip = import("Elements/SliderTooltip")
-local KNOB = 14
+local Styles = import("Core/Styles")
+Styles.register("Slider", "Line", { rail = 4, knob = { 14, 14 }, knobCorner = -1 })
+Styles.register("Slider", "Thin", { rail = 2, knob = { 12, 12 }, knobCorner = -1 })
+Styles.register("Slider", "Thick", { rail = 8, knob = { 18, 18 }, knobCorner = -1, ring = true })
+Styles.register("Slider", "Handle", { rail = 4, knob = { 6, 18 }, knobCorner = -1 })
+Styles.register("Slider", "Ticks", { rail = 4, knob = { 14, 14 }, knobCorner = -1, ticks = true })
+Styles.register("Slider", "Bare", { rail = 6, grow = 4 })
+Styles.register("Slider", "Block", { rail = 22, railCorner = 6, inside = true })
 local Slider = {}
 local function decimalsOf(step)
 local fraction = string.match(tostring(step), "%.(%d+)")
@@ -6344,43 +7974,121 @@ local step = options.Step or 1
 local range = options.Range == true
 local pattern = "%." .. decimalsOf(step) .. "f"
 local low, high = min, min
+local look = Styles.pick("Slider", options.Style, row.window)
+local knobSize = look.knob
+local KNOB = if knobSize then knobSize[1] else 0
+local display = options.Display or (if look.inside then "None" else "Box")
 local function snap(number)
 number = math.clamp(tonumber(number) or min, min, max)
 number = min + math.round((number - min) / step) * step
 return math.clamp(tonumber(string.format(pattern, number)), min, max)
 end
 local function label(number)
-return string.format(pattern, number) .. (options.Suffix or "")
+if type(options.Format) == "function" then
+local ok, text = pcall(options.Format, number)
+if ok and text ~= nil then
+return tostring(text)
+end
+end
+if options.Percent then
+return (options.Prefix or "") .. math.round((number - min) / math.max(max - min, 1e-9) * 100) .. "%"
+end
+return (options.Prefix or "") .. string.format(pattern, number) .. (options.Suffix or "")
 end
 local area = Create.new("TextButton", { Name = "Track", LayoutOrder = 1 })
 row.placeControl(area, options.Width or 130, row.reach, options.Stacked)
 local rail = Create.new("Frame", {
 Name = "Rail",
-Size = UDim2.new(1, -KNOB, 0, 4),
+Size = UDim2.new(1, -KNOB, 0, look.rail or 4),
 AnchorPoint = Vector2.new(0.5, 0.5),
 Position = UDim2.fromScale(0.5, 0.5),
 Theme = { BackgroundColor3 = "stroke" },
 Parent = area,
 })
-Create.corner(-1, rail)
+Create.corner(look.railCorner or -1, rail)
 local fill = Create.new("Frame", { Name = "Fill", Theme = { BackgroundColor3 = "accent" }, Parent = rail })
-Create.corner(-1, fill)
+Create.corner(look.railCorner or -1, fill)
 local function newKnob()
+if not knobSize then
+return nil
+end
 local knob = Create.new("Frame", {
 Name = "Knob",
-Size = UDim2.fromOffset(KNOB, KNOB),
+Size = UDim2.fromOffset(knobSize[1], knobSize[2]),
 AnchorPoint = Vector2.new(0.5, 0.5),
 ZIndex = 2,
 Theme = { BackgroundColor3 = "text" },
 Parent = rail,
 })
-Create.corner(-1, knob)
+Create.corner(look.knobCorner or -1, knob)
+if look.ring then
+Create.new("UIStroke", { Thickness = 3, Theme = { Color = "accent" }, Parent = knob })
+end
 return knob
 end
 local highKnob = newKnob()
 local lowKnob = if range then newKnob() else nil
+if look.ticks then
+local steps = math.floor((max - min) / step + 0.5)
+local count = if steps > 0 and steps <= 20 then steps else 10
+for index = 0, count do
+local mark = Create.new("Frame", {
+Name = "Tick",
+Size = UDim2.fromOffset(2, 8),
+AnchorPoint = Vector2.new(0.5, 0.5),
+Position = UDim2.fromScale(index / count, 0.5),
+BackgroundTransparency = 0.4,
+Theme = { BackgroundColor3 = "textMuted" },
+Parent = rail,
+})
+Create.corner(-1, mark)
+end
+end
+if options.DefaultMarker and type(options.Default) == "number" then
+local spot = (math.clamp(options.Default, min, max) - min) / math.max(max - min, 1e-9)
+Create.new("Frame", {
+Name = "DefaultMark",
+Size = UDim2.fromOffset(2, (look.rail or 4) + 8),
+AnchorPoint = Vector2.new(0.5, 0.5),
+Position = UDim2.fromScale(spot, 0.5),
+Theme = { BackgroundColor3 = "textMuted" },
+Parent = rail,
+})
+end
+local inside
+if look.inside then
+inside = Create.new("TextLabel", {
+Name = "Inside",
+Size = UDim2.new(1, -16, 1, 0),
+Position = UDim2.fromOffset(8, 0),
+TextSize = 12,
+Weight = "bold",
+ZIndex = 3,
+Theme = { TextColor3 = "text" },
+Parent = rail,
+})
+end
+if look.grow then
+scope:connect(area.MouseEnter, function()
+Motion.tween(rail, "fast", { Size = UDim2.new(1, -KNOB, 0, look.rail + look.grow) })
+end)
+scope:connect(area.MouseLeave, function()
+Motion.tween(rail, "fast", { Size = UDim2.new(1, -KNOB, 0, look.rail) })
+end)
+end
 local readout
-if range then
+if display == "None" or display == "Text" or display == "Fraction" then
+readout = Create.new("TextLabel", {
+Name = "Value",
+Size = UDim2.fromOffset(0, row.reach),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 13,
+Visible = display ~= "None",
+LayoutOrder = 2,
+Theme = { TextColor3 = "textMuted" },
+Parent = row.slot,
+})
+elseif range then
 readout = Create.new("TextLabel", {
 Name = "Value",
 Size = UDim2.fromOffset(0, row.reach),
@@ -6408,11 +8116,20 @@ local span = math.max(max - min, 1e-9)
 local from, to = if range then (low - min) / span else 0, (high - min) / span
 fill.Position = UDim2.fromScale(from, 0)
 fill.Size = UDim2.fromScale(to - from, 1)
+if highKnob then
 highKnob.Position = UDim2.fromScale(to, 0.5)
+end
 if lowKnob then
 lowKnob.Position = UDim2.fromScale(from, 0.5)
 end
-readout.Text = if range then label(low) .. " - " .. label(high) else label(high)
+local text = if range then label(low) .. " - " .. label(high) else label(high)
+if display == "Fraction" and not range then
+text ..= " / " .. label(max)
+end
+readout.Text = text
+if inside then
+inside.Text = text
+end
 end
 local function store(newLow, newHigh)
 newLow, newHigh = snap(newLow), snap(newHigh)
@@ -6480,7 +8197,7 @@ dragged = false
 row.fire(handle:Get())
 end
 end, rail)
-if not range then
+if not range and readout:IsA("TextBox") then
 scope:connect(readout.FocusLost, function()
 local typed = tonumber(string.match(readout.Text, "-?%d+%.?%d*"))
 if typed then
@@ -6610,10 +8327,104 @@ return tip
 end
 return SliderTooltip
 end
+modules["Elements/Space"] = function()
+local Create = import("Core/Create")
+local Space = {}
+function Space.new(container, options)
+local scope = container.scope:child()
+local frame = Create.new("Frame", {
+Name = "Space",
+Size = UDim2.new(1, 0, 0, tonumber(options.Height) or 8),
+LayoutOrder = container:nextOrder(),
+Parent = container.frame,
+})
+scope:add(frame)
+local handle = { Frame = frame, Title = "", Hidden = false, scope = scope, SearchText = "" }
+function handle:SetVisible(visible)
+self.Hidden = not visible
+frame.Visible = visible
+end
+function handle:Destroy()
+container.scope:release(scope)
+end
+return handle
+end
+return Space
+end
+modules["Elements/Status"] = function()
+local Create = import("Core/Create")
+local Effects = import("Core/Effects")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local KINDS = { success = "success", warning = "warning", danger = "danger", info = "info", muted = "textMuted" }
+local Status = {}
+function Status.new(container, options)
+local row = Row.new(container, options)
+local handle = row.handle
+local pill = Create.new("Frame", {
+Name = "Status",
+Size = UDim2.fromOffset(0, 24),
+AutomaticSize = Enum.AutomaticSize.X,
+BackgroundTransparency = 0.86,
+Parent = row.slot,
+})
+Create.corner(-1, pill)
+Create.padding(pill, 10, 0)
+Create.list(pill, "Horizontal", 6)
+local dot = Create.new("Frame", { Name = "Dot", Size = UDim2.fromOffset(8, 8), Parent = pill })
+Create.corner(-1, dot)
+local halo = Create.new("UIStroke", { Thickness = 0, Transparency = 0.4, Parent = dot })
+local words = Create.new("TextLabel", {
+Name = "Words",
+Size = UDim2.fromScale(0, 1),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 12,
+Weight = "bold",
+LayoutOrder = 1,
+Parent = pill,
+})
+local pulse = Effects.pulse(row.scope, halo)
+local state = { text = options.Status or "Ready", kind = options.Kind or "success" }
+local function draw()
+local role = KINDS[state.kind] or "success"
+Theme.bind(pill, "BackgroundColor3", role)
+Theme.bind(dot, "BackgroundColor3", role)
+Theme.bind(halo, "Color", role)
+Theme.bind(words, "TextColor3", role)
+words.Text = state.text
+handle.SearchExtra = state.text
+handle.SearchText = string.lower(handle.Title .. " " .. state.text)
+if options.Pulse then
+pulse.start()
+else
+pulse.stop()
+end
+end
+function handle:Get()
+return state.text, state.kind
+end
+function handle:SetStatus(text, kind)
+state.text = tostring(text)
+state.kind = kind or state.kind
+draw()
+self.Changed:Fire(state.text, state.kind)
+end
+handle.Set = handle.SetStatus
+function handle:SetPulse(on)
+options.Pulse = on == true
+draw()
+end
+draw()
+return handle
+end
+return Status
+end
 modules["Elements/Stepper"] = function()
+local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
 local Row = import("Elements/Row")
 local Stepper = {}
+local DRAG_PER_STEP = 8
 function Stepper.new(container, options)
 local row = Row.new(container, options)
 local handle, scope = row.handle, row.scope
@@ -6636,7 +8447,7 @@ glyph.Position = UDim2.fromScale(0.5, 0.5)
 return button
 end
 local minus = press("minus", 1)
-local readout = Create.new("TextLabel", {
+local readout = Create.new(if options.Drag == false then "TextLabel" else "TextButton", {
 Name = "Value",
 Size = UDim2.fromOffset(52, row.reach),
 TextXAlignment = Enum.TextXAlignment.Center,
@@ -6662,33 +8473,451 @@ end)
 scope:connect(plus.Activated, function()
 handle:Set(value + step)
 end)
+if options.Drag ~= false then
+local origin, start
+scope:connect(readout.InputBegan, function(input)
+local kind = input.UserInputType
+if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
+origin, start = input.Position.X, value
+end
+end)
+scope:connect(UserInputService.InputChanged, function(input)
+local kind = input.UserInputType
+if origin and (kind == Enum.UserInputType.MouseMovement or kind == Enum.UserInputType.Touch) then
+local steps = math.round((input.Position.X - origin) / (DRAG_PER_STEP * row.library.scale))
+value = math.clamp(start + steps * step, min, max)
+draw()
+end
+end)
+scope:connect(UserInputService.InputEnded, function(input)
+local kind = input.UserInputType
+if origin and (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) then
+origin = nil
+if value ~= start then
+row.fire(value)
+end
+end
+end)
+end
 draw()
 return handle
 end
 return Stepper
 end
+modules["Elements/Table"] = function()
+local Create = import("Core/Create")
+local Hairline = import("Core/Hairline")
+local Icons = import("Core/Icons")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local ROW_HEIGHT = 28
+local Table = {}
+local function columnsFrom(list)
+local columns, shared, claimed = {}, 0, 0
+for index, raw in list or {} do
+local column = if type(raw) == "table" then raw else { Title = raw }
+columns[index] = { title = tostring(column.Title or ""), width = tonumber(column.Width), align = column.Align }
+if columns[index].width then
+claimed += columns[index].width
+else
+shared += 1
+end
+end
+local each = if shared > 0 then math.max(1 - claimed, 0) / shared else 0
+for _, column in columns do
+column.width = column.width or each
+end
+return columns
+end
+function Table.new(container, options)
+local row = Row.new(container, { Title = options.Title or "", Description = options.Description }, { bare = options.Title == nil })
+local handle, scope = row.handle, row.scope
+local columns = columnsFrom(options.Columns)
+local rows = table.clone(options.Rows or {})
+local sortColumn, ascending = nil, true
+local bodyScope
+local frame = Create.new("Frame", {
+Name = "Table",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+LayoutOrder = 3,
+Theme = { BackgroundColor3 = row.controlRole },
+Parent = row.content,
+})
+Create.corner(8, frame)
+Create.stroke("stroke", frame)
+Create.list(frame, "Vertical", 0)
+local function cell(parent, column, text, order, header)
+local label = Create.new("TextLabel", {
+Name = "Cell",
+Size = UDim2.new(column.width, 0, 1, 0),
+Text = text,
+TextSize = if header then 11 else 13,
+Weight = if header then "bold" else "regular",
+TextTruncate = Enum.TextTruncate.AtEnd,
+TextXAlignment = Enum.TextXAlignment[column.align or "Left"] or Enum.TextXAlignment.Left,
+LayoutOrder = order,
+Theme = { TextColor3 = if header then "textMuted" else "text" },
+Parent = parent,
+})
+Create.padding(label, 10, 0)
+return label
+end
+local head = Create.new("Frame", { Name = "Head", Size = UDim2.new(1, 0, 0, ROW_HEIGHT), Parent = frame })
+Create.list(head, "Horizontal", 0)
+local arrows = {}
+for index, column in columns do
+local button = Create.new("TextButton", {
+Name = "Heading",
+Size = UDim2.new(column.width, 0, 1, 0),
+LayoutOrder = index,
+Parent = head,
+})
+Create.list(button, "Horizontal", 2, {
+HorizontalAlignment = Enum.HorizontalAlignment[column.align or "Left"] or Enum.HorizontalAlignment.Left,
+})
+local label = cell(button, { width = 0 }, string.upper(column.title), 1, true)
+label.Size = UDim2.fromScale(0, 1)
+label.AutomaticSize = Enum.AutomaticSize.X
+local arrow = Create.icon("chevron-down", 12, "accent", button)
+arrow.LayoutOrder = 2
+arrow.Visible = false
+arrows[index] = arrow
+if options.Sortable ~= false then
+scope:connect(button.Activated, function()
+if sortColumn == index then
+ascending = not ascending
+else
+sortColumn, ascending = index, true
+end
+handle:Refresh()
+end)
+end
+end
+Hairline.new("X", "stroke", { LayoutOrder = 1, Parent = frame })
+local body = Create.new("ScrollingFrame", {
+Name = "Body",
+Size = UDim2.new(1, 0, 0, 0),
+LayoutOrder = 2,
+Parent = frame,
+})
+Create.list(body, "Vertical", 0)
+local empty = Create.new("TextLabel", {
+Name = "Empty",
+Size = UDim2.new(1, 0, 0, ROW_HEIGHT + 8),
+Text = options.EmptyText or "Nothing to show yet",
+TextSize = 12,
+TextXAlignment = Enum.TextXAlignment.Center,
+LayoutOrder = 3,
+Theme = { TextColor3 = "textMuted" },
+Parent = frame,
+})
+local function sorted()
+local list = table.clone(rows)
+if sortColumn then
+table.sort(list, function(a, b)
+local left, right = a[sortColumn], b[sortColumn]
+local leftNumber, rightNumber = tonumber(left), tonumber(right)
+if leftNumber and rightNumber then
+if ascending then
+return leftNumber < rightNumber
+end
+return leftNumber > rightNumber
+end
+left, right = string.lower(tostring(left or "")), string.lower(tostring(right or ""))
+if ascending then
+return left < right
+end
+return left > right
+end)
+end
+return list
+end
+function handle:Refresh()
+if bodyScope then
+scope:release(bodyScope)
+end
+bodyScope = scope:child()
+for index, arrow in arrows do
+arrow.Visible = index == sortColumn
+Icons.apply(arrow, if ascending then "chevron-up" else "chevron-down")
+end
+local words = { options.Title or "" }
+for order, values in sorted() do
+local line = Create.new("Frame", {
+Name = "Line",
+Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
+LayoutOrder = order,
+BackgroundTransparency = if options.Striped ~= false and order % 2 == 0 then 0.5 else 1,
+Theme = { BackgroundColor3 = "hover" },
+Parent = body,
+})
+bodyScope:add(line)
+Create.list(line, "Horizontal", 0)
+for index, column in columns do
+local text = tostring(if values[index] ~= nil then values[index] else "")
+cell(line, column, text, index, false)
+table.insert(words, text)
+end
+end
+local maxHeight = tonumber(options.MaxHeight) or 220
+body.Size = UDim2.new(1, 0, 0, math.min(#rows * ROW_HEIGHT, maxHeight))
+empty.Visible = #rows == 0
+self.SearchExtra = table.concat(words, " ")
+self.SearchText = string.lower(self.SearchExtra)
+end
+function handle:Get()
+return table.clone(rows)
+end
+function handle:SetRows(newRows)
+rows = table.clone(newRows or {})
+self:Refresh()
+self.Changed:Fire(self:Get())
+end
+handle.Set = handle.SetRows
+function handle:AddRow(values)
+table.insert(rows, values)
+self:Refresh()
+end
+function handle:Clear()
+self:SetRows({})
+end
+handle:Refresh()
+return handle
+end
+return Table
+end
+modules["Elements/Tiles"] = function()
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local Options = import("Elements/Options")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local GAP = 8
+local Tiles = {}
+function Tiles.new(container, options)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local multi = options.Multi == true
+local entries, values = Options.entries(options.Items or options.Values)
+local picked = {}
+local cards = {}
+local columns = math.clamp(tonumber(options.Columns) or 3, 1, 6)
+local height = tonumber(options.Height) or (if entries[1] and entries[1].description then 84 else 68)
+local area = row.belowTitle()
+local grid = Create.new("UIGridLayout", {
+CellPadding = UDim2.fromOffset(GAP, GAP),
+SortOrder = Enum.SortOrder.LayoutOrder,
+Parent = area,
+})
+local function fit()
+local width = area.AbsoluteSize.X / row.library.scale
+local shown = if width > 0 and width < 300 then math.min(columns, 2) else columns
+grid.CellSize = UDim2.new(1 / shown, -GAP * (shown - 1) / shown, 0, height)
+end
+scope:connect(area:GetPropertyChangedSignal("AbsoluteSize"), fit)
+fit()
+local function draw(timing)
+for _, card in cards do
+local on = picked[card.value] == true
+Theme.bind(card.edge, "Color", if on then "accent" elseif card.hovered then "textMuted" else "stroke")
+Motion.tween(card.edge, timing, { Thickness = if on then 1.5 else 1 })
+Theme.bind(card.frame, "BackgroundColor3", if on then "accent" else row.controlRole)
+card.frame.BackgroundTransparency = if on then 0.86 else 0
+if card.icon then
+Theme.bind(card.icon, "ImageColor3", if on then "accent" else "textMuted")
+end
+card.tick.Visible = on
+end
+end
+function handle:Get()
+local list = Options.ordered(values, picked)
+return if multi then list else list[1]
+end
+function handle:Set(value)
+Options.pick(values, picked, value, multi)
+draw("fast")
+row.fire(self:Get())
+end
+for index, entry in entries do
+if entry.heading then
+continue
+end
+local frame = Create.new("TextButton", {
+Name = "Tile",
+LayoutOrder = index,
+Theme = { BackgroundColor3 = row.controlRole },
+Parent = area,
+})
+Create.corner(8, frame)
+local card = { frame = frame, value = entry.value, edge = Create.stroke("stroke", frame), hovered = false }
+local content = Create.new("Frame", { Name = "Content", Size = UDim2.fromScale(1, 1), Parent = frame })
+Create.padding(content, 8, 10)
+Create.list(content, "Vertical", 4, { HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center })
+if entry.icon or entry.image then
+card.icon = Create.new("ImageLabel", {
+Name = "Icon",
+Size = UDim2.fromOffset(22, 22),
+Icon = entry.icon,
+Theme = if entry.icon then { ImageColor3 = "textMuted" } else nil,
+Parent = content,
+})
+if entry.image then
+card.icon.Image = entry.image
+end
+end
+Create.new("TextLabel", {
+Name = "Title",
+Size = UDim2.new(1, 0, 0, 16),
+Text = entry.text,
+TextSize = 13,
+Weight = "medium",
+TextXAlignment = Enum.TextXAlignment.Center,
+TextTruncate = Enum.TextTruncate.AtEnd,
+LayoutOrder = 1,
+Theme = { TextColor3 = if entry.disabled then "textMuted" else "text" },
+Parent = content,
+})
+if entry.description then
+Create.new("TextLabel", {
+Name = "Description",
+Size = UDim2.new(1, 0, 0, 14),
+Text = tostring(entry.description),
+TextSize = 11,
+TextXAlignment = Enum.TextXAlignment.Center,
+TextTruncate = Enum.TextTruncate.AtEnd,
+LayoutOrder = 2,
+Theme = { TextColor3 = "textMuted" },
+Parent = content,
+})
+end
+card.tick = Create.new("Frame", {
+Name = "Tick",
+Size = UDim2.fromOffset(16, 16),
+AnchorPoint = Vector2.new(1, 0),
+Position = UDim2.new(1, -6, 0, 6),
+Visible = false,
+ZIndex = 2,
+Theme = { BackgroundColor3 = "accent" },
+Parent = frame,
+})
+Create.corner(-1, card.tick)
+local mark = Create.icon("check", 10, "onAccent", card.tick)
+mark.AnchorPoint, mark.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+table.insert(cards, card)
+if entry.disabled then
+frame.AutoButtonColor = false
+frame.BackgroundTransparency = 0.5
+continue
+end
+scope:connect(frame.MouseEnter, function()
+card.hovered = true
+draw("fast")
+end)
+scope:connect(frame.MouseLeave, function()
+card.hovered = false
+draw("fast")
+end)
+scope:connect(frame.Activated, function()
+if multi then
+local chosen = Options.ordered(values, picked)
+local found = table.find(chosen, entry.value)
+if found then
+table.remove(chosen, found)
+else
+table.insert(chosen, entry.value)
+end
+handle:Set(chosen)
+else
+handle:Set(if picked[entry.value] and options.AllowNone then nil else entry.value)
+end
+end)
+end
+local default = options.Default
+if default == nil and not multi and not options.AllowNone then
+default = values[1]
+end
+Options.pick(values, picked, default, multi)
+draw(nil)
+return handle
+end
+return Tiles
+end
 modules["Elements/Toggle"] = function()
 local ColorPicker = import("Elements/ColorPicker")
 local Create = import("Core/Create")
 local Env = import("Core/Env")
+local Icons = import("Core/Icons")
 local Keybind = import("Elements/Keybind")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
-local TRACK_WIDTH, INSET, STRETCH = 36, 3, 6
-local THUMBS = {
-Circle = { width = 14, height = 14, corner = -1 },
-Oval = { width = 18, height = 12, corner = -1 },
-Square = { width = 14, height = 14, corner = 4 },
-}
+local STRETCH = 6
+Styles.register("Thumb", "Circle", { width = 14, height = 14, corner = -1 })
+Styles.register("Thumb", "Oval", { width = 18, height = 12, corner = -1 })
+Styles.register("Thumb", "Square", { width = 14, height = 14, corner = 4 })
+Styles.register("Toggle", "Switch", { kind = "switch", width = 36, height = 20, corner = -1, inset = 3 })
+Styles.register("Toggle", "Large", {
+kind = "switch",
+width = 46,
+height = 26,
+corner = -1,
+inset = 3,
+thumb = { width = 20, height = 20, corner = -1 },
+knobOff = "text",
+})
+Styles.register("Toggle", "Slim", {
+kind = "switch",
+width = 34,
+height = 20,
+corner = -1,
+inset = 0,
+rail = 12,
+thumb = { width = 18, height = 18, corner = -1 },
+knobOff = "text",
+})
+Styles.register("Toggle", "Square", {
+kind = "switch",
+width = 36,
+height = 20,
+corner = 5,
+inset = 3,
+thumb = { width = 14, height = 14, corner = 3 },
+})
+Styles.register("Toggle", "Labelled", {
+kind = "switch",
+width = 52,
+height = 22,
+corner = -1,
+inset = 3,
+thumb = { width = 16, height = 16, corner = -1 },
+labels = { "ON", "OFF" },
+})
+Styles.register("Toggle", "Icon", {
+kind = "switch",
+width = 40,
+height = 22,
+corner = -1,
+inset = 3,
+thumb = { width = 16, height = 16, corner = -1 },
+icons = { "check", "x" },
+})
+Styles.register("Toggle", "Glow", { kind = "switch", width = 36, height = 20, corner = -1, inset = 3, glow = true })
+Styles.register("Toggle", "Checkbox", { kind = "box", width = 22, height = 22, corner = 7 })
+Styles.register("Toggle", "Circle", { kind = "box", width = 22, height = 22, corner = -1 })
+Styles.register("Toggle", "Chip", { kind = "chip", width = 46, height = 24, corner = -1, labels = { "On", "Off" } })
 local Toggle = {}
 function Toggle.new(container, options)
 local row = Row.new(container, options, { button = true })
 local handle, window = row.handle, row.window
 local value = options.Default == true
-local checkbox = options.Style == "Checkbox"
-local thumb = THUMBS[options.Thumb or window.toggleThumb] or THUMBS.Circle
+local look = Styles.pick("Toggle", options.Style, window)
+local kind = look.kind or "switch"
+local box, chip = kind == "box", kind == "chip"
+local width, height = look.width or 36, look.height or 20
+local thumb = look.thumb or Styles.pick("Thumb", options.Thumb, window)
+local inset = look.inset or 3
 local problem = window:checkFlag(options.Color and options.Color.Flag) or window:checkFlag(options.Keybind and options.Keybind.Flag)
 if problem then
 handle:Destroy()
@@ -6715,14 +8944,28 @@ window:claimFlag(settings.Flag, handle.Keybind, row.scope)
 end
 local track = Create.new("Frame", {
 Name = "Switch",
-Size = if checkbox then UDim2.fromOffset(22, 22) else UDim2.fromOffset(36, 20),
+Size = UDim2.fromOffset(width, height),
 LayoutOrder = 10,
+BackgroundTransparency = if look.rail then 1 else 0,
 Theme = { BackgroundColor3 = "stroke" },
 Parent = row.slot,
 })
-Create.corner(if checkbox then 7 else -1, track)
-local restRole = if checkbox then row.controlRole else "stroke"
-local outline = if checkbox then Create.stroke("stroke", track) else nil
+local body = track
+if look.rail then
+body = Create.new("Frame", {
+Name = "Rail",
+Size = UDim2.new(1, 0, 0, look.rail),
+AnchorPoint = Vector2.new(0, 0.5),
+Position = UDim2.fromScale(0, 0.5),
+Theme = { BackgroundColor3 = "stroke" },
+Parent = track,
+})
+Create.corner(-1, body)
+else
+Create.corner(look.corner or -1, track)
+end
+local restRole = if box then row.controlRole else "stroke"
+local outline = if box then Create.stroke("stroke", track, 1.5) else nil
 local ring = Create.new("Frame", {
 Name = "Outline",
 Size = UDim2.new(1, 2, 1, 2),
@@ -6730,8 +8973,12 @@ AnchorPoint = Vector2.new(0.5, 0.5),
 Position = UDim2.fromScale(0.5, 0.5),
 Parent = track,
 })
-Create.corner(if checkbox then 8 else -1, ring)
+Create.corner(if (look.corner or -1) < 0 then -1 else look.corner + 1, ring)
 local ringStroke = Create.new("UIStroke", { Name = "Stroke", Thickness = 1.5, Transparency = 1, Parent = ring })
+local halo
+if look.glow then
+halo = Create.new("UIStroke", { Name = "Glow", Thickness = 3, Transparency = 1, Theme = { Color = "accent" }, Parent = body })
+end
 local function showOutline(active)
 local wanted = window.toggleOutline
 if options.Outline ~= nil then
@@ -6741,59 +8988,102 @@ local color = options.OutlineColor or window.toggleOutlineColor
 ringStroke.Color = if typeof(color) == "Color3" then color else Theme.color("accent")
 Motion.tween(ringStroke, "fast", { Transparency = if active and wanted then 0 else 1 })
 end
-local knob, mark
-if checkbox then
+local knob, mark, word, glyph
+if box then
 mark = Create.icon("check", 14, "onAccent", track)
 mark.AnchorPoint = Vector2.new(0.5, 0.5)
 mark.Position = UDim2.fromScale(0.5, 0.5)
-outline.Thickness = 1.5
+elseif chip then
+word = Create.new("TextLabel", {
+Name = "State",
+Size = UDim2.fromScale(1, 1),
+TextSize = 12,
+Weight = "bold",
+TextXAlignment = Enum.TextXAlignment.Center,
+Parent = track,
+})
 else
 knob = Create.new("Frame", {
 Name = "Thumb",
 Size = UDim2.fromOffset(thumb.width, thumb.height),
 AnchorPoint = Vector2.new(0, 0.5),
+ZIndex = 2,
 Theme = { BackgroundColor3 = "textMuted" },
 Parent = track,
 })
-Create.corner(thumb.corner, knob)
+Create.corner(thumb.corner or -1, knob)
+if look.rail then
+Create.new("UIStroke", { Transparency = 0.6, Theme = { Color = "background" }, Parent = knob })
+end
+if look.icons then
+glyph = Create.icon(look.icons[2], math.max(thumb.height - 6, 8), "background", knob)
+glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+glyph.Position = UDim2.fromScale(0.5, 0.5)
+end
+if look.labels then
+word = Create.new("TextLabel", {
+Name = "State",
+Size = UDim2.fromOffset(0, height),
+AutomaticSize = Enum.AutomaticSize.X,
+AnchorPoint = Vector2.new(1, 0.5),
+TextSize = 9,
+Weight = "bold",
+Parent = track,
+})
+end
 end
 local slideGeneration = 0
 local function slide(timing)
-local width, height = thumb.width, thumb.height
-local rest = UDim2.new(0, if value then TRACK_WIDTH - width - INSET else INSET, 0.5, 0)
+local thumbWidth, thumbHeight = thumb.width, thumb.height
+local rest = UDim2.new(0, if value then width - thumbWidth - inset else inset, 0.5, 0)
 slideGeneration += 1
+if word and not chip then
+word.AnchorPoint = Vector2.new(if value then 0 else 1, 0.5)
+word.Position = UDim2.new(if value then 0 else 1, if value then 8 else -8, 0.5, 0)
+end
 if not timing or Motion.reduced then
-knob.Size = UDim2.fromOffset(width, height)
+knob.Size = UDim2.fromOffset(thumbWidth, thumbHeight)
 knob.Position = rest
 return
 end
-local stretched = width + STRETCH
+local stretched = thumbWidth + STRETCH
 Motion.tween(knob, "fast", {
-Size = UDim2.fromOffset(stretched, height),
-Position = UDim2.new(0, if value then TRACK_WIDTH - stretched - INSET else INSET, 0.5, 0),
+Size = UDim2.fromOffset(stretched, thumbHeight),
+Position = UDim2.new(0, if value then width - stretched - inset else inset, 0.5, 0),
 })
 local started = slideGeneration
 task.delay(0.1, function()
 if started == slideGeneration and not row.scope.cleaned then
-Motion.tween(knob, "spring", { Size = UDim2.fromOffset(width, height), Position = rest })
+Motion.tween(knob, "spring", { Size = UDim2.fromOffset(thumbWidth, thumbHeight), Position = rest })
 end
 end)
 end
 local hovered = false
 local function draw(timing)
-local role = if value then (if hovered then "accentHover" else "accent") elseif hovered and not checkbox then "hover" else restRole
-Theme.bind(track, "BackgroundColor3", role, true)
-Motion.tween(track, timing, { BackgroundColor3 = Theme.color(role) })
-if checkbox then
+local role = if value then (if hovered then "accentHover" else "accent") elseif hovered and not box then "hover" else restRole
+Theme.bind(body, "BackgroundColor3", role, true)
+Motion.tween(body, timing, { BackgroundColor3 = Theme.color(role) })
+if box then
 Motion.tween(mark, if timing and value then "spring" else timing, {
 Size = if value then UDim2.fromOffset(14, 14) else UDim2.fromOffset(0, 0),
 ImageTransparency = if value then 0 else 1,
 })
 Theme.bind(outline, "Color", if value then "accent" elseif hovered then "textMuted" else "stroke")
-else
-local knobRole = if value then "onAccent" elseif hovered then "text" else "textMuted"
+elseif knob then
+local knobRole = if value then "onAccent" elseif hovered then "text" else look.knobOff or "textMuted"
 Theme.bind(knob, "BackgroundColor3", knobRole, true)
 Motion.tween(knob, timing, { BackgroundColor3 = Theme.color(knobRole) })
+end
+if word then
+word.Text = if value then look.labels[1] else look.labels[2]
+Theme.bind(word, "TextColor3", if value then "onAccent" else "textMuted")
+end
+if glyph then
+Icons.apply(glyph, if value then look.icons[1] else look.icons[2])
+Theme.bind(glyph, "ImageColor3", if value then "accent" else "background")
+end
+if halo then
+Motion.tween(halo, timing, { Transparency = if value then 0.55 else 1 })
 end
 end
 function handle:Get()

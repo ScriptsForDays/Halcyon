@@ -1,9 +1,26 @@
 local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
+local Motion = require("../Core/Motion")
 local Row = require("./Row")
 local SliderTooltip = require("./SliderTooltip")
+local Styles = require("../Core/Styles")
 
-local KNOB = 14
+-- Slider looks (kind "Slider").
+--   rail        the track's height
+--   knob        the knob's width and height, or nil for none
+--   knobCorner  the knob's radius (-1 round)
+--   railCorner  the track's radius (-1 round)
+--   ring        an accent ring around the knob
+--   ticks       marks along the track
+--   inside      the value is written inside the filled track
+--   grow        the track thickens by this much while hovered
+Styles.register("Slider", "Line", { rail = 4, knob = { 14, 14 }, knobCorner = -1 })
+Styles.register("Slider", "Thin", { rail = 2, knob = { 12, 12 }, knobCorner = -1 })
+Styles.register("Slider", "Thick", { rail = 8, knob = { 18, 18 }, knobCorner = -1, ring = true })
+Styles.register("Slider", "Handle", { rail = 4, knob = { 6, 18 }, knobCorner = -1 })
+Styles.register("Slider", "Ticks", { rail = 4, knob = { 14, 14 }, knobCorner = -1, ticks = true })
+Styles.register("Slider", "Bare", { rail = 6, grow = 4 })
+Styles.register("Slider", "Block", { rail = 22, railCorner = 6, inside = true })
 
 local Slider = {}
 
@@ -16,7 +33,10 @@ end
 -- Range (two knobs; the value is { low, high }), Tooltip (false hides the
 -- value bubble shown while dragging), TooltipStyle ("Rounded", "Sharp",
 -- "Pill" or "Plain"), Live (false runs the Callback once, when the drag
--- ends, for a setting that is costly or moves the slider itself).
+-- ends, for a setting that is costly or moves the slider itself), Style
+-- (a Slider look), Display ("Box" typed value, "Text", "Fraction" as
+-- 5 / 10, or "None"), Prefix, Percent (shows the share of the range),
+-- Format (a function from value to text), DefaultMarker (a mark at Default).
 function Slider.new(container, options)
 	local row = Row.new(container, options)
 	local handle, scope = row.handle, row.scope
@@ -25,6 +45,10 @@ function Slider.new(container, options)
 	local range = options.Range == true
 	local pattern = "%." .. decimalsOf(step) .. "f"
 	local low, high = min, min
+	local look = Styles.pick("Slider", options.Style, row.window)
+	local knobSize = look.knob
+	local KNOB = if knobSize then knobSize[1] else 0
+	local display = options.Display or (if look.inside then "None" else "Box")
 
 	local function snap(number)
 		number = math.clamp(tonumber(number) or min, min, max)
@@ -34,7 +58,16 @@ function Slider.new(container, options)
 	end
 
 	local function label(number)
-		return string.format(pattern, number) .. (options.Suffix or "")
+		if type(options.Format) == "function" then
+			local ok, text = pcall(options.Format, number)
+			if ok and text ~= nil then
+				return tostring(text)
+			end
+		end
+		if options.Percent then
+			return (options.Prefix or "") .. math.round((number - min) / math.max(max - min, 1e-9) * 100) .. "%"
+		end
+		return (options.Prefix or "") .. string.format(pattern, number) .. (options.Suffix or "")
 	end
 
 	local area = Create.new("TextButton", { Name = "Track", LayoutOrder = 1 })
@@ -42,33 +75,101 @@ function Slider.new(container, options)
 	-- The rail is inset by half a knob so the knob never leaves the press area.
 	local rail = Create.new("Frame", {
 		Name = "Rail",
-		Size = UDim2.new(1, -KNOB, 0, 4),
+		Size = UDim2.new(1, -KNOB, 0, look.rail or 4),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Theme = { BackgroundColor3 = "stroke" },
 		Parent = area,
 	})
-	Create.corner(-1, rail)
+	Create.corner(look.railCorner or -1, rail)
 	local fill = Create.new("Frame", { Name = "Fill", Theme = { BackgroundColor3 = "accent" }, Parent = rail })
-	Create.corner(-1, fill)
+	Create.corner(look.railCorner or -1, fill)
 
 	local function newKnob()
+		if not knobSize then
+			return nil
+		end
 		local knob = Create.new("Frame", {
 			Name = "Knob",
-			Size = UDim2.fromOffset(KNOB, KNOB),
+			Size = UDim2.fromOffset(knobSize[1], knobSize[2]),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			ZIndex = 2,
 			Theme = { BackgroundColor3 = "text" },
 			Parent = rail,
 		})
-		Create.corner(-1, knob)
+		Create.corner(look.knobCorner or -1, knob)
+		if look.ring then
+			Create.new("UIStroke", { Thickness = 3, Theme = { Color = "accent" }, Parent = knob })
+		end
 		return knob
 	end
 	local highKnob = newKnob()
 	local lowKnob = if range then newKnob() else nil
 
+	if look.ticks then
+		-- One mark per step when there are few, otherwise ten.
+		local steps = math.floor((max - min) / step + 0.5)
+		local count = if steps > 0 and steps <= 20 then steps else 10
+		for index = 0, count do
+			local mark = Create.new("Frame", {
+				Name = "Tick",
+				Size = UDim2.fromOffset(2, 8),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(index / count, 0.5),
+				BackgroundTransparency = 0.4,
+				Theme = { BackgroundColor3 = "textMuted" },
+				Parent = rail,
+			})
+			Create.corner(-1, mark)
+		end
+	end
+	if options.DefaultMarker and type(options.Default) == "number" then
+		local spot = (math.clamp(options.Default, min, max) - min) / math.max(max - min, 1e-9)
+		Create.new("Frame", {
+			Name = "DefaultMark",
+			Size = UDim2.fromOffset(2, (look.rail or 4) + 8),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(spot, 0.5),
+			Theme = { BackgroundColor3 = "textMuted" },
+			Parent = rail,
+		})
+	end
+	local inside
+	if look.inside then
+		inside = Create.new("TextLabel", {
+			Name = "Inside",
+			Size = UDim2.new(1, -16, 1, 0),
+			Position = UDim2.fromOffset(8, 0),
+			TextSize = 12,
+			Weight = "bold",
+			ZIndex = 3,
+			Theme = { TextColor3 = "text" },
+			Parent = rail,
+		})
+	end
+	if look.grow then
+		-- A bare track thickens under the pointer so it reads as grabbable.
+		scope:connect(area.MouseEnter, function()
+			Motion.tween(rail, "fast", { Size = UDim2.new(1, -KNOB, 0, look.rail + look.grow) })
+		end)
+		scope:connect(area.MouseLeave, function()
+			Motion.tween(rail, "fast", { Size = UDim2.new(1, -KNOB, 0, look.rail) })
+		end)
+	end
+
 	local readout
-	if range then
+	if display == "None" or display == "Text" or display == "Fraction" then
+		readout = Create.new("TextLabel", {
+			Name = "Value",
+			Size = UDim2.fromOffset(0, row.reach),
+			AutomaticSize = Enum.AutomaticSize.X,
+			TextSize = 13,
+			Visible = display ~= "None",
+			LayoutOrder = 2,
+			Theme = { TextColor3 = "textMuted" },
+			Parent = row.slot,
+		})
+	elseif range then
 		readout = Create.new("TextLabel", {
 			Name = "Value",
 			Size = UDim2.fromOffset(0, row.reach),
@@ -97,11 +198,20 @@ function Slider.new(container, options)
 		local from, to = if range then (low - min) / span else 0, (high - min) / span
 		fill.Position = UDim2.fromScale(from, 0)
 		fill.Size = UDim2.fromScale(to - from, 1)
-		highKnob.Position = UDim2.fromScale(to, 0.5)
+		if highKnob then
+			highKnob.Position = UDim2.fromScale(to, 0.5)
+		end
 		if lowKnob then
 			lowKnob.Position = UDim2.fromScale(from, 0.5)
 		end
-		readout.Text = if range then label(low) .. " - " .. label(high) else label(high)
+		local text = if range then label(low) .. " - " .. label(high) else label(high)
+		if display == "Fraction" and not range then
+			text ..= " / " .. label(max)
+		end
+		readout.Text = text
+		if inside then
+			inside.Text = text
+		end
 	end
 
 	-- Stores a snapped value and reports whether it changed.
@@ -178,7 +288,7 @@ function Slider.new(container, options)
 		end
 	end, rail)
 
-	if not range then
+	if not range and readout:IsA("TextBox") then
 		scope:connect(readout.FocusLost, function()
 			local typed = tonumber(string.match(readout.Text, "-?%d+%.?%d*"))
 			if typed then
