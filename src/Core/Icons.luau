@@ -9,7 +9,7 @@ local IconData = require("./IconData")
 
 local SOURCE = "https://raw.githubusercontent.com/Footagesus/Icons/46d30c19ba7bc601d6ec794a48dc3a89568b1eec/%s/dist/Icons.lua"
 local CACHE = "Halcyon/cache/icons"
-local REMOTE = { lucide = true, solar = true, geist = true, craft = true, gravity = true, sfsymbols = true }
+local DOWNLOADABLE = { lucide = true, solar = true, geist = true, craft = true, gravity = true, sfsymbols = true }
 local FLAT = '%["([^"]+)"%]%s*=%s*"(rbxassetid://%d+)"'
 local SHEET = '%["(%d+)"%]%s*=%s*"(rbxassetid://%d+)"'
 local ENTRY = '%[?"?([%w%-_]+)"?%]?%s*=%s*(%b{})'
@@ -73,7 +73,7 @@ function Icons.resolve(name)
 	if entry then
 		return if type(entry) == "table" then entry else { Image = entry }
 	end
-	if REMOTE[packName] and not (pack and pack.complete) and not Icons.failed[packName] then
+	if DOWNLOADABLE[packName] and not (pack and pack.complete) and not Icons.failed[packName] then
 		return nil, packName
 	end
 	return nil
@@ -163,7 +163,7 @@ function Icons.addPack(packName, icons)
 end
 
 function Icons.setDefault(packName)
-	if not (Icons.packs[packName] or REMOTE[packName]) then
+	if not (Icons.packs[packName] or DOWNLOADABLE[packName]) then
 		return false, `Icon pack "{packName}" does not exist.`
 	end
 	Icons.default = packName

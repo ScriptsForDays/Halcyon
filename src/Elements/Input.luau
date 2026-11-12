@@ -22,7 +22,7 @@ function Input.new(container, options)
 	Create.corner(6, box)
 	Create.stroke("stroke", box)
 	Create.padding(box, 10, 0)
-	row.adapt(box, options.Width or 150, math.max(row.reach, 30))
+	row.placeControl(box, options.Width or 150, math.max(row.reach, 30))
 
 	local function show()
 		writing = true

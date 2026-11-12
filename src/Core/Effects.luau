@@ -17,7 +17,7 @@ local TweenService = game:GetService("TweenService")
 
 local SWEEP = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local RIPPLE = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local GLOW = NumberSequence.new({
+local BAND_FADE = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 1),
 	NumberSequenceKeypoint.new(0.5, 0.7),
 	NumberSequenceKeypoint.new(1, 1),
@@ -44,7 +44,7 @@ local function sweep(scope, button, radius)
 		Position = UDim2.fromScale(-0.3, 0),
 		BackgroundColor3 = Color3.new(1, 1, 1),
 		Parent = layer(button, radius),
-	}, { Create.new("UIGradient", { Transparency = GLOW, Rotation = 0 }) })
+	}, { Create.new("UIGradient", { Transparency = BAND_FADE, Rotation = 0 }) })
 	scope:connect(button.MouseEnter, function()
 		if Motion.reduced then
 			return

@@ -38,7 +38,7 @@ function Env.executor()
 end
 
 -- Scripts loaded separately share this table, which is how a second run finds the first.
-function Env.shared()
+function Env.globals()
 	return if Env.getgenv then Env.getgenv() else _G
 end
 

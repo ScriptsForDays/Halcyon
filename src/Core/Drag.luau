@@ -68,8 +68,8 @@ function Drag.clamp(target, x, y)
 	return math.clamp(x, minX, math.max(bounds.X - size.X * (1 - anchor.X), minX)), math.clamp(y, minY, math.max(bounds.Y - size.Y * (1 - anchor.Y), minY))
 end
 
--- Drags `target` by `handle`. options.onTap runs for a press that never moved;
--- options.onMoved runs when a drag ends.
+-- A press that never moved is a tap, so the same handle can both drag and
+-- open something (options.onTap); options.onMoved runs after a real drag.
 function Drag.move(scope, handle, target, options)
 	local start = Vector2.zero
 	Drag.track(scope, handle, function()

@@ -3,7 +3,7 @@
 
 local TweenService = game:GetService("TweenService")
 
-local INFO = {
+local TIMINGS = {
 	fast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 	base = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 	slow = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
@@ -21,7 +21,7 @@ function Motion.tween(instance, timing, goals)
 		end
 		return nil
 	end
-	local tween = TweenService:Create(instance, INFO[timing], goals)
+	local tween = TweenService:Create(instance, TIMINGS[timing], goals)
 	tween:Play()
 	return tween
 end

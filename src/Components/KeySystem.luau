@@ -14,7 +14,7 @@ local Motion = require("../Core/Motion")
 local Theme = require("../Core/Theme")
 
 local VERSION = 1
-local INVALID = "That key is not valid."
+local INVALID_KEY_MESSAGE = "That key is not valid."
 
 local KeySystem = {}
 
@@ -168,7 +168,7 @@ function KeySystem.check(options, selected, key)
 	if not message and ad and not keyed then
 		message = `The {ad.Name or "ad"} step is not confirmed yet. Finish it, then try again.`
 	end
-	return nil, message or INVALID
+	return nil, message or INVALID_KEY_MESSAGE
 end
 
 local function savedPath(folder)
@@ -206,7 +206,7 @@ end
 
 -- Shows the prompt and yields until a key is accepted or the prompt is
 -- closed. Returns { Tier, Rank, Tiers, Key, Saved, Data } or nil.
-function KeySystem.prompt(kit, options, context)
+function KeySystem.prompt(library, options, context)
 	local tiers = KeySystem.tiers(options)
 	local names = {}
 	for index, tier in tiers do
@@ -242,7 +242,7 @@ function KeySystem.prompt(kit, options, context)
 	end
 
 	local outcome, done, waiter = nil, false, nil
-	local shell = Dialog.shell(kit, {
+	local shell = Dialog.shell(library, {
 		Width = 430,
 		OnClose = function()
 			done = true
@@ -312,7 +312,7 @@ function KeySystem.prompt(kit, options, context)
 			local ad = adService(tier)
 			local tag = tier.Tag
 			if not tag then
-				tag = if tier.NoKey then "No key needed" elseif ad then `Via {ad.Name or "an ad"}` elseif paid then "Premium" else "Key required"
+				tag = if tier.NoKey then "No key needed" elseif ad then `Via {ad.Name or "an ad"}` elseif paid then "Paid key" else "Key required"
 				if tier.Duration and showExpiry then
 					tag ..= ` · {Env.duration(tier.Duration)}`
 				end

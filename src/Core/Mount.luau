@@ -19,15 +19,15 @@ function Mount.parent()
 end
 
 -- The shared layer above every window: popups, then dialogs, then toasts.
-function Mount.overlay(kit)
-	if kit.overlay then
-		return kit.overlay
+function Mount.overlay(library)
+	if library.overlay then
+		return library.overlay
 	end
 	-- No screen insets: a dialog's scrim has to cover the whole screen,
 	-- including the strip behind Roblox's top bar and a phone's notch.
 	local gui = Create.new("ScreenGui", {
 		Name = "HalcyonOverlay",
-		DisplayOrder = kit.displayOrder + 10,
+		DisplayOrder = library.displayOrder + 10,
 		ScreenInsets = Enum.ScreenInsets.None,
 		Parent = Mount.parent(),
 	})
@@ -35,11 +35,11 @@ function Mount.overlay(kit)
 		return Create.new("Frame", { Name = name, Size = UDim2.fromScale(1, 1), ZIndex = order, Parent = gui })
 	end
 	local overlay = { gui = gui, popups = layer("Popups", 1), dialogs = layer("Dialogs", 2), toasts = layer("Toasts", 3) }
-	kit.overlay = overlay
-	kit.scope:add(function()
+	library.overlay = overlay
+	library.scope:add(function()
 		gui:Destroy()
-		if kit.overlay == overlay then
-			kit.overlay = nil
+		if library.overlay == overlay then
+			library.overlay = nil
 		end
 	end)
 	return overlay

@@ -12,7 +12,7 @@ local Create = require("./Core/Create")
 local Dialog = require("./Components/Dialog")
 local Drag = require("./Core/Drag")
 local Env = require("./Core/Env")
-local Extras = require("./Components/Extras")
+local Hud = require("./Components/Hud")
 local Icons = require("./Core/Icons")
 local KeySystem = require("./Components/KeySystem")
 local Motion = require("./Core/Motion")
@@ -30,17 +30,17 @@ end
 Theme.set(Palettes[1].Name)
 
 -- State shared by every window this copy of the library creates.
-local kit = {
+local library = {
 	scope = Scope.new(),
 	windows = {},
 	displayOrder = 100,
 	scale = 1,
-	capturing = false,
+	listeningForKey = false,
 	touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
 }
 
-function kit.notify(options)
-	return Notifications.push(kit, options)
+function library.notify(options)
+	return Notifications.push(library, options)
 end
 
 local Halcyon = {
@@ -57,7 +57,7 @@ local Halcyon = {
 		Scope = Scope,
 		Signal = Signal,
 		Theme = Theme,
-		kit = kit,
+		library = library,
 	},
 }
 
@@ -66,11 +66,11 @@ function Window:SettingsTab(options)
 end
 
 function Window:Watermark(options)
-	return Extras.watermark(self, options)
+	return Hud.watermark(self, options)
 end
 
 function Window:KeybindList(options)
-	return Extras.keybindList(self, options)
+	return Hud.keybindList(self, options)
 end
 
 function Window:SetAccent(color)
@@ -93,7 +93,7 @@ function Halcyon:CreateWindow(options)
 	-- Running a hub twice is the usual way a player breaks it. Windows are
 	-- registered by folder in the executor's shared table, so a second run
 	-- unloads the first even though it loaded its own copy of the library.
-	local registry = Env.shared()
+	local registry = Env.globals()
 	registry.HalcyonWindows = registry.HalcyonWindows or {}
 	local previous = registry.HalcyonWindows[folder]
 	if previous then
@@ -107,20 +107,20 @@ function Halcyon:CreateWindow(options)
 		Icons.setDefault(options.IconPack)
 	end
 	if options.DisplayOrder then
-		kit.displayOrder = options.DisplayOrder
+		library.displayOrder = options.DisplayOrder
 	end
-	Notifications.configure(kit, options.Notifications)
+	Notifications.configure(library, options.Notifications)
 
 	local access
 	if options.KeySystem then
-		access = KeySystem.prompt(kit, options.KeySystem, { folder = folder, title = options.Title or "Halcyon" })
+		access = KeySystem.prompt(library, options.KeySystem, { folder = folder, title = options.Title or "Halcyon" })
 		if not access then
 			return nil
 		end
 	end
 
-	local window = Window.new(kit, options, access)
-	table.insert(kit.windows, window)
+	local window = Window.new(library, options, access)
+	table.insert(library.windows, window)
 	registry.HalcyonWindows[folder] = window
 	window.onUnloaded = function()
 		if registry.HalcyonWindows[folder] == window then
@@ -133,22 +133,22 @@ end
 -- Runs the key prompt without creating a window. Yields; returns the access
 -- table ({ Tier, Rank, Tiers, Key, Saved, Data }) or nil when closed.
 function Halcyon:Authenticate(options)
-	return KeySystem.prompt(kit, options, { folder = folderFor(options), title = options.Title or "Halcyon" })
+	return KeySystem.prompt(library, options, { folder = folderFor(options), title = options.Title or "Halcyon" })
 end
 
 function Halcyon:Notify(options)
-	return Notifications.push(kit, options)
+	return Notifications.push(library, options)
 end
 
 -- Sets what every later notice uses unless it says otherwise: Duration in
 -- seconds, Position ("TopLeft" to "BottomRight"), Progress (the countdown
 -- bar) and MaxVisible.
 function Halcyon:SetNotificationDefaults(settings)
-	Notifications.configure(kit, settings)
+	Notifications.configure(library, settings)
 end
 
 function Halcyon:Dialog(options)
-	return Dialog.open(kit, options)
+	return Dialog.open(library, options)
 end
 
 function Halcyon:SetTheme(name)
@@ -190,12 +190,12 @@ end
 
 -- Unloads every window and removes everything the library put on screen.
 function Halcyon:Unload()
-	for _, window in table.clone(kit.windows) do
+	for _, window in table.clone(library.windows) do
 		window:Unload()
 	end
-	kit.scope:clean()
-	kit.scope = Scope.new()
-	kit.popup = nil
+	library.scope:clean()
+	library.scope = Scope.new()
+	library.popup = nil
 end
 
 return Halcyon

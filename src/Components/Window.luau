@@ -67,10 +67,10 @@ local function centred(instance)
 	return instance
 end
 
-function Window.new(kit, options, access)
+function Window.new(library, options, access)
 	local self = setmetatable({}, Window)
-	self.kit, self.options = kit, options
-	self.scope = kit.scope:child()
+	self.library, self.options = library, options
+	self.scope = library.scope:child()
 	self.folder = Env.safeName(options.Folder or options.Title) or "Default"
 	self.config = Config.new(self.folder)
 	self.preferencesPath = `Halcyon/{self.folder}/settings.json`
@@ -151,9 +151,9 @@ function Window.new(kit, options, access)
 
 	local size = options.Size
 	self.size = if typeof(size) == "Vector2" then size elseif typeof(size) == "UDim2" then Vector2.new(size.X.Offset, size.Y.Offset) else DEFAULT_SIZE
-	kit.scale = self.scale
+	library.scale = self.scale
 
-	self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = kit.displayOrder, Parent = Mount.parent() })
+	self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = library.displayOrder, Parent = Mount.parent() })
 	self.scope:add(self.gui)
 	-- Active, so a press on the window never reaches the game underneath.
 	self.root = centred(Create.new("Frame", { Name = "Window", Active = true, ClipsDescendants = true, Theme = { BackgroundColor3 = "background" }, Parent = self.gui }))
@@ -228,12 +228,12 @@ function Window.new(kit, options, access)
 		end,
 	})
 
-	if not kit.touch and options.Resizable ~= false then
+	if not library.touch and options.Resizable ~= false then
 		self:buildGrip()
 	end
 
 	self.scope:connect(UserInputService.InputBegan, function(input, processed)
-		if not processed and not kit.capturing and self.toggleKey and input.KeyCode == self.toggleKey then
+		if not processed and not library.listeningForKey and self.toggleKey and input.KeyCode == self.toggleKey then
 			self:Toggle()
 		end
 	end)
@@ -474,7 +474,7 @@ function Window:buildNav()
 	if self.navScope then
 		self.scope:release(self.navScope)
 	end
-	Popup.close(self.kit)
+	Popup.close(self.library)
 	local scope = self.scope:child()
 	self.navScope = scope
 	local style = self.activeStyle
@@ -567,7 +567,7 @@ function Window:buildGroupHeading(parent, scope, name, order)
 	local collapsible = self.options.CollapsibleGroups ~= false
 	local heading = Create.new(if collapsible then "TextButton" else "Frame", {
 		Name = "Group",
-		Size = UDim2.new(1, 0, 0, if collapsible and self.kit.touch then 40 else 28),
+		Size = UDim2.new(1, 0, 0, if collapsible and self.library.touch then 40 else 28),
 		LayoutOrder = order,
 		Parent = parent,
 	})
@@ -636,7 +636,7 @@ function Window:SelectTab(tab)
 	if self.selected == tab then
 		return
 	end
-	Popup.close(self.kit)
+	Popup.close(self.library)
 	if self.selected then
 		self.selected.page.Visible = false
 	end
@@ -831,7 +831,7 @@ function Window:refreshVisibility()
 	self.pill.Visible = self.Visible and docked and self.minimizeStyle == "Pill"
 	-- A phone has no menu key, so a hidden window always leaves a button to bring it back.
 	self.openButton.Visible = (self.Visible and docked and self.minimizeStyle == "Chip")
-		or (not self.Visible and (self.kit.touch or self.options.OpenButton == true))
+		or (not self.Visible and (self.library.touch or self.options.OpenButton == true))
 end
 
 -- What a press on the pill or the open button does.
@@ -853,7 +853,7 @@ function Window:Show()
 end
 
 function Window:Hide()
-	Popup.close(self.kit)
+	Popup.close(self.library)
 	self.Visible = false
 	self:refreshVisibility()
 	if not self.openButton.Visible and not self.hinted and self.toggleKey then
@@ -872,7 +872,7 @@ end
 
 function Window:Minimize(minimized)
 	self.minimized = minimized == true
-	Popup.close(self.kit)
+	Popup.close(self.library)
 	self:layout()
 	self:refreshVisibility()
 end
@@ -904,9 +904,9 @@ end
 
 function Window:SetScale(scale)
 	self.scale = math.clamp(tonumber(scale) or 1, 0.75, 1.25)
-	self.kit.scale = self.scale
+	self.library.scale = self.scale
 	self.uiScale.Scale = self.scale
-	Popup.close(self.kit)
+	Popup.close(self.library)
 	self:layout()
 	self:savePreferences()
 end
@@ -1038,11 +1038,11 @@ end
 -- Feedback ------------------------------------------------------------------
 
 function Window:Notify(options)
-	return Notifications.push(self.kit, options)
+	return Notifications.push(self.library, options)
 end
 
 function Window:Dialog(options)
-	return Dialog.open(self.kit, options)
+	return Dialog.open(self.library, options)
 end
 
 -- Configs -------------------------------------------------------------------
@@ -1090,11 +1090,11 @@ function Window:Unload()
 		self:writePreferences()
 	end
 	self.OnUnload:Fire()
-	Popup.close(self.kit)
-	self.kit.scope:release(self.scope)
-	local index = table.find(self.kit.windows, self)
+	Popup.close(self.library)
+	self.library.scope:release(self.scope)
+	local index = table.find(self.library.windows, self)
 	if index then
-		table.remove(self.kit.windows, index)
+		table.remove(self.library.windows, index)
 	end
 	if self.onUnloaded then
 		self.onUnloaded()

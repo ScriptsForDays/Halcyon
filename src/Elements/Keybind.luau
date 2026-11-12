@@ -12,7 +12,7 @@ local Keybind = {}
 -- The key chip, usable on its own row or beside a Toggle. `onInput(pressed)`
 -- runs when the bound key goes down and again when it comes up.
 function Keybind.control(row, options, onInput)
-	local scope, kit, window = row.scope, row.kit, row.window
+	local scope, library, window = row.scope, row.library, row.window
 	local key = options.Default
 	local listening, held = false, false
 	local control = { Changed = Signal.new(), Active = false, Mode = options.Mode or "Press" }
@@ -41,7 +41,7 @@ function Keybind.control(row, options, onInput)
 		-- Cleared a moment later so the key that was just bound cannot also
 		-- trigger another bind or the menu key in the same press.
 		task.defer(function()
-			kit.capturing = false
+			library.listeningForKey = false
 		end)
 	end
 
@@ -76,7 +76,7 @@ function Keybind.control(row, options, onInput)
 		if listening then
 			stopListening()
 		else
-			listening, kit.capturing = true, true
+			listening, library.listeningForKey = true, true
 			draw()
 		end
 	end)
@@ -92,7 +92,7 @@ function Keybind.control(row, options, onInput)
 			elseif input.KeyCode ~= Enum.KeyCode.Escape then
 				control:Set(input.KeyCode)
 			end
-		elseif not processed and not kit.capturing and key and input.KeyCode == key and not row.handle:IsLocked() then
+		elseif not processed and not library.listeningForKey and key and input.KeyCode == key and not row.handle:IsLocked() then
 			held = true
 			onInput(true)
 		end
@@ -109,7 +109,7 @@ function Keybind.control(row, options, onInput)
 	table.insert(window.keybinds, listing)
 	scope:add(function()
 		if listening then
-			kit.capturing = false
+			library.listeningForKey = false
 		end
 		table.remove(window.keybinds, table.find(window.keybinds, listing))
 		window.KeybindsChanged:Fire()

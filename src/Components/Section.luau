@@ -20,7 +20,7 @@ function Section.new(tab, options)
 	local style = options.Style or tab.sectionStyle or window.sectionStyle
 	local flat = style == "Flat"
 	local self = setmetatable({
-		kit = tab.kit,
+		library = tab.library,
 		window = window,
 		tab = tab,
 		scope = tab.scope:child(),
@@ -87,16 +87,16 @@ function Section.new(tab, options)
 		end
 	end
 
-	-- The rows sit in a shell with no layout of its own, so a lock overlay
-	-- can lie across them without becoming a row itself.
-	local shell = Create.new("Frame", { Name = "Shell", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = root })
-	self.shell = shell
-	local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = shell })
+	-- The body has no layout of its own, so a lock overlay can lie across
+	-- the rows without becoming a row itself.
+	local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = root })
+	self.body = body
+	local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
 	if not flat then
-		Create.padding(body, 6, if options.Title then 0 else 6, 6, 6)
+		Create.padding(rows, 6, if options.Title then 0 else 6, 6, 6)
 	end
-	Create.list(body, "Vertical", if flat then 6 else 2)
-	self.frame = body
+	Create.list(rows, "Vertical", if flat then 6 else 2)
+	self.frame = rows
 
 	if self.tier then
 		self:buildLock()
@@ -117,7 +117,7 @@ function Section:buildLock()
 		BackgroundTransparency = 0.06,
 		Visible = false,
 		Theme = { BackgroundColor3 = self.surface },
-		Parent = self.shell,
+		Parent = self.body,
 	})
 	Create.corner(10, overlay)
 	Create.new("UIStroke", { Transparency = 0.45, Theme = { Color = "accent" }, Parent = overlay })
@@ -173,11 +173,11 @@ function Section:buildLock()
 	-- The overlay is given the rows' height in pixels. A child sized by
 	-- scale inside a frame that sizes itself to its children feeds back and
 	-- stretches both.
-	local body = self.frame
+	local rows = self.frame
 	local function cover()
-		overlay.Size = UDim2.new(1, 0, 0, body.AbsoluteSize.Y / self.kit.scale)
+		overlay.Size = UDim2.new(1, 0, 0, rows.AbsoluteSize.Y / self.library.scale)
 	end
-	self.scope:connect(body:GetPropertyChangedSignal("AbsoluteSize"), cover)
+	self.scope:connect(rows:GetPropertyChangedSignal("AbsoluteSize"), cover)
 	cover()
 
 	self.lockOverlay = { frame = overlay, icon = icon, title = title, hint = hint }

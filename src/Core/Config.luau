@@ -4,7 +4,7 @@
 local Env = require("./Env")
 
 local VERSION = 1
-local BAD_NAME = "Use letters, numbers, spaces, - or _ in a config name."
+local INVALID_NAME_MESSAGE = "Use letters, numbers, spaces, - or _ in a config name."
 
 local Config = {}
 Config.__index = Config
@@ -54,7 +54,7 @@ end
 function Config:save(name)
 	local safe = Env.safeName(name)
 	if not safe then
-		return false, BAD_NAME
+		return false, INVALID_NAME_MESSAGE
 	end
 	local encoded, text = Env.encode({ version = VERSION, flags = self:collect() })
 	if not encoded then
@@ -70,7 +70,7 @@ end
 function Config:load(name)
 	local safe = Env.safeName(name)
 	if not safe then
-		return false, BAD_NAME
+		return false, INVALID_NAME_MESSAGE
 	elseif not Env.canSave then
 		return false, Env.NO_FILES
 	end
@@ -78,17 +78,17 @@ function Config:load(name)
 	if not content then
 		return false, `There is no config named "{safe}".`
 	end
-	local decoded, data = Env.decode(content)
-	if not decoded or type(data) ~= "table" or type(data.flags) ~= "table" then
+	local decoded, saved = Env.decode(content)
+	if not decoded or type(saved) ~= "table" or type(saved.flags) ~= "table" then
 		return false, `"{safe}" is not a valid config file.`
 	end
-	return true, `Loaded "{safe}" ({self:apply(data.flags)} settings).`
+	return true, `Loaded "{safe}" ({self:apply(saved.flags)} settings).`
 end
 
 function Config:delete(name)
 	local safe = Env.safeName(name)
 	if not safe then
-		return false, BAD_NAME
+		return false, INVALID_NAME_MESSAGE
 	elseif not Env.read(self:path(safe)) then
 		return false, `There is no config named "{safe}".`
 	elseif not Env.remove(self:path(safe)) then
@@ -119,7 +119,7 @@ end
 function Config:setAutoload(name)
 	local safe = if name then Env.safeName(name) else ""
 	if not safe then
-		return false, BAD_NAME
+		return false, INVALID_NAME_MESSAGE
 	end
 	local wrote, message = Env.write(self.root .. "/autoload.txt", safe)
 	if not wrote then

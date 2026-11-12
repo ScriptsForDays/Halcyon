@@ -21,23 +21,23 @@ local LIFT = 10
 local OVERHANG = 10
 local MARGIN = 4
 
-local Tip = { Styles = STYLES }
+local SliderTooltip = { Styles = STYLES }
 
 local function overlaps(left, top, right, bottom, other)
 	local corner, extent = other.AbsolutePosition, other.AbsoluteSize
 	return right > corner.X - MARGIN and left < corner.X + extent.X + MARGIN and bottom > corner.Y - MARGIN and top < corner.Y + extent.Y + MARGIN
 end
 
-function Tip.new(row, styleName)
-	local kit = row.kit
+function SliderTooltip.new(row, styleName)
+	local library = row.library
 	local style = STYLES[styleName] or STYLES.Rounded
-	local overlay = Mount.overlay(kit)
+	local overlay = Mount.overlay(library)
 	local lift = if style.arrow then LIFT else 6
 
 	-- The holder carries the position and the body carries the scale, as popups do.
 	local holder = Create.new("Frame", { Name = "SliderTip", Visible = false, ZIndex = 5, Parent = overlay.popups })
 	row.scope:add(holder)
-	local scale = Create.new("UIScale", { Scale = kit.scale })
+	local scale = Create.new("UIScale", { Scale = library.scale })
 	local body = Create.new("Frame", { Name = "Body", Parent = holder }, { scale })
 
 	local arrow
@@ -88,7 +88,7 @@ function Tip.new(row, styleName)
 	-- slider's value box): it stays within the rail's ends, and drops below
 	-- the knob when the box sits right above the track.
 	function tip.show(rail, fraction, text, avoid)
-		local factor = kit.scale
+		local factor = library.scale
 		local origin = overlay.gui.AbsolutePosition
 		local corner, extent = rail.AbsolutePosition, rail.AbsoluteSize
 		local knobX, centre = corner.X + extent.X * fraction, corner.Y + extent.Y / 2
@@ -128,4 +128,4 @@ function Tip.new(row, styleName)
 	return tip
 end
 
-return Tip
+return SliderTooltip

@@ -11,7 +11,7 @@ local Theme = require("./Theme")
 local TEXT = { TextLabel = true, TextButton = true, TextBox = true }
 local IMAGE = { ImageLabel = true, ImageButton = true }
 local VISUAL = { Frame = true, ScrollingFrame = true, CanvasGroup = true, ViewportFrame = true }
-local SPECIAL = { Theme = true, Weight = true, Icon = true, Parent = true }
+local NOT_PROPERTIES = { Theme = true, Weight = true, Icon = true, Parent = true }
 -- One step heavier than the names suggest: thin strokes wash out over a
 -- bright or busy game, and this is text people read while playing.
 local WEIGHTS = { regular = Enum.FontWeight.Medium, medium = Enum.FontWeight.SemiBold, bold = Enum.FontWeight.Bold }
@@ -88,7 +88,7 @@ function Create.new(className, properties, children)
 	end
 
 	for key, value in properties do
-		if not SPECIAL[key] then
+		if not NOT_PROPERTIES[key] then
 			instance[key] = value
 		end
 	end
@@ -118,7 +118,7 @@ function Create.stroke(role, parent, thickness)
 	return Create.new("UIStroke", { Thickness = thickness or 1, Theme = { Color = role }, Parent = parent })
 end
 
--- padding(parent, all), padding(parent, horizontal, vertical) or padding(parent, left, top, right, bottom).
+-- Missing sides repeat the ones given, as in CSS: one value pads all four.
 function Create.padding(parent, left, top, right, bottom)
 	top = top or left
 	return Create.new("UIPadding", {

@@ -1,5 +1,5 @@
 local Internal = Halcyon.Internal
-local Theme, kit = Internal.Theme, Internal.kit
+local Theme, library = Internal.Theme, Internal.library
 local UserInputService = game:GetService("UserInputService")
 local baseline = Stub.inputConnections()
 
@@ -14,7 +14,7 @@ local function move(x, y)
 end
 
 local function option(text)
-	local label = Stub.byText(kit.popup.frame, text)
+	local label = Stub.byText(library.popup.frame, text)
 	return label and label.Parent
 end
 
@@ -136,7 +136,7 @@ Stub.equal(speed:Get(), 72, "typing a number sets the slider")
 -- Slider tooltip.
 local function sliderTips()
 	local found = {}
-	for _, child in kit.overlay.popups:GetChildren() do
+	for _, child in library.overlay.popups:GetChildren() do
 		if child.Name == "SliderTip" then
 			table.insert(found, child)
 		end
@@ -202,28 +202,28 @@ local part = section:Dropdown({
 })
 Stub.equal(part:Get(), "Head", "single dropdown defaults to its first value")
 Stub.click(part.Frame)
-Stub.check(kit.popup ~= nil, "dropdown opens a popup")
+Stub.check(library.popup ~= nil, "dropdown opens a popup")
 Stub.equal(#Stub.guis(), 2, "popup lives in the overlay ScreenGui")
 Stub.click(option("Torso"))
 Stub.equal(part:Get(), "Torso", "choosing an option sets the value")
-Stub.equal(kit.popup, nil, "single dropdown closes after a choice")
+Stub.equal(library.popup, nil, "single dropdown closes after a choice")
 Stub.click(part.Frame)
 Stub.click(part.Frame)
-Stub.equal(kit.popup, nil, "pressing the row again closes its popup")
+Stub.equal(library.popup, nil, "pressing the row again closes its popup")
 part:Refresh({ "Arms", "Legs" })
 Stub.equal(part:Get(), nil, "a value that is no longer offered is dropped")
 
 local multi = section:Dropdown({ Title = "Show", Values = { "Names", "Boxes", "Health" }, Multi = true, Default = { "Boxes" } })
 Stub.click(multi.Frame)
 Stub.click(option("Names"))
-Stub.check(kit.popup ~= nil, "multi dropdown stays open")
+Stub.check(library.popup ~= nil, "multi dropdown stays open")
 Stub.equal(Stub.byName(option("Names"), "Mark").BackgroundTransparency, 0, "a picked option fills its box")
 Stub.equal(Stub.byName(option("Health"), "Mark").BackgroundTransparency, 1, "an unpicked option keeps an empty box")
 Stub.equal(table.concat(multi:Get(), ","), "Names,Boxes", "multi value keeps the order of Values")
 Stub.click(option("Boxes"))
 Stub.equal(table.concat(multi:Get(), ","), "Names", "choosing a picked option removes it")
 press(UserInputService, 5, 5)
-Stub.equal(kit.popup, nil, "a press outside closes the popup")
+Stub.equal(library.popup, nil, "a press outside closes the popup")
 
 -- Input.
 local typed = {}
@@ -261,11 +261,11 @@ Stub.equal(keyCalls[1], true, "bound key runs the callback")
 Stub.key(Enum.KeyCode.F, true)
 Stub.equal(#keyCalls, 1, "a key typed into a text box is ignored")
 Stub.click(Stub.byName(bind.Frame, "Key"))
-Stub.check(kit.capturing, "pressing the chip starts listening")
+Stub.check(library.listeningForKey, "pressing the chip starts listening")
 Stub.key(Enum.KeyCode.G)
 Stub.equal(bind:Get(), Enum.KeyCode.G, "next key press rebinds")
 Stub.equal(#keyCalls, 1, "the rebinding press does not run the callback")
-Stub.check(not kit.capturing, "listening ends after the rebind")
+Stub.check(not library.listeningForKey, "listening ends after the rebind")
 Stub.equal(bind:Encode(), "G", "keybind saves as the key name")
 Stub.equal(bind:Decode("NotAKeyAtAll") ~= nil or true, true, "decode never errors")
 Stub.equal(bind:Decode(""), nil, "an empty saved key loads as no key")
@@ -293,14 +293,14 @@ Stub.equal(#colors, 1, "setting a colour runs the callback")
 tint:Set("nonsense")
 Stub.equal(#colors, 1, "an invalid hex is ignored")
 Stub.click(Stub.byName(tint.Frame, "Swatch"))
-Stub.check(kit.popup ~= nil, "swatch opens the picker")
-local shade = Stub.byName(kit.popup.frame, "Shade")
+Stub.check(library.popup ~= nil, "swatch opens the picker")
+local shade = Stub.byName(library.popup.frame, "Shade")
 Stub.place(shade, 0, 0, 100, 100)
 local shadePress = press(shade, 100, 0)
 Stub.equal(#colors, 1, "dragging the picker does not call back on every move")
 UserInputService.InputEnded:Fire(shadePress)
 Stub.equal(#colors, 2, "the callback runs when the drag ends")
-Halcyon.Internal.kit.popup.close()
+Halcyon.Internal.library.popup.close()
 
 -- Remaining elements.
 local mode = section:Segmented({ Title = "Mode", Values = { "Legit", "Rage" }, Flag = "Mode" })
@@ -460,7 +460,7 @@ window:Minimize(true)
 Stub.equal(window.root.Size.Y.Offset, 48, "minimised window is the top bar alone")
 window:Minimize(false)
 
--- Minimise styles.
+-- Pill and Chip each stand in for the window and bring it back.
 Stub.check(window:SetMinimizeStyle("Pill"), "minimise style changes")
 window:Minimize(true)
 Stub.check(not window.root.Visible and window.pill.Visible, "Pill swaps the window for a titled pill")
@@ -504,7 +504,7 @@ Stub.equal(ovalThumb.Size.X.Offset, 18, "the thumb settles back to its shape")
 Stub.equal(ovalThumb.Position.X.Offset, 15, "the thumb rests against the far side when on")
 oval:Destroy()
 
--- Checkbox style.
+-- An empty checkbox draws no tick at all, not a hidden one.
 local box = section:Toggle({ Title = "Show names", Style = "Checkbox" })
 local tick = Stub.byName(Stub.byName(box.Frame, "Switch"), "Icon")
 Stub.equal(tick.Size.X.Offset, 0, "an empty checkbox draws no mark")
@@ -514,20 +514,20 @@ box:Destroy()
 
 -- Notifications and dialogs.
 Stub.advance(10)
-Stub.equal(#kit.toasts.active, 0, "earlier notices have gone")
+Stub.equal(#library.toasts.active, 0, "earlier notices have gone")
 for index = 1, 6 do
 	Halcyon:Notify({ Title = "Notice " .. index, Duration = 2 })
 end
-Stub.equal(#kit.toasts.active, 4, "four toasts show at once")
-Stub.equal(#kit.toasts.queue, 2, "the rest wait")
+Stub.equal(#library.toasts.active, 4, "four toasts show at once")
+Stub.equal(#library.toasts.queue, 2, "the rest wait")
 Stub.advance(2.1)
-Stub.equal(#kit.toasts.active, 2, "queued toasts appear as others leave")
+Stub.equal(#library.toasts.active, 2, "queued toasts appear as others leave")
 Stub.advance(2.1)
-Stub.equal(#kit.toasts.active, 0, "toasts dismiss themselves")
+Stub.equal(#library.toasts.active, 0, "toasts dismiss themselves")
 
 -- Notification defaults, countdown bars and actions.
 Halcyon:SetNotificationDefaults({ Duration = 1, Position = "TopLeft", MaxVisible = 2, Progress = true })
-Stub.equal(kit.toasts.holder.AnchorPoint, Vector2.new(0, 0), "the default position moves the stack")
+Stub.equal(library.toasts.holder.AnchorPoint, Vector2.new(0, 0), "the default position moves the stack")
 local acted = false
 Halcyon:Notify({
 	Title = "Update ready",
@@ -538,19 +538,19 @@ Halcyon:Notify({
 		end,
 	} },
 })
-Stub.check(Stub.byName(kit.toasts.holder, "Countdown") ~= nil, "a timed notice carries a countdown bar")
-Stub.click(Stub.byText(kit.toasts.holder, "Install"))
-Stub.check(acted and #kit.toasts.active == 0, "a notice's button runs its callback and dismisses the notice")
+Stub.check(Stub.byName(library.toasts.holder, "Countdown") ~= nil, "a timed notice carries a countdown bar")
+Stub.click(Stub.byText(library.toasts.holder, "Install"))
+Stub.check(acted and #library.toasts.active == 0, "a notice's button runs its callback and dismisses the notice")
 Halcyon:Notify("One")
 Halcyon:Notify("Two")
 Halcyon:Notify("Three")
-Stub.equal(#kit.toasts.queue, 1, "MaxVisible limits how many show at once")
+Stub.equal(#library.toasts.queue, 1, "MaxVisible limits how many show at once")
 Stub.advance(1.1)
-Stub.equal(#kit.toasts.active, 1, "the default duration applies to notices that give none")
+Stub.equal(#library.toasts.active, 1, "the default duration applies to notices that give none")
 Stub.advance(1.1)
 local sticky = Halcyon:Notify({ Title = "Stays", Duration = 0, Progress = false })
 Stub.advance(30)
-Stub.check(#kit.toasts.active == 1 and Stub.byName(kit.toasts.holder, "Countdown") == nil, "Duration = 0 stays until dismissed and has no bar")
+Stub.check(#library.toasts.active == 1 and Stub.byName(library.toasts.holder, "Countdown") == nil, "Duration = 0 stays until dismissed and has no bar")
 sticky.Dismiss()
 Halcyon:SetNotificationDefaults({ Duration = 4, Position = "BottomRight", MaxVisible = 4 })
 local answered = false
@@ -596,7 +596,7 @@ local second = Halcyon:CreateWindow({ Title = "Test Hub", Folder = "TestHub" })
 Stub.equal(unloads, 1, "running the hub again unloads the first window")
 Stub.check(rawget(window.gui, "destroyed"), "the first window's ScreenGui is destroyed")
 Stub.equal(second.tabStyle, "Rail", "saved preferences apply to the next run")
-Stub.equal(#kit.windows, 1, "one window registered")
+Stub.equal(#library.windows, 1, "one window registered")
 
 -- Features a hub turns off with one false each.
 local plain = Halcyon:CreateWindow({

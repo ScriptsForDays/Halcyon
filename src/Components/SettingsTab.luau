@@ -10,8 +10,10 @@ local STYLES = { "Sidebar", "Rail", "Top", "Dock" }
 
 local SettingsTab = {}
 
-local function report(window, ok, message)
-	window:Notify({ Title = if ok then "Done" else "Not done", Content = message, Kind = if ok then "success" else "warning" })
+-- `done` and `failed` title the notice; the message from the config call
+-- says which config and why.
+local function report(window, done, failed, ok, message)
+	window:Notify({ Title = if ok then done else failed, Content = message, Kind = if ok then "success" else "warning" })
 end
 
 -- Options: Title, Icon, Group, and one switch per row. Every row is on
@@ -152,14 +154,14 @@ function SettingsTab.build(window, options)
 				Callback = function()
 					local ok, message = window:SaveConfig(chosen() or "default")
 					saved:Refresh(window:ListConfigs())
-					report(window, ok, message)
+					report(window, "Config saved", "Config not saved", ok, message)
 				end,
 			})
 			configs:Button({
 				Title = "Load",
 				Icon = "download",
 				Callback = function()
-					report(window, window:LoadConfig(chosen()))
+					report(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
 				end,
 			})
 			configs:Button({
@@ -167,7 +169,7 @@ function SettingsTab.build(window, options)
 				Description = "Marks the config that Window:LoadAutoload() loads",
 				Icon = "pin",
 				Callback = function()
-					report(window, window:SetAutoload(chosen()))
+					report(window, "Loads on start", "Autoload not set", window:SetAutoload(chosen()))
 				end,
 			})
 			configs:Button({
@@ -176,7 +178,7 @@ function SettingsTab.build(window, options)
 				Callback = function()
 					local target = chosen()
 					if not target then
-						report(window, false, "Pick a config to delete.")
+						report(window, "Config deleted", "Nothing deleted", false, "Pick a config to delete.")
 						return
 					end
 					window:Dialog({
@@ -190,7 +192,7 @@ function SettingsTab.build(window, options)
 								Callback = function()
 									local ok, message = window:DeleteConfig(target)
 									saved:Refresh(window:ListConfigs())
-									report(window, ok, message)
+									report(window, "Config deleted", "Config not deleted", ok, message)
 								end,
 							},
 						},

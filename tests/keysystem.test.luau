@@ -165,7 +165,7 @@ Stub.check(type(result) == "table" and result:GetTier() == "Keyless", "Keyless c
 Stub.equal(succeeded, "Keyless", "OnSuccess receives the access table")
 Stub.check(result:Tab({ Title = "Farm" }):Toggle({ Title = "Free row", Tier = "Free" }):IsLocked(), "Keyless ranks below Free")
 Stub.equal(Stub.files["Halcyon/OpenHub/key.json"], nil, "no key file is written for a keyless tier")
-local gated = result:Tab({ Title = "Main" }):Toggle({ Title = "Auto farm", Tier = "Premium" })
+local gated = result:Tab({ Title = "Farm" }):Toggle({ Title = "Auto farm", Tier = "Premium" })
 Stub.check(gated:IsLocked(), "free players see premium rows locked")
 result:Unload()
 
@@ -224,7 +224,7 @@ Stub.check(Stub.byText(worded.Frame, "VIP members") ~= nil, "a row's own wording
 local paidSection = farm:Section({ Title = "Bosses", PaidOnly = true, LockText = "Paid bosses", LockHint = "Ask in the Discord" })
 local bossRow = paidSection:Toggle({ Title = "Auto boss" })
 local overlay = Stub.byName(paidSection.root, "LockOverlay")
-Stub.equal(overlay.Parent.Name, "Shell", "the overlay lies across the rows, outside the section's list layout")
+Stub.equal(overlay.Parent.Name, "Body", "the overlay lies across the rows, outside the section's list layout")
 Stub.check(bossRow:IsLocked() and overlay.Visible, "a locked section locks every row and shows one overlay")
 Stub.check(Stub.byText(overlay, "Paid bosses") ~= nil and Stub.byText(overlay, "Ask in the Discord") ~= nil, "the overlay carries the section's wording and hint")
 Stub.check(not Stub.byName(bossRow.Frame, "Lock").Visible, "rows under the overlay carry no badge of their own")

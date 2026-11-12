@@ -19,7 +19,7 @@ function Progress.new(container, options)
 		Theme = { TextColor3 = "textMuted" },
 		Parent = row.slot,
 	})
-	local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 6), Theme = { BackgroundColor3 = "stroke" }, Parent = row.below() })
+	local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 6), Theme = { BackgroundColor3 = "stroke" }, Parent = row.belowTitle() })
 	Create.corner(-1, rail)
 	local fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(0, 1), Theme = { BackgroundColor3 = "accent" }, Parent = rail })
 	Create.corner(-1, fill)

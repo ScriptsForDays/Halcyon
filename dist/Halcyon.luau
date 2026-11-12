@@ -55,9 +55,9 @@ end)
 Effects.apply(scope, button, options.Effect or "Sweep", 8)
 return button
 end
-function Dialog.shell(kit, options)
-local overlay = Mount.overlay(kit)
-local scope = kit.scope:child()
+function Dialog.shell(library, options)
+local overlay = Mount.overlay(library)
+local scope = library.scope:child()
 local shell = { scope = scope, Closed = false }
 local scrim = Create.new("TextButton", {
 Name = "Dialog",
@@ -91,7 +91,7 @@ if shell.Closed then
 return
 end
 shell.Closed = true
-kit.scope:release(scope)
+library.scope:release(scope)
 if options.OnClose then
 options.OnClose()
 end
@@ -133,8 +133,8 @@ Theme = { TextColor3 = "textMuted" },
 Parent = parent,
 })
 end
-function Dialog.open(kit, options)
-local shell = Dialog.shell(kit, options)
+function Dialog.open(library, options)
+local shell = Dialog.shell(library, options)
 Dialog.heading(shell.card, options.Title, options.Icon)
 if options.Content then
 Dialog.text(shell.card, options.Content, 1)
@@ -153,7 +153,7 @@ end
 return Dialog
 end
 
-modules["Components/Extras"] = function()
+modules["Components/Hud"] = function()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Create = import("Core/Create")
@@ -161,7 +161,7 @@ local Drag = import("Core/Drag")
 local Env = import("Core/Env")
 local Profile = import("Components/Profile")
 local Theme = import("Core/Theme")
-local Extras = {}
+local Hud = {}
 local function handleFor(window, scope, frame)
 local handle = { Frame = frame }
 function handle:SetVisible(visible)
@@ -172,7 +172,7 @@ window.scope:release(scope)
 end
 return handle
 end
-function Extras.watermark(window, options)
+function Hud.watermark(window, options)
 options = options or {}
 local scope = window.scope:child()
 local fields = options.Fields or { "Title", "Executor", "Time" }
@@ -235,7 +235,7 @@ Drag.move(scope, pill, pill, {})
 draw()
 return handleFor(window, scope, pill)
 end
-function Extras.keybindList(window, options)
+function Hud.keybindList(window, options)
 options = options or {}
 local scope = window.scope:child()
 local panel = Create.new("Frame", {
@@ -293,7 +293,7 @@ Drag.move(scope, panel, panel, {})
 draw()
 return handleFor(window, scope, panel)
 end
-return Extras
+return Hud
 end
 
 modules["Components/KeySystem"] = function()
@@ -303,7 +303,7 @@ local Env = import("Core/Env")
 local Motion = import("Core/Motion")
 local Theme = import("Core/Theme")
 local VERSION = 1
-local INVALID = "That key is not valid."
+local INVALID_KEY_MESSAGE = "That key is not valid."
 local KeySystem = {}
 local function trim(text)
 return string.match(tostring(text or ""), "^%s*(.-)%s*$")
@@ -430,7 +430,7 @@ end
 if not message and ad and not keyed then
 message = `The {ad.Name or "ad"} step is not confirmed yet. Finish it, then try again.`
 end
-return nil, message or INVALID
+return nil, message or INVALID_KEY_MESSAGE
 end
 local function savedPath(folder)
 return `Halcyon/{folder}/key.json`
@@ -461,7 +461,7 @@ return nil
 end
 return unlocked, saved.key, if duration then saved.savedAt + duration else nil
 end
-function KeySystem.prompt(kit, options, context)
+function KeySystem.prompt(library, options, context)
 local tiers = KeySystem.tiers(options)
 local names = {}
 for index, tier in tiers do
@@ -492,7 +492,7 @@ if savedIndex then
 return access(savedIndex, savedKey, true, nil, savedExpiry)
 end
 local outcome, done, waiter = nil, false, nil
-local shell = Dialog.shell(kit, {
+local shell = Dialog.shell(library, {
 Width = 430,
 OnClose = function()
 done = true
@@ -556,7 +556,7 @@ local paid = paidRank ~= nil and index >= paidRank
 local ad = adService(tier)
 local tag = tier.Tag
 if not tag then
-tag = if tier.NoKey then "No key needed" elseif ad then `Via {ad.Name or "an ad"}` elseif paid then "Premium" else "Key required"
+tag = if tier.NoKey then "No key needed" elseif ad then `Via {ad.Name or "an ad"}` elseif paid then "Paid key" else "Key required"
 if tier.Duration and showExpiry then
 tag ..= ` · {Env.duration(tier.Duration)}`
 end
@@ -805,7 +805,7 @@ local POSITIONS = { TopLeft = true, TopCenter = true, TopRight = true, BottomLef
 local Notifications = {
 Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4 },
 }
-function Notifications.configure(kit, settings)
+function Notifications.configure(library, settings)
 if type(settings) ~= "table" then
 return
 end
@@ -822,19 +822,19 @@ end
 if type(settings.MaxVisible) == "number" and settings.MaxVisible >= 1 then
 defaults.MaxVisible = math.floor(settings.MaxVisible)
 end
-if kit.toasts then
-kit.toasts.place()
+if library.toasts then
+library.toasts.place()
 end
 end
-local function host(kit)
-if kit.toasts then
-return kit.toasts
+local function toastStack(library)
+if library.toasts then
+return library.toasts
 end
-local overlay = Mount.overlay(kit)
+local overlay = Mount.overlay(library)
 local holder = Create.new("Frame", { Name = "Holder", Parent = overlay.toasts })
 local layout = Create.list(holder, "Vertical", 8)
 local state = { holder = holder, active = {}, queue = {}, order = 0, side = 1 }
-kit.toasts = state
+library.toasts = state
 function state.place()
 local narrow = overlay.gui.AbsoluteSize.X < NARROW
 local position = if narrow then "TopCenter" else Notifications.Defaults.Position
@@ -847,17 +847,17 @@ holder.Position = UDim2.new(x, -12 * state.side, if top then 0 else 1, if top th
 holder.Size = if narrow then UDim2.new(1, -24, 1, -inset - 8) else UDim2.new(0, WIDTH, 1, -inset - 20)
 layout.VerticalAlignment = if top then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom
 end
-kit.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
-kit.scope:add(function()
-kit.toasts = nil
+library.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
+library.scope:add(function()
+library.toasts = nil
 end)
 state.place()
 return state
 end
-local function show(kit, state, toast)
+local function show(library, state, toast)
 local options = toast.options
 local kind = KINDS[options.Kind] or KINDS.info
-local scope = kit.scope:child()
+local scope = library.scope:child()
 toast.scope = scope
 state.order += 1
 local slot = Create.new("Frame", {
@@ -917,7 +917,7 @@ Create.list(actions, "Horizontal", 6, { Wraps = true })
 for index, settings in options.Actions do
 local button = Create.new("TextButton", {
 Name = "Action",
-Size = UDim2.fromOffset(0, if kit.touch then 40 else 28),
+Size = UDim2.fromOffset(0, if library.touch then 40 else 28),
 AutomaticSize = Enum.AutomaticSize.X,
 LayoutOrder = index,
 Text = settings.Title or "",
@@ -952,12 +952,12 @@ end
 scope:add(task.delay(duration, toast.Dismiss))
 end
 end
-function Notifications.push(kit, options)
+function Notifications.push(library, options)
 if type(options) == "string" then
 options = { Title = options }
 end
 local defaults = Notifications.Defaults
-local state = host(kit)
+local state = toastStack(library)
 local toast = {
 options = options,
 done = false,
@@ -975,16 +975,16 @@ table.remove(state.queue, queued)
 return
 end
 table.remove(state.active, table.find(state.active, toast))
-kit.scope:release(toast.scope)
+library.scope:release(toast.scope)
 local waiting = table.remove(state.queue, 1)
 if waiting then
 table.insert(state.active, waiting)
-show(kit, state, waiting)
+show(library, state, waiting)
 end
 end
 if #state.active < defaults.MaxVisible then
 table.insert(state.active, toast)
-show(kit, state, toast)
+show(library, state, toast)
 else
 table.insert(state.queue, toast)
 end
@@ -1004,20 +1004,20 @@ local function contains(instance, position)
 local origin, size = instance.AbsolutePosition, instance.AbsoluteSize
 return position.X >= origin.X and position.X <= origin.X + size.X and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
-function Popup.close(kit)
-if kit.popup then
-kit.popup.close()
+function Popup.close(library)
+if library.popup then
+library.popup.close()
 end
 end
-function Popup.toggle(kit, anchor, options)
-local open = kit.popup
-Popup.close(kit)
+function Popup.toggle(library, anchor, options)
+local open = library.popup
+Popup.close(library)
 if open and open.anchor == anchor then
 return nil
 end
-local overlay = Mount.overlay(kit)
-local scope = kit.scope:child()
-local width = options.Width or math.max(anchor.AbsoluteSize.X / kit.scale, 180)
+local overlay = Mount.overlay(library)
+local scope = library.scope:child()
+local width = options.Width or math.max(anchor.AbsoluteSize.X / library.scale, 180)
 local holder = Create.new("Frame", { Name = "Popup", Parent = overlay.popups })
 local panel = Create.new("Frame", {
 Name = "Panel",
@@ -1031,7 +1031,7 @@ Create.corner(10, panel)
 Create.stroke("stroke", panel)
 Create.padding(panel, 6)
 Create.list(panel, "Vertical", 4)
-Create.new("UIScale", { Scale = kit.scale, Parent = panel })
+Create.new("UIScale", { Scale = library.scale, Parent = panel })
 scope:add(holder)
 local popup = { anchor = anchor, frame = panel, scope = scope }
 local function place()
@@ -1049,11 +1049,11 @@ math.clamp(y, MARGIN, math.max(view.Y - size.Y - MARGIN, MARGIN))
 )
 end
 function popup.close()
-if kit.popup ~= popup then
+if library.popup ~= popup then
 return
 end
-kit.popup = nil
-kit.scope:release(scope)
+library.popup = nil
+library.scope:release(scope)
 if options.OnClose then
 options.OnClose()
 end
@@ -1080,7 +1080,7 @@ if not contains(panel, input.Position) and not contains(anchor, input.Position) 
 popup.close()
 end
 end)
-kit.popup = popup
+library.popup = popup
 place()
 panel.Position = UDim2.fromOffset(0, -6)
 Motion.tween(panel, "base", { Position = UDim2.fromOffset(0, 0) })
@@ -1280,7 +1280,7 @@ local picture = avatar(window, scope, chip, 28)
 picture.AnchorPoint = Vector2.new(0.5, 0.5)
 picture.Position = UDim2.fromScale(0.5, 0.5)
 scope:connect(chip.Activated, function()
-local popup = Popup.toggle(window.kit, chip, { Width = 230 })
+local popup = Popup.toggle(window.library, chip, { Width = 230 })
 if popup then
 Profile.card(window, popup.scope, popup.frame)
 end
@@ -1303,7 +1303,7 @@ local window = tab.window
 local style = options.Style or tab.sectionStyle or window.sectionStyle
 local flat = style == "Flat"
 local self = setmetatable({
-kit = tab.kit,
+library = tab.library,
 window = window,
 tab = tab,
 scope = tab.scope:child(),
@@ -1365,14 +1365,14 @@ self:SetCollapsed(not self.collapsed)
 end)
 end
 end
-local shell = Create.new("Frame", { Name = "Shell", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = root })
-self.shell = shell
-local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = shell })
+local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = root })
+self.body = body
+local rows = Create.new("Frame", { Name = "Rows", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = body })
 if not flat then
-Create.padding(body, 6, if options.Title then 0 else 6, 6, 6)
+Create.padding(rows, 6, if options.Title then 0 else 6, 6, 6)
 end
-Create.list(body, "Vertical", if flat then 6 else 2)
-self.frame = body
+Create.list(rows, "Vertical", if flat then 6 else 2)
+self.frame = rows
 if self.tier then
 self:buildLock()
 end
@@ -1388,7 +1388,7 @@ ZIndex = 6,
 BackgroundTransparency = 0.06,
 Visible = false,
 Theme = { BackgroundColor3 = self.surface },
-Parent = self.shell,
+Parent = self.body,
 })
 Create.corner(10, overlay)
 Create.new("UIStroke", { Transparency = 0.45, Theme = { Color = "accent" }, Parent = overlay })
@@ -1437,11 +1437,11 @@ LayoutOrder = 1,
 Theme = { TextColor3 = "textMuted" },
 Parent = text,
 })
-local body = self.frame
+local rows = self.frame
 local function cover()
-overlay.Size = UDim2.new(1, 0, 0, body.AbsoluteSize.Y / self.kit.scale)
+overlay.Size = UDim2.new(1, 0, 0, rows.AbsoluteSize.Y / self.library.scale)
 end
-self.scope:connect(body:GetPropertyChangedSignal("AbsoluteSize"), cover)
+self.scope:connect(rows:GetPropertyChangedSignal("AbsoluteSize"), cover)
 cover()
 self.lockOverlay = { frame = overlay, icon = icon, title = title, hint = hint }
 local sections = self.window.lockedSections
@@ -1515,8 +1515,8 @@ local Motion = import("Core/Motion")
 local Theme = import("Core/Theme")
 local STYLES = { "Sidebar", "Rail", "Top", "Dock" }
 local SettingsTab = {}
-local function report(window, ok, message)
-window:Notify({ Title = if ok then "Done" else "Not done", Content = message, Kind = if ok then "success" else "warning" })
+local function report(window, done, failed, ok, message)
+window:Notify({ Title = if ok then done else failed, Content = message, Kind = if ok then "success" else "warning" })
 end
 function SettingsTab.build(window, options)
 options = options or {}
@@ -1648,14 +1648,14 @@ Icon = "save",
 Callback = function()
 local ok, message = window:SaveConfig(chosen() or "default")
 saved:Refresh(window:ListConfigs())
-report(window, ok, message)
+report(window, "Config saved", "Config not saved", ok, message)
 end,
 })
 configs:Button({
 Title = "Load",
 Icon = "download",
 Callback = function()
-report(window, window:LoadConfig(chosen()))
+report(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
 end,
 })
 configs:Button({
@@ -1663,7 +1663,7 @@ Title = "Load on start",
 Description = "Marks the config that Window:LoadAutoload() loads",
 Icon = "pin",
 Callback = function()
-report(window, window:SetAutoload(chosen()))
+report(window, "Loads on start", "Autoload not set", window:SetAutoload(chosen()))
 end,
 })
 configs:Button({
@@ -1672,7 +1672,7 @@ Icon = "trash-2",
 Callback = function()
 local target = chosen()
 if not target then
-report(window, false, "Pick a config to delete.")
+report(window, "Config deleted", "Nothing deleted", false, "Pick a config to delete.")
 return
 end
 window:Dialog({
@@ -1686,7 +1686,7 @@ Variant = "Danger",
 Callback = function()
 local ok, message = window:DeleteConfig(target)
 saved:Refresh(window:ListConfigs())
-report(window, ok, message)
+report(window, "Config deleted", "Config not deleted", ok, message)
 end,
 },
 },
@@ -1722,7 +1722,7 @@ local Tab = {}
 Tab.__index = Tab
 function Tab.new(window, options)
 local self = setmetatable({
-kit = window.kit,
+library = window.library,
 window = window,
 scope = window.scope:child(),
 entries = {},
@@ -1812,7 +1812,7 @@ local icon = Create.icon(self.Icon or "circle", if style == "Rail" or style == "
 local label = Create.new("TextLabel", { Name = "Title", Text = self.Title, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1, Theme = { TextColor3 = "textMuted" }, Parent = button })
 self.bar = nil
 if style == "Sidebar" then
-button.Size = UDim2.new(1, 0, 0, if self.kit.touch then 44 else 36)
+button.Size = UDim2.new(1, 0, 0, if self.library.touch then 44 else 36)
 self.bar = Create.new("Frame", {
 Name = "Marker",
 Size = UDim2.fromOffset(3, 16),
@@ -1839,7 +1839,7 @@ icon.AnchorPoint = Vector2.new(0.5, 0.5)
 icon.Position = UDim2.fromScale(0.5, 0.5)
 label.Visible = false
 elseif style == "Top" then
-button.Size = UDim2.fromOffset(0, if self.kit.touch then 40 else 32)
+button.Size = UDim2.fromOffset(0, if self.library.touch then 40 else 32)
 button.AutomaticSize = Enum.AutomaticSize.X
 Create.padding(button, 12, 0)
 Create.list(button, "Horizontal", 6)
@@ -1965,10 +1965,10 @@ instance.AnchorPoint = Vector2.new(0.5, 0.5)
 instance.Position = UDim2.fromScale(0.5, 0.5)
 return instance
 end
-function Window.new(kit, options, access)
+function Window.new(library, options, access)
 local self = setmetatable({}, Window)
-self.kit, self.options = kit, options
-self.scope = kit.scope:child()
+self.library, self.options = library, options
+self.scope = library.scope:child()
 self.folder = Env.safeName(options.Folder or options.Title) or "Default"
 self.config = Config.new(self.folder)
 self.preferencesPath = `Halcyon/{self.folder}/settings.json`
@@ -2037,8 +2037,8 @@ Theme.set(saved.theme)
 end
 local size = options.Size
 self.size = if typeof(size) == "Vector2" then size elseif typeof(size) == "UDim2" then Vector2.new(size.X.Offset, size.Y.Offset) else DEFAULT_SIZE
-kit.scale = self.scale
-self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = kit.displayOrder, Parent = Mount.parent() })
+library.scale = self.scale
+self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = library.displayOrder, Parent = Mount.parent() })
 self.scope:add(self.gui)
 self.root = centred(Create.new("Frame", { Name = "Window", Active = true, ClipsDescendants = true, Theme = { BackgroundColor3 = "background" }, Parent = self.gui }))
 Create.corner(12, self.root)
@@ -2108,11 +2108,11 @@ onTap = function()
 self:restore()
 end,
 })
-if not kit.touch and options.Resizable ~= false then
+if not library.touch and options.Resizable ~= false then
 self:buildGrip()
 end
 self.scope:connect(UserInputService.InputBegan, function(input, processed)
-if not processed and not kit.capturing and self.toggleKey and input.KeyCode == self.toggleKey then
+if not processed and not library.listeningForKey and self.toggleKey and input.KeyCode == self.toggleKey then
 self:Toggle()
 end
 end)
@@ -2321,7 +2321,7 @@ function Window:buildNav()
 if self.navScope then
 self.scope:release(self.navScope)
 end
-Popup.close(self.kit)
+Popup.close(self.library)
 local scope = self.scope:child()
 self.navScope = scope
 local style = self.activeStyle
@@ -2405,7 +2405,7 @@ function Window:buildGroupHeading(parent, scope, name, order)
 local collapsible = self.options.CollapsibleGroups ~= false
 local heading = Create.new(if collapsible then "TextButton" else "Frame", {
 Name = "Group",
-Size = UDim2.new(1, 0, 0, if collapsible and self.kit.touch then 40 else 28),
+Size = UDim2.new(1, 0, 0, if collapsible and self.library.touch then 40 else 28),
 LayoutOrder = order,
 Parent = parent,
 })
@@ -2469,7 +2469,7 @@ function Window:SelectTab(tab)
 if self.selected == tab then
 return
 end
-Popup.close(self.kit)
+Popup.close(self.library)
 if self.selected then
 self.selected.page.Visible = false
 end
@@ -2625,7 +2625,7 @@ local docked = self.minimized and self.minimizeStyle ~= "Topbar"
 self.root.Visible = self.Visible and not docked
 self.pill.Visible = self.Visible and docked and self.minimizeStyle == "Pill"
 self.openButton.Visible = (self.Visible and docked and self.minimizeStyle == "Chip")
-or (not self.Visible and (self.kit.touch or self.options.OpenButton == true))
+or (not self.Visible and (self.library.touch or self.options.OpenButton == true))
 end
 function Window:restore()
 if self.Visible then
@@ -2643,7 +2643,7 @@ self:pop()
 end
 end
 function Window:Hide()
-Popup.close(self.kit)
+Popup.close(self.library)
 self.Visible = false
 self:refreshVisibility()
 if not self.openButton.Visible and not self.hinted and self.toggleKey then
@@ -2660,7 +2660,7 @@ end
 end
 function Window:Minimize(minimized)
 self.minimized = minimized == true
-Popup.close(self.kit)
+Popup.close(self.library)
 self:layout()
 self:refreshVisibility()
 end
@@ -2685,9 +2685,9 @@ return true
 end
 function Window:SetScale(scale)
 self.scale = math.clamp(tonumber(scale) or 1, 0.75, 1.25)
-self.kit.scale = self.scale
+self.library.scale = self.scale
 self.uiScale.Scale = self.scale
-Popup.close(self.kit)
+Popup.close(self.library)
 self:layout()
 self:savePreferences()
 end
@@ -2792,10 +2792,10 @@ end))
 end
 end
 function Window:Notify(options)
-return Notifications.push(self.kit, options)
+return Notifications.push(self.library, options)
 end
 function Window:Dialog(options)
-return Dialog.open(self.kit, options)
+return Dialog.open(self.library, options)
 end
 function Window:SaveConfig(name)
 return self.config:save(name)
@@ -2831,11 +2831,11 @@ if self.preferencesQueued then
 self:writePreferences()
 end
 self.OnUnload:Fire()
-Popup.close(self.kit)
-self.kit.scope:release(self.scope)
-local index = table.find(self.kit.windows, self)
+Popup.close(self.library)
+self.library.scope:release(self.scope)
+local index = table.find(self.library.windows, self)
 if index then
-table.remove(self.kit.windows, index)
+table.remove(self.library.windows, index)
 end
 if self.onUnloaded then
 self.onUnloaded()
@@ -2847,7 +2847,7 @@ end
 modules["Core/Config"] = function()
 local Env = import("Core/Env")
 local VERSION = 1
-local BAD_NAME = "Use letters, numbers, spaces, - or _ in a config name."
+local INVALID_NAME_MESSAGE = "Use letters, numbers, spaces, - or _ in a config name."
 local Config = {}
 Config.__index = Config
 function Config.new(folder)
@@ -2890,7 +2890,7 @@ end
 function Config:save(name)
 local safe = Env.safeName(name)
 if not safe then
-return false, BAD_NAME
+return false, INVALID_NAME_MESSAGE
 end
 local encoded, text = Env.encode({ version = VERSION, flags = self:collect() })
 if not encoded then
@@ -2905,7 +2905,7 @@ end
 function Config:load(name)
 local safe = Env.safeName(name)
 if not safe then
-return false, BAD_NAME
+return false, INVALID_NAME_MESSAGE
 elseif not Env.canSave then
 return false, Env.NO_FILES
 end
@@ -2913,16 +2913,16 @@ local content = Env.read(self:path(safe))
 if not content then
 return false, `There is no config named "{safe}".`
 end
-local decoded, data = Env.decode(content)
-if not decoded or type(data) ~= "table" or type(data.flags) ~= "table" then
+local decoded, saved = Env.decode(content)
+if not decoded or type(saved) ~= "table" or type(saved.flags) ~= "table" then
 return false, `"{safe}" is not a valid config file.`
 end
-return true, `Loaded "{safe}" ({self:apply(data.flags)} settings).`
+return true, `Loaded "{safe}" ({self:apply(saved.flags)} settings).`
 end
 function Config:delete(name)
 local safe = Env.safeName(name)
 if not safe then
-return false, BAD_NAME
+return false, INVALID_NAME_MESSAGE
 elseif not Env.read(self:path(safe)) then
 return false, `There is no config named "{safe}".`
 elseif not Env.remove(self:path(safe)) then
@@ -2950,7 +2950,7 @@ end
 function Config:setAutoload(name)
 local safe = if name then Env.safeName(name) else ""
 if not safe then
-return false, BAD_NAME
+return false, INVALID_NAME_MESSAGE
 end
 local wrote, message = Env.write(self.root .. "/autoload.txt", safe)
 if not wrote then
@@ -2967,7 +2967,7 @@ local Theme = import("Core/Theme")
 local TEXT = { TextLabel = true, TextButton = true, TextBox = true }
 local IMAGE = { ImageLabel = true, ImageButton = true }
 local VISUAL = { Frame = true, ScrollingFrame = true, CanvasGroup = true, ViewportFrame = true }
-local SPECIAL = { Theme = true, Weight = true, Icon = true, Parent = true }
+local NOT_PROPERTIES = { Theme = true, Weight = true, Icon = true, Parent = true }
 local WEIGHTS = { regular = Enum.FontWeight.Medium, medium = Enum.FontWeight.SemiBold, bold = Enum.FontWeight.Bold }
 local Create = {
 family = "rbxassetid://12187365364",
@@ -3032,7 +3032,7 @@ elseif className == "UIStroke" then
 instance.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 for key, value in properties do
-if not SPECIAL[key] then
+if not NOT_PROPERTIES[key] then
 instance[key] = value
 end
 end
@@ -3184,7 +3184,7 @@ local Motion = import("Core/Motion")
 local TweenService = game:GetService("TweenService")
 local SWEEP = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local RIPPLE = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local GLOW = NumberSequence.new({
+local BAND_FADE = NumberSequence.new({
 NumberSequenceKeypoint.new(0, 1),
 NumberSequenceKeypoint.new(0.5, 0.7),
 NumberSequenceKeypoint.new(1, 1),
@@ -3207,7 +3207,7 @@ AnchorPoint = Vector2.new(0.5, 0),
 Position = UDim2.fromScale(-0.3, 0),
 BackgroundColor3 = Color3.new(1, 1, 1),
 Parent = layer(button, radius),
-}, { Create.new("UIGradient", { Transparency = GLOW, Rotation = 0 }) })
+}, { Create.new("UIGradient", { Transparency = BAND_FADE, Rotation = 0 }) })
 scope:connect(button.MouseEnter, function()
 if Motion.reduced then
 return
@@ -3318,7 +3318,7 @@ end
 end
 return if RunService:IsStudio() then "Roblox Studio" else "Unknown executor", nil
 end
-function Env.shared()
+function Env.globals()
 return if Env.getgenv then Env.getgenv() else _G
 end
 function Env.copy(text)
@@ -3591,7 +3591,7 @@ local Env = import("Core/Env")
 local IconData = import("Core/IconData")
 local SOURCE = "https://raw.githubusercontent.com/Footagesus/Icons/46d30c19ba7bc601d6ec794a48dc3a89568b1eec/%s/dist/Icons.lua"
 local CACHE = "Halcyon/cache/icons"
-local REMOTE = { lucide = true, solar = true, geist = true, craft = true, gravity = true, sfsymbols = true }
+local DOWNLOADABLE = { lucide = true, solar = true, geist = true, craft = true, gravity = true, sfsymbols = true }
 local FLAT = '%["([^"]+)"%]%s*=%s*"(rbxassetid://%d+)"'
 local SHEET = '%["(%d+)"%]%s*=%s*"(rbxassetid://%d+)"'
 local ENTRY = '%[?"?([%w%-_]+)"?%]?%s*=%s*(%b{})'
@@ -3648,7 +3648,7 @@ local entry = pack and pack.icons[iconName]
 if entry then
 return if type(entry) == "table" then entry else { Image = entry }
 end
-if REMOTE[packName] and not (pack and pack.complete) and not Icons.failed[packName] then
+if DOWNLOADABLE[packName] and not (pack and pack.complete) and not Icons.failed[packName] then
 return nil, packName
 end
 return nil
@@ -3727,7 +3727,7 @@ Icons.packs[packName] = pack
 return true, nil
 end
 function Icons.setDefault(packName)
-if not (Icons.packs[packName] or REMOTE[packName]) then
+if not (Icons.packs[packName] or DOWNLOADABLE[packName]) then
 return false, `Icon pack "{packName}" does not exist.`
 end
 Icons.default = packName
@@ -3738,7 +3738,7 @@ end
 
 modules["Core/Motion"] = function()
 local TweenService = game:GetService("TweenService")
-local INFO = {
+local TIMINGS = {
 fast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 base = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 slow = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
@@ -3752,7 +3752,7 @@ instance[property] = value
 end
 return nil
 end
-local tween = TweenService:Create(instance, INFO[timing], goals)
+local tween = TweenService:Create(instance, TIMINGS[timing], goals)
 tween:Play()
 return tween
 end
@@ -3773,13 +3773,13 @@ end
 end
 return Players.LocalPlayer:WaitForChild("PlayerGui")
 end
-function Mount.overlay(kit)
-if kit.overlay then
-return kit.overlay
+function Mount.overlay(library)
+if library.overlay then
+return library.overlay
 end
 local gui = Create.new("ScreenGui", {
 Name = "HalcyonOverlay",
-DisplayOrder = kit.displayOrder + 10,
+DisplayOrder = library.displayOrder + 10,
 ScreenInsets = Enum.ScreenInsets.None,
 Parent = Mount.parent(),
 })
@@ -3787,11 +3787,11 @@ local function layer(name, order)
 return Create.new("Frame", { Name = name, Size = UDim2.fromScale(1, 1), ZIndex = order, Parent = gui })
 end
 local overlay = { gui = gui, popups = layer("Popups", 1), dialogs = layer("Dialogs", 2), toasts = layer("Toasts", 3) }
-kit.overlay = overlay
-kit.scope:add(function()
+library.overlay = overlay
+library.scope:add(function()
 gui:Destroy()
-if kit.overlay == overlay then
-kit.overlay = nil
+if library.overlay == overlay then
+library.overlay = nil
 end
 end)
 return overlay
@@ -4134,7 +4134,7 @@ local MONOSPACE = Font.new("rbxasset://fonts/families/RobotoMono.json")
 local Code = {}
 function Code.new(container, options)
 local row = Row.new(container, { Title = options.Title or "Code" }, { bare = true })
-local handle, scope, kit = row.handle, row.scope, row.kit
+local handle, scope, library = row.handle, row.scope, row.library
 local code = options.Code or ""
 local block = Create.new("Frame", {
 Name = "Code",
@@ -4194,9 +4194,9 @@ self.SearchText = string.lower(newTitle)
 end
 scope:connect(copy.Activated, function()
 if Env.copy(code) then
-kit.notify({ Title = "Copied", Content = "The code is on your clipboard.", Kind = "success", Duration = 2 })
+library.notify({ Title = "Copied", Content = "The code is on your clipboard.", Kind = "success", Duration = 2 })
 else
-kit.notify({ Title = "Copy unavailable", Content = "This executor cannot write to the clipboard.", Kind = "warning" })
+library.notify({ Title = "Copy unavailable", Content = "This executor cannot write to the clipboard.", Kind = "warning" })
 end
 end)
 return handle
@@ -4228,7 +4228,7 @@ local color = Color3.fromRGB(tonumber(string.sub(hex, 1, 2), 16), tonumber(strin
 return color, if #hex == 8 then 1 - tonumber(string.sub(hex, 7, 8), 16) / 255 else nil
 end
 function ColorPicker.control(row, options, onCommit)
-local scope, kit = row.scope, row.kit
+local scope, library = row.scope, row.library
 local color = options.Default or WHITE
 local transparency = if options.Alpha then options.Transparency or 0 else 0
 local hue, saturation, value = color:ToHSV()
@@ -4278,7 +4278,7 @@ function control:Encode()
 return hexText()
 end
 local function bar(parent, order)
-local track = Create.new("TextButton", { Size = UDim2.new(1, 0, 0, if kit.touch then 22 else 14), BackgroundColor3 = WHITE, LayoutOrder = order, Parent = parent })
+local track = Create.new("TextButton", { Size = UDim2.new(1, 0, 0, if library.touch then 22 else 14), BackgroundColor3 = WHITE, LayoutOrder = order, Parent = parent })
 Create.corner(-1, track)
 local cursor = Create.new("Frame", { Size = UDim2.new(0, 4, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = WHITE, Parent = track })
 Create.corner(-1, cursor)
@@ -4286,7 +4286,7 @@ Create.new("UIStroke", { Color = BLACK, Transparency = 0.5, Parent = cursor })
 return track, cursor
 end
 scope:connect(swatch.Activated, function()
-local popup = Popup.toggle(kit, swatch, {
+local popup = Popup.toggle(library, swatch, {
 Width = 224,
 OnClose = function()
 redraw = nil
@@ -4318,7 +4318,7 @@ alphaGradient = Create.new("UIGradient", { Transparency = FADE_OUT, Parent = alp
 end
 local box = Create.new("TextBox", {
 Name = "Hex",
-Size = UDim2.new(1, 0, 0, if kit.touch then 40 else 28),
+Size = UDim2.new(1, 0, 0, if library.touch then 40 else 28),
 TextSize = 13,
 TextXAlignment = Enum.TextXAlignment.Center,
 LayoutOrder = 3,
@@ -4415,18 +4415,18 @@ local Motion = import("Core/Motion")
 local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
 local Theme = import("Core/Theme")
-local SEARCH_FROM = 8
+local SEARCHABLE_FROM = 8
 local LIST_HEIGHT = 216
 local Dropdown = {}
 function Dropdown.new(container, options)
 local row = Row.new(container, options, { button = true })
-local handle, scope, kit = row.handle, row.scope, row.kit
+local handle, scope, library = row.handle, row.scope, row.library
 local multi = options.Multi == true
 local values = table.clone(options.Values or {})
 local picked = {}
 local repaint
 local chip = Create.new("Frame", { Name = "Value", Theme = { BackgroundColor3 = row.controlRole } })
-row.adapt(chip, options.Width or 150, math.max(row.reach, 30))
+row.placeControl(chip, options.Width or 150, math.max(row.reach, 30))
 Create.corner(6, chip)
 Create.stroke("stroke", chip)
 local label = Create.new("TextLabel", {
@@ -4495,12 +4495,12 @@ end
 function handle:Refresh(newValues)
 local kept = selection()
 values = table.clone(newValues)
-Popup.close(kit)
+Popup.close(library)
 store(if multi then kept else kept[1])
 end
 scope:connect(row.frame.Activated, function()
-local popup = Popup.toggle(kit, chip, {
-Width = math.max(chip.AbsoluteSize.X / kit.scale, 190),
+local popup = Popup.toggle(library, chip, {
+Width = math.max(chip.AbsoluteSize.X / library.scale, 190),
 OnClose = function()
 repaint = nil
 Motion.tween(chevron, "fast", { Rotation = 0 })
@@ -4511,10 +4511,10 @@ return
 end
 Motion.tween(chevron, "fast", { Rotation = 180 })
 local session = popup.scope
-local height = if kit.touch then 40 else 32
+local height = if library.touch then 40 else 32
 local items = {}
 local search
-if options.Searchable or (options.Searchable == nil and #values > SEARCH_FROM) then
+if options.Searchable or (options.Searchable == nil and #values > SEARCHABLE_FROM) then
 search = Create.new("TextBox", {
 Name = "Search",
 Size = UDim2.new(1, 0, 0, height),
@@ -4675,7 +4675,7 @@ Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text" },
 Create.corner(6, box)
 Create.stroke("stroke", box)
 Create.padding(box, 10, 0)
-row.adapt(box, options.Width or 150, math.max(row.reach, 30))
+row.placeControl(box, options.Width or 150, math.max(row.reach, 30))
 local function show()
 writing = true
 box.Text = if numeric and options.Default == nil and value == 0 then "" else tostring(value)
@@ -4733,7 +4733,7 @@ local Signal = import("Core/Signal")
 local SHORT = { LeftShift = "LShift", RightShift = "RShift", LeftControl = "LCtrl", RightControl = "RCtrl", LeftAlt = "LAlt", RightAlt = "RAlt" }
 local Keybind = {}
 function Keybind.control(row, options, onInput)
-local scope, kit, window = row.scope, row.kit, row.window
+local scope, library, window = row.scope, row.library, row.window
 local key = options.Default
 local listening, held = false, false
 local control = { Changed = Signal.new(), Active = false, Mode = options.Mode or "Press" }
@@ -4757,7 +4757,7 @@ local function stopListening()
 listening = false
 draw()
 task.defer(function()
-kit.capturing = false
+library.listeningForKey = false
 end)
 end
 function control:Get()
@@ -4786,7 +4786,7 @@ scope:connect(chip.Activated, function()
 if listening then
 stopListening()
 else
-listening, kit.capturing = true, true
+listening, library.listeningForKey = true, true
 draw()
 end
 end)
@@ -4801,7 +4801,7 @@ control:Set(nil)
 elseif input.KeyCode ~= Enum.KeyCode.Escape then
 control:Set(input.KeyCode)
 end
-elseif not processed and not kit.capturing and key and input.KeyCode == key and not row.handle:IsLocked() then
+elseif not processed and not library.listeningForKey and key and input.KeyCode == key and not row.handle:IsLocked() then
 held = true
 onInput(true)
 end
@@ -4816,7 +4816,7 @@ local listing = { handle = row.handle, control = control }
 table.insert(window.keybinds, listing)
 scope:add(function()
 if listening then
-kit.capturing = false
+library.listeningForKey = false
 end
 table.remove(window.keybinds, table.find(window.keybinds, listing))
 window.KeybindsChanged:Fire()
@@ -4932,7 +4932,7 @@ TextSize = 13,
 Theme = { TextColor3 = "textMuted" },
 Parent = row.slot,
 })
-local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 6), Theme = { BackgroundColor3 = "stroke" }, Parent = row.below() })
+local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 6), Theme = { BackgroundColor3 = "stroke" }, Parent = row.belowTitle() })
 Create.corner(-1, rail)
 local fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(0, 1), Theme = { BackgroundColor3 = "accent" }, Parent = rail })
 Create.corner(-1, fill)
@@ -5056,11 +5056,11 @@ local row = {
 frame = frame,
 content = content,
 scope = scope,
-kit = container.kit,
+library = container.library,
 window = container.window,
 options = options,
 controlRole = if filled then "background" else "raised",
-reach = if container.kit.touch then 40 else 28,
+reach = if container.library.touch then 40 else 28,
 }
 local title, description, slot
 if not layout.bare then
@@ -5099,7 +5099,7 @@ row.slot, row.title = slot, title
 local wrapped = false
 local function arrange()
 local width, taken = head.AbsoluteSize.X, slot.AbsoluteSize.X
-local lane = (width - taken) / row.kit.scale - 12 - (if options.Icon then 30 else 0)
+local lane = (width - taken) / row.library.scale - 12 - (if options.Icon then 30 else 0)
 local wrap = width > 0 and taken > 0 and lane < MIN_TITLE
 if wrap ~= wrapped then
 wrapped = wrap
@@ -5201,10 +5201,10 @@ function row.fire(...)
 handle.Changed:Fire(...)
 Env.call(handle.Title, options.Callback, ...)
 end
-function row.fit(apply)
+function row.onNarrow(apply)
 local narrow = false
 local function measure()
-local width = frame.AbsoluteSize.X / row.kit.scale
+local width = frame.AbsoluteSize.X / row.library.scale
 local now = width > 0 and width < 300
 if now ~= narrow then
 narrow = now
@@ -5214,11 +5214,11 @@ end
 scope:connect(frame:GetPropertyChangedSignal("AbsoluteSize"), measure)
 measure()
 end
-function row.adapt(control, width, height, always)
+function row.placeControl(control, width, height, always)
 local under
 local function place(stacked)
 if stacked then
-under = under or row.below()
+under = under or row.belowTitle()
 under.Visible = true
 control.Size = UDim2.new(1, 0, 0, height)
 control.Parent = under
@@ -5232,33 +5232,33 @@ end
 end
 place(always == true)
 if not always then
-row.fit(place)
+row.onNarrow(place)
 end
 end
-function row.below()
+function row.belowTitle()
 return Create.new("Frame", { Name = "Below", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = content })
 end
 function row.onHover(paint, target)
-local kit = row.kit
+local library = row.library
 local function leave()
-if kit.hoverLeave == leave then
-kit.hoverLeave = nil
+if library.clearHover == leave then
+library.clearHover = nil
 end
 paint(false)
 end
 target = target or frame
 scope:connect(target.MouseEnter, function()
-local previous = kit.hoverLeave
+local previous = library.clearHover
 if previous and previous ~= leave then
 previous()
 end
-kit.hoverLeave = leave
+library.clearHover = leave
 paint(true)
 end)
 scope:connect(target.MouseLeave, leave)
 scope:add(function()
-if kit.hoverLeave == leave then
-kit.hoverLeave = nil
+if library.clearHover == leave then
+library.clearHover = nil
 end
 end)
 end
@@ -5325,7 +5325,7 @@ end
 local below
 local function place(stacked)
 if stacked then
-below = below or row.below()
+below = below or row.belowTitle()
 below.Visible = true
 elseif below then
 below.Visible = false
@@ -5340,7 +5340,7 @@ group.Parent = if stacked then below else row.slot
 end
 place(options.Stacked == true)
 if not options.Stacked then
-row.fit(place)
+row.onNarrow(place)
 end
 draw(nil)
 return handle
@@ -5352,7 +5352,7 @@ modules["Elements/Slider"] = function()
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Row = import("Elements/Row")
-local Tip = import("Elements/Tip")
+local SliderTooltip = import("Elements/SliderTooltip")
 local KNOB = 14
 local Slider = {}
 local function decimalsOf(step)
@@ -5376,7 +5376,7 @@ local function label(number)
 return string.format(pattern, number) .. (options.Suffix or "")
 end
 local area = Create.new("TextButton", { Name = "Track", LayoutOrder = 1 })
-row.adapt(area, options.Width or 130, row.reach, options.Stacked)
+row.placeControl(area, options.Width or 130, row.reach, options.Stacked)
 local rail = Create.new("Frame", {
 Name = "Rail",
 Size = UDim2.new(1, -KNOB, 0, 4),
@@ -5475,7 +5475,7 @@ if tip and tip.style ~= style then
 tip.destroy()
 tip = nil
 end
-tip = tip or Tip.new(row, style)
+tip = tip or SliderTooltip.new(row, style)
 local shown = if range and dragLow then low else high
 tip.show(rail, (shown - min) / math.max(max - min, 1e-9), label(shown), readout)
 end
@@ -5507,6 +5507,107 @@ end
 return handle
 end
 return Slider
+end
+
+modules["Elements/SliderTooltip"] = function()
+local Create = import("Core/Create")
+local Mount = import("Core/Mount")
+local STYLES = {
+Rounded = { corner = 8, arrow = 2 },
+Sharp = { corner = 0, arrow = 0 },
+Pill = { corner = -1, arrow = 2 },
+Plain = { corner = 8 },
+}
+local KNOB_RADIUS = 7
+local LIFT = 10
+local OVERHANG = 10
+local MARGIN = 4
+local SliderTooltip = { Styles = STYLES }
+local function overlaps(left, top, right, bottom, other)
+local corner, extent = other.AbsolutePosition, other.AbsoluteSize
+return right > corner.X - MARGIN and left < corner.X + extent.X + MARGIN and bottom > corner.Y - MARGIN and top < corner.Y + extent.Y + MARGIN
+end
+function SliderTooltip.new(row, styleName)
+local library = row.library
+local style = STYLES[styleName] or STYLES.Rounded
+local overlay = Mount.overlay(library)
+local lift = if style.arrow then LIFT else 6
+local holder = Create.new("Frame", { Name = "SliderTip", Visible = false, ZIndex = 5, Parent = overlay.popups })
+row.scope:add(holder)
+local scale = Create.new("UIScale", { Scale = library.scale })
+local body = Create.new("Frame", { Name = "Body", Parent = holder }, { scale })
+local arrow
+if style.arrow then
+arrow = Create.new("Frame", {
+Name = "Arrow",
+Size = UDim2.fromOffset(9, 9),
+AnchorPoint = Vector2.new(0.5, 0.5),
+Rotation = 45,
+Theme = { BackgroundColor3 = "accent" },
+Parent = body,
+})
+if style.arrow > 0 then
+Create.corner(style.arrow, arrow)
+end
+end
+local bubble = Create.new("Frame", {
+Name = "Bubble",
+AutomaticSize = Enum.AutomaticSize.XY,
+ZIndex = 2,
+Theme = { BackgroundColor3 = "accent" },
+Parent = body,
+})
+if style.corner ~= 0 then
+Create.corner(style.corner, bubble)
+end
+Create.padding(bubble, 8, 4)
+local label = Create.new("TextLabel", {
+Name = "Value",
+AutomaticSize = Enum.AutomaticSize.XY,
+TextSize = 12,
+Weight = "bold",
+Theme = { TextColor3 = "onAccent" },
+Parent = bubble,
+})
+local tip = { Frame = holder, style = styleName, above = true }
+function tip.destroy()
+row.scope:release(holder)
+end
+function tip.show(rail, fraction, text, avoid)
+local factor = library.scale
+local origin = overlay.gui.AbsolutePosition
+local corner, extent = rail.AbsolutePosition, rail.AbsoluteSize
+local knobX, centre = corner.X + extent.X * fraction, corner.Y + extent.Y / 2
+scale.Scale = factor
+label.Text = text
+local size = bubble.AbsoluteSize
+if size.X <= 0 then
+size = Vector2.new((#text * 7 + 16) * factor, 24 * factor)
+end
+local half = size.X / 2
+local low, high = corner.X - OVERHANG * factor + half, corner.X + extent.X + OVERHANG * factor - half
+local bubbleX = if low <= high then math.clamp(knobX, low, high) else corner.X + extent.X / 2
+local reach = (KNOB_RADIUS + lift) * factor
+local above = true
+if avoid and overlaps(bubbleX - half, centre - reach - size.Y, bubbleX + half, centre - reach, avoid) then
+above = false
+end
+local direction = if above then -1 else 1
+tip.above = above
+holder.Position = UDim2.fromOffset(knobX - origin.X, centre + direction * KNOB_RADIUS * factor - origin.Y)
+bubble.AnchorPoint = Vector2.new(0.5, if above then 1 else 0)
+bubble.Position = UDim2.fromOffset((bubbleX - knobX) / factor, direction * lift)
+if arrow then
+arrow.Position = UDim2.fromOffset(0, direction * lift)
+end
+holder.Visible = true
+end
+function tip.hide()
+holder.Visible = false
+end
+return tip
+end
+return SliderTooltip
 end
 
 modules["Elements/Stepper"] = function()
@@ -5565,107 +5666,6 @@ draw()
 return handle
 end
 return Stepper
-end
-
-modules["Elements/Tip"] = function()
-local Create = import("Core/Create")
-local Mount = import("Core/Mount")
-local STYLES = {
-Rounded = { corner = 8, arrow = 2 },
-Sharp = { corner = 0, arrow = 0 },
-Pill = { corner = -1, arrow = 2 },
-Plain = { corner = 8 },
-}
-local KNOB_RADIUS = 7
-local LIFT = 10
-local OVERHANG = 10
-local MARGIN = 4
-local Tip = { Styles = STYLES }
-local function overlaps(left, top, right, bottom, other)
-local corner, extent = other.AbsolutePosition, other.AbsoluteSize
-return right > corner.X - MARGIN and left < corner.X + extent.X + MARGIN and bottom > corner.Y - MARGIN and top < corner.Y + extent.Y + MARGIN
-end
-function Tip.new(row, styleName)
-local kit = row.kit
-local style = STYLES[styleName] or STYLES.Rounded
-local overlay = Mount.overlay(kit)
-local lift = if style.arrow then LIFT else 6
-local holder = Create.new("Frame", { Name = "SliderTip", Visible = false, ZIndex = 5, Parent = overlay.popups })
-row.scope:add(holder)
-local scale = Create.new("UIScale", { Scale = kit.scale })
-local body = Create.new("Frame", { Name = "Body", Parent = holder }, { scale })
-local arrow
-if style.arrow then
-arrow = Create.new("Frame", {
-Name = "Arrow",
-Size = UDim2.fromOffset(9, 9),
-AnchorPoint = Vector2.new(0.5, 0.5),
-Rotation = 45,
-Theme = { BackgroundColor3 = "accent" },
-Parent = body,
-})
-if style.arrow > 0 then
-Create.corner(style.arrow, arrow)
-end
-end
-local bubble = Create.new("Frame", {
-Name = "Bubble",
-AutomaticSize = Enum.AutomaticSize.XY,
-ZIndex = 2,
-Theme = { BackgroundColor3 = "accent" },
-Parent = body,
-})
-if style.corner ~= 0 then
-Create.corner(style.corner, bubble)
-end
-Create.padding(bubble, 8, 4)
-local label = Create.new("TextLabel", {
-Name = "Value",
-AutomaticSize = Enum.AutomaticSize.XY,
-TextSize = 12,
-Weight = "bold",
-Theme = { TextColor3 = "onAccent" },
-Parent = bubble,
-})
-local tip = { Frame = holder, style = styleName, above = true }
-function tip.destroy()
-row.scope:release(holder)
-end
-function tip.show(rail, fraction, text, avoid)
-local factor = kit.scale
-local origin = overlay.gui.AbsolutePosition
-local corner, extent = rail.AbsolutePosition, rail.AbsoluteSize
-local knobX, centre = corner.X + extent.X * fraction, corner.Y + extent.Y / 2
-scale.Scale = factor
-label.Text = text
-local size = bubble.AbsoluteSize
-if size.X <= 0 then
-size = Vector2.new((#text * 7 + 16) * factor, 24 * factor)
-end
-local half = size.X / 2
-local low, high = corner.X - OVERHANG * factor + half, corner.X + extent.X + OVERHANG * factor - half
-local bubbleX = if low <= high then math.clamp(knobX, low, high) else corner.X + extent.X / 2
-local reach = (KNOB_RADIUS + lift) * factor
-local above = true
-if avoid and overlaps(bubbleX - half, centre - reach - size.Y, bubbleX + half, centre - reach, avoid) then
-above = false
-end
-local direction = if above then -1 else 1
-tip.above = above
-holder.Position = UDim2.fromOffset(knobX - origin.X, centre + direction * KNOB_RADIUS * factor - origin.Y)
-bubble.AnchorPoint = Vector2.new(0.5, if above then 1 else 0)
-bubble.Position = UDim2.fromOffset((bubbleX - knobX) / factor, direction * lift)
-if arrow then
-arrow.Position = UDim2.fromOffset(0, direction * lift)
-end
-holder.Visible = true
-end
-function tip.hide()
-holder.Visible = false
-end
-return tip
-end
-return Tip
 end
 
 modules["Elements/Toggle"] = function()
@@ -5751,11 +5751,11 @@ else
 knob = Create.new("Frame", { Name = "Thumb", Size = UDim2.fromOffset(thumb.width, thumb.height), AnchorPoint = Vector2.new(0, 0.5), Theme = { BackgroundColor3 = "textMuted" }, Parent = track })
 Create.corner(thumb.corner, knob)
 end
-local travel = 0
+local slideGeneration = 0
 local function slide(timing)
 local width, height = thumb.width, thumb.height
 local rest = UDim2.new(0, if value then TRACK_WIDTH - width - INSET else INSET, 0.5, 0)
-travel += 1
+slideGeneration += 1
 if not timing or Motion.reduced then
 knob.Size = UDim2.fromOffset(width, height)
 knob.Position = rest
@@ -5766,9 +5766,9 @@ Motion.tween(knob, "fast", {
 Size = UDim2.fromOffset(stretched, height),
 Position = UDim2.new(0, if value then TRACK_WIDTH - stretched - INSET else INSET, 0.5, 0),
 })
-local started = travel
+local started = slideGeneration
 task.delay(0.1, function()
-if started == travel and not row.scope.cleaned then
+if started == slideGeneration and not row.scope.cleaned then
 Motion.tween(knob, "spring", { Size = UDim2.fromOffset(width, height), Position = rest })
 end
 end)
@@ -5837,7 +5837,7 @@ local Create = import("Core/Create")
 local Dialog = import("Components/Dialog")
 local Drag = import("Core/Drag")
 local Env = import("Core/Env")
-local Extras = import("Components/Extras")
+local Hud = import("Components/Hud")
 local Icons = import("Core/Icons")
 local KeySystem = import("Components/KeySystem")
 local Motion = import("Core/Motion")
@@ -5852,16 +5852,16 @@ for _, palette in Palettes do
 assert(Theme.add(palette))
 end
 Theme.set(Palettes[1].Name)
-local kit = {
+local library = {
 scope = Scope.new(),
 windows = {},
 displayOrder = 100,
 scale = 1,
-capturing = false,
+listeningForKey = false,
 touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
 }
-function kit.notify(options)
-return Notifications.push(kit, options)
+function library.notify(options)
+return Notifications.push(library, options)
 end
 local Halcyon = {
 Version = "1.0.0",
@@ -5877,17 +5877,17 @@ Motion = Motion,
 Scope = Scope,
 Signal = Signal,
 Theme = Theme,
-kit = kit,
+library = library,
 },
 }
 function Window:SettingsTab(options)
 return SettingsTab.build(self, options)
 end
 function Window:Watermark(options)
-return Extras.watermark(self, options)
+return Hud.watermark(self, options)
 end
 function Window:KeybindList(options)
-return Extras.keybindList(self, options)
+return Hud.keybindList(self, options)
 end
 function Window:SetAccent(color)
 Theme.setAccent(color)
@@ -5901,7 +5901,7 @@ if type(options) ~= "table" then
 error("CreateWindow expects a table of options", 2)
 end
 local folder = folderFor(options)
-local registry = Env.shared()
+local registry = Env.globals()
 registry.HalcyonWindows = registry.HalcyonWindows or {}
 local previous = registry.HalcyonWindows[folder]
 if previous then
@@ -5914,18 +5914,18 @@ if options.IconPack then
 Icons.setDefault(options.IconPack)
 end
 if options.DisplayOrder then
-kit.displayOrder = options.DisplayOrder
+library.displayOrder = options.DisplayOrder
 end
-Notifications.configure(kit, options.Notifications)
+Notifications.configure(library, options.Notifications)
 local access
 if options.KeySystem then
-access = KeySystem.prompt(kit, options.KeySystem, { folder = folder, title = options.Title or "Halcyon" })
+access = KeySystem.prompt(library, options.KeySystem, { folder = folder, title = options.Title or "Halcyon" })
 if not access then
 return nil
 end
 end
-local window = Window.new(kit, options, access)
-table.insert(kit.windows, window)
+local window = Window.new(library, options, access)
+table.insert(library.windows, window)
 registry.HalcyonWindows[folder] = window
 window.onUnloaded = function()
 if registry.HalcyonWindows[folder] == window then
@@ -5935,16 +5935,16 @@ end
 return window
 end
 function Halcyon:Authenticate(options)
-return KeySystem.prompt(kit, options, { folder = folderFor(options), title = options.Title or "Halcyon" })
+return KeySystem.prompt(library, options, { folder = folderFor(options), title = options.Title or "Halcyon" })
 end
 function Halcyon:Notify(options)
-return Notifications.push(kit, options)
+return Notifications.push(library, options)
 end
 function Halcyon:SetNotificationDefaults(settings)
-Notifications.configure(kit, settings)
+Notifications.configure(library, settings)
 end
 function Halcyon:Dialog(options)
-return Dialog.open(kit, options)
+return Dialog.open(library, options)
 end
 function Halcyon:SetTheme(name)
 return Theme.set(name)
@@ -5974,12 +5974,12 @@ function Halcyon:GetExecutor()
 return Env.executor()
 end
 function Halcyon:Unload()
-for _, window in table.clone(kit.windows) do
+for _, window in table.clone(library.windows) do
 window:Unload()
 end
-kit.scope:clean()
-kit.scope = Scope.new()
-kit.popup = nil
+library.scope:clean()
+library.scope = Scope.new()
+library.popup = nil
 end
 return Halcyon
 end

@@ -58,8 +58,8 @@ local function create(container, kind, options)
 		end
 	end)
 
-	-- A tier name, or true for "any paid tier". The row's own setting wins
-	-- over its section's or tab's.
+	-- The row's own setting wins over its section's or tab's, so one paid row
+	-- can sit inside a section locked to another tier.
 	local requirement = options.Tier or (options.PaidOnly and true) or container.tier
 	if requirement then
 		handle.LockText = options.LockText or container.lockText

@@ -16,11 +16,8 @@ local THUMBS = {
 
 local Toggle = {}
 
--- A switch by default, a checkbox with Style = "Checkbox". The Keybind and
--- Color tables add a key chip and a colour swatch beside it, each with a
--- Flag of its own so they save separately from the toggle. `Outline = false` turns the hover outline
--- off for this toggle and `OutlineColor` gives it its own colour. `Thumb`
--- shapes the switch's thumb: "Circle", "Oval" or "Square".
+-- The key chip and colour swatch each take a Flag of their own, so a config
+-- can restore the bound key and colour without switching the toggle on.
 function Toggle.new(container, options)
 	local row = Row.new(container, options, { button = true })
 	local handle, window = row.handle, row.window
@@ -103,11 +100,11 @@ function Toggle.new(container, options)
 
 	-- The thumb stretches toward where it is going, then settles there with a
 	-- small overshoot. A newer change cancels the settle of an older one.
-	local travel = 0
+	local slideGeneration = 0
 	local function slide(timing)
 		local width, height = thumb.width, thumb.height
 		local rest = UDim2.new(0, if value then TRACK_WIDTH - width - INSET else INSET, 0.5, 0)
-		travel += 1
+		slideGeneration += 1
 		if not timing or Motion.reduced then
 			knob.Size = UDim2.fromOffset(width, height)
 			knob.Position = rest
@@ -118,9 +115,9 @@ function Toggle.new(container, options)
 			Size = UDim2.fromOffset(stretched, height),
 			Position = UDim2.new(0, if value then TRACK_WIDTH - stretched - INSET else INSET, 0.5, 0),
 		})
-		local started = travel
+		local started = slideGeneration
 		task.delay(0.1, function()
-			if started == travel and not row.scope.cleaned then
+			if started == slideGeneration and not row.scope.cleaned then
 				Motion.tween(knob, "spring", { Size = UDim2.fromOffset(width, height), Position = rest })
 			end
 		end)

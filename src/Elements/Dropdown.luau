@@ -4,7 +4,7 @@ local Popup = require("../Components/Popup")
 local Row = require("./Row")
 local Theme = require("../Core/Theme")
 
-local SEARCH_FROM = 8
+local SEARCHABLE_FROM = 8
 local LIST_HEIGHT = 216
 
 local Dropdown = {}
@@ -13,14 +13,14 @@ local Dropdown = {}
 -- The value is one entry or nil; with Multi, an array in Values order.
 function Dropdown.new(container, options)
 	local row = Row.new(container, options, { button = true })
-	local handle, scope, kit = row.handle, row.scope, row.kit
+	local handle, scope, library = row.handle, row.scope, row.library
 	local multi = options.Multi == true
 	local values = table.clone(options.Values or {})
 	local picked = {}
 	local repaint
 
 	local chip = Create.new("Frame", { Name = "Value", Theme = { BackgroundColor3 = row.controlRole } })
-	row.adapt(chip, options.Width or 150, math.max(row.reach, 30))
+	row.placeControl(chip, options.Width or 150, math.max(row.reach, 30))
 	Create.corner(6, chip)
 	Create.stroke("stroke", chip)
 	local label = Create.new("TextLabel", {
@@ -98,13 +98,13 @@ function Dropdown.new(container, options)
 	function handle:Refresh(newValues)
 		local kept = selection()
 		values = table.clone(newValues)
-		Popup.close(kit)
+		Popup.close(library)
 		store(if multi then kept else kept[1])
 	end
 
 	scope:connect(row.frame.Activated, function()
-		local popup = Popup.toggle(kit, chip, {
-			Width = math.max(chip.AbsoluteSize.X / kit.scale, 190),
+		local popup = Popup.toggle(library, chip, {
+			Width = math.max(chip.AbsoluteSize.X / library.scale, 190),
 			OnClose = function()
 				repaint = nil
 				Motion.tween(chevron, "fast", { Rotation = 0 })
@@ -115,11 +115,11 @@ function Dropdown.new(container, options)
 		end
 		Motion.tween(chevron, "fast", { Rotation = 180 })
 		local session = popup.scope
-		local height = if kit.touch then 40 else 32
+		local height = if library.touch then 40 else 32
 		local items = {}
 
 		local search
-		if options.Searchable or (options.Searchable == nil and #values > SEARCH_FROM) then
+		if options.Searchable or (options.Searchable == nil and #values > SEARCHABLE_FROM) then
 			search = Create.new("TextBox", {
 				Name = "Search",
 				Size = UDim2.new(1, 0, 0, height),

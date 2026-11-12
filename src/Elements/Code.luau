@@ -9,7 +9,7 @@ local Code = {}
 -- A block of code with a copy button. Options: Title, Code.
 function Code.new(container, options)
 	local row = Row.new(container, { Title = options.Title or "Code" }, { bare = true })
-	local handle, scope, kit = row.handle, row.scope, row.kit
+	local handle, scope, library = row.handle, row.scope, row.library
 	local code = options.Code or ""
 
 	local block = Create.new("Frame", {
@@ -77,9 +77,9 @@ function Code.new(container, options)
 
 	scope:connect(copy.Activated, function()
 		if Env.copy(code) then
-			kit.notify({ Title = "Copied", Content = "The code is on your clipboard.", Kind = "success", Duration = 2 })
+			library.notify({ Title = "Copied", Content = "The code is on your clipboard.", Kind = "success", Duration = 2 })
 		else
-			kit.notify({ Title = "Copy unavailable", Content = "This executor cannot write to the clipboard.", Kind = "warning" })
+			library.notify({ Title = "Copy unavailable", Content = "This executor cannot write to the clipboard.", Kind = "warning" })
 		end
 	end)
 

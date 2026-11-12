@@ -66,7 +66,7 @@ function Segmented.new(container, options)
 	local below
 	local function place(stacked)
 		if stacked then
-			below = below or row.below()
+			below = below or row.belowTitle()
 			below.Visible = true
 		elseif below then
 			below.Visible = false
@@ -81,7 +81,7 @@ function Segmented.new(container, options)
 	end
 	place(options.Stacked == true)
 	if not options.Stacked then
-		row.fit(place)
+		row.onNarrow(place)
 	end
 
 	draw(nil)

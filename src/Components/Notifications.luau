@@ -27,7 +27,7 @@ local Notifications = {
 
 -- Accepts any of Duration, Position, Progress and MaxVisible; anything
 -- else, or a value of the wrong kind, is ignored.
-function Notifications.configure(kit, settings)
+function Notifications.configure(library, settings)
 	if type(settings) ~= "table" then
 		return
 	end
@@ -44,20 +44,20 @@ function Notifications.configure(kit, settings)
 	if type(settings.MaxVisible) == "number" and settings.MaxVisible >= 1 then
 		defaults.MaxVisible = math.floor(settings.MaxVisible)
 	end
-	if kit.toasts then
-		kit.toasts.place()
+	if library.toasts then
+		library.toasts.place()
 	end
 end
 
-local function host(kit)
-	if kit.toasts then
-		return kit.toasts
+local function toastStack(library)
+	if library.toasts then
+		return library.toasts
 	end
-	local overlay = Mount.overlay(kit)
+	local overlay = Mount.overlay(library)
 	local holder = Create.new("Frame", { Name = "Holder", Parent = overlay.toasts })
 	local layout = Create.list(holder, "Vertical", 8)
 	local state = { holder = holder, active = {}, queue = {}, order = 0, side = 1 }
-	kit.toasts = state
+	library.toasts = state
 
 	function state.place()
 		local narrow = overlay.gui.AbsoluteSize.X < NARROW
@@ -73,18 +73,18 @@ local function host(kit)
 		holder.Size = if narrow then UDim2.new(1, -24, 1, -inset - 8) else UDim2.new(0, WIDTH, 1, -inset - 20)
 		layout.VerticalAlignment = if top then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom
 	end
-	kit.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
-	kit.scope:add(function()
-		kit.toasts = nil
+	library.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
+	library.scope:add(function()
+		library.toasts = nil
 	end)
 	state.place()
 	return state
 end
 
-local function show(kit, state, toast)
+local function show(library, state, toast)
 	local options = toast.options
 	local kind = KINDS[options.Kind] or KINDS.info
-	local scope = kit.scope:child()
+	local scope = library.scope:child()
 	toast.scope = scope
 	state.order += 1
 
@@ -150,7 +150,7 @@ local function show(kit, state, toast)
 		for index, settings in options.Actions do
 			local button = Create.new("TextButton", {
 				Name = "Action",
-				Size = UDim2.fromOffset(0, if kit.touch then 40 else 28),
+				Size = UDim2.fromOffset(0, if library.touch then 40 else 28),
 				AutomaticSize = Enum.AutomaticSize.X,
 				LayoutOrder = index,
 				Text = settings.Title or "",
@@ -194,12 +194,12 @@ end
 -- Icon, Duration in seconds (0 stays until tapped), Progress (false hides
 -- the countdown bar), Actions as a list of { Title, Callback }.
 -- Returns { Dismiss }.
-function Notifications.push(kit, options)
+function Notifications.push(library, options)
 	if type(options) == "string" then
 		options = { Title = options }
 	end
 	local defaults = Notifications.Defaults
-	local state = host(kit)
+	local state = toastStack(library)
 	local toast = {
 		options = options,
 		done = false,
@@ -218,17 +218,17 @@ function Notifications.push(kit, options)
 			return
 		end
 		table.remove(state.active, table.find(state.active, toast))
-		kit.scope:release(toast.scope)
+		library.scope:release(toast.scope)
 		local waiting = table.remove(state.queue, 1)
 		if waiting then
 			table.insert(state.active, waiting)
-			show(kit, state, waiting)
+			show(library, state, waiting)
 		end
 	end
 
 	if #state.active < defaults.MaxVisible then
 		table.insert(state.active, toast)
-		show(kit, state, toast)
+		show(library, state, toast)
 	else
 		table.insert(state.queue, toast)
 	end

@@ -1,7 +1,7 @@
 local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Row = require("./Row")
-local Tip = require("./Tip")
+local SliderTooltip = require("./SliderTooltip")
 
 local KNOB = 14
 
@@ -37,7 +37,7 @@ function Slider.new(container, options)
 	end
 
 	local area = Create.new("TextButton", { Name = "Track", LayoutOrder = 1 })
-	row.adapt(area, options.Width or 130, row.reach, options.Stacked)
+	row.placeControl(area, options.Width or 130, row.reach, options.Stacked)
 	-- The rail is inset by half a knob so the knob never leaves the press area.
 	local rail = Create.new("Frame", {
 		Name = "Rail",
@@ -148,7 +148,7 @@ function Slider.new(container, options)
 				tip.destroy()
 				tip = nil
 			end
-			tip = tip or Tip.new(row, style)
+			tip = tip or SliderTooltip.new(row, style)
 			local shown = if range and dragLow then low else high
 			tip.show(rail, (shown - min) / math.max(max - min, 1e-9), label(shown), readout)
 		end

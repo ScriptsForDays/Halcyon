@@ -40,7 +40,7 @@ end
 | `Link`, `GetLink`, `LinkLabel` | What the "Get a key" button copies, as text or as a function returning text, and the button's label |
 | `Duration` | Seconds a saved key lasts before the prompt returns |
 | `NoKey` | `true` lets the player continue on this tier with no key. Such a tier is named `Keyless` unless you give it a `Name`; list it first, as the lowest tier |
-| `Icon`, `Tag` | The icon and the line shown on the tier's card in the prompt *(defaults depend on the tier: "No key needed", "Via Linkvertise", "Premium", "Key required")* |
+| `Icon`, `Tag` | The icon and the line shown on the tier's card in the prompt *(defaults depend on the tier: "No key needed", "Via Linkvertise", "Paid key", "Key required")* |
 | `Paid` | Marks the tier as paid. By default the tier named `"Paid"` is paid, and so is every tier above a paid one |
 
 With one tier you can skip `Tiers` and put `Keys`, `Remote` and `Link` at the top level. A top-level `Validate(key)` may return `true`, or the name of the tier the key belongs to.

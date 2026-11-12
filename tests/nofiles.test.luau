@@ -1,11 +1,11 @@
 -- An executor, or Studio, with no file functions and no clipboard.
 -- setup: writefile, readfile, isfile, isfolder, makefolder, delfile, listfiles, setclipboard = nil, nil, nil, nil, nil, nil, nil, nil
 
-local Env, kit = Halcyon.Internal.Env, Halcyon.Internal.kit
+local Env, library = Halcyon.Internal.Env, Halcyon.Internal.library
 
 Stub.check(not Env.canSave, "saving reported as unavailable")
 local window = Halcyon:CreateWindow({ Title = "Plain Hub" })
-local tab = window:Tab({ Title = "Main" })
+local tab = window:Tab({ Title = "Movement" })
 tab:Toggle({ Title = "Fly", Flag = "Fly" })
 
 local ok, message = window:SaveConfig("main")
@@ -17,7 +17,7 @@ Stub.equal(#window:ListConfigs(), 0, "no configs listed")
 window:SetTabStyle("Top")
 Stub.advance(1)
 Stub.equal(next(Stub.files), nil, "nothing is written")
-Stub.equal(kit.toasts, nil, "no notice for a preference that cannot be saved")
+Stub.equal(library.toasts, nil, "no notice for a preference that cannot be saved")
 
 local settings = window:SettingsTab()
 Stub.check(Stub.byText(settings.page, "Saving is off") ~= nil, "the settings tab says saving is off")
@@ -25,7 +25,7 @@ Stub.check(Stub.byText(settings.page, "Config name") == nil, "config controls ar
 
 local code = tab:Code({ Code = "print(1)" })
 Stub.click(Stub.byName(code.Frame, "Copy"))
-Stub.equal(kit.toasts.active[1].options.Title, "Copy unavailable", "a failed copy is reported")
+Stub.equal(library.toasts.active[1].options.Title, "Copy unavailable", "a failed copy is reported")
 
 local access
 task.spawn(function()

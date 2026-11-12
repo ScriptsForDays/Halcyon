@@ -42,12 +42,12 @@ function Row.new(container, options, layout)
 		frame = frame,
 		content = content,
 		scope = scope,
-		kit = container.kit,
+		library = container.library,
 		window = container.window,
 		options = options,
 		-- The fill for chips and boxes inside this row, one step off the row's own.
 		controlRole = if filled then "background" else "raised",
-		reach = if container.kit.touch then 40 else 28,
+		reach = if container.library.touch then 40 else 28,
 	}
 
 	local title, description, slot
@@ -93,7 +93,7 @@ function Row.new(container, options, layout)
 		local wrapped = false
 		local function arrange()
 			local width, taken = head.AbsoluteSize.X, slot.AbsoluteSize.X
-			local lane = (width - taken) / row.kit.scale - 12 - (if options.Icon then 30 else 0)
+			local lane = (width - taken) / row.library.scale - 12 - (if options.Icon then 30 else 0)
 			local wrap = width > 0 and taken > 0 and lane < MIN_TITLE
 			if wrap ~= wrapped then
 				wrapped = wrap
@@ -219,10 +219,10 @@ function Row.new(container, options, layout)
 	-- Calls `apply(narrow)` whenever the row crosses the width below which a
 	-- wide control would squeeze the title, as in a two-column page or on a
 	-- phone. The element shrinks or stacks its control in answer.
-	function row.fit(apply)
+	function row.onNarrow(apply)
 		local narrow = false
 		local function measure()
-			local width = frame.AbsoluteSize.X / row.kit.scale
+			local width = frame.AbsoluteSize.X / row.library.scale
 			local now = width > 0 and width < 300
 			if now ~= narrow then
 				narrow = now
@@ -235,11 +235,11 @@ function Row.new(container, options, layout)
 
 	-- Puts a wide control beside the title, or across the full width under
 	-- it when the row is narrow or `always` is set.
-	function row.adapt(control, width, height, always)
+	function row.placeControl(control, width, height, always)
 		local under
 		local function place(stacked)
 			if stacked then
-				under = under or row.below()
+				under = under or row.belowTitle()
 				under.Visible = true
 				control.Size = UDim2.new(1, 0, 0, height)
 				control.Parent = under
@@ -253,12 +253,12 @@ function Row.new(container, options, layout)
 		end
 		place(always == true)
 		if not always then
-			row.fit(place)
+			row.onNarrow(place)
 		end
 	end
 
 	-- A full-width area under the title line, for sliders and progress bars.
-	function row.below()
+	function row.belowTitle()
 		return Create.new("Frame", { Name = "Below", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = content })
 	end
 
@@ -267,26 +267,26 @@ function Row.new(container, options, layout)
 	-- can miss a MouseLeave when the pointer moves fast, so entering one
 	-- control also clears whichever one was marked before it.
 	function row.onHover(paint, target)
-		local kit = row.kit
+		local library = row.library
 		local function leave()
-			if kit.hoverLeave == leave then
-				kit.hoverLeave = nil
+			if library.clearHover == leave then
+				library.clearHover = nil
 			end
 			paint(false)
 		end
 		target = target or frame
 		scope:connect(target.MouseEnter, function()
-			local previous = kit.hoverLeave
+			local previous = library.clearHover
 			if previous and previous ~= leave then
 				previous()
 			end
-			kit.hoverLeave = leave
+			library.clearHover = leave
 			paint(true)
 		end)
 		scope:connect(target.MouseLeave, leave)
 		scope:add(function()
-			if kit.hoverLeave == leave then
-				kit.hoverLeave = nil
+			if library.clearHover == leave then
+				library.clearHover = nil
 			end
 		end)
 	end

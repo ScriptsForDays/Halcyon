@@ -11,7 +11,7 @@ local Env = require("../Core/Env")
 local Profile = require("./Profile")
 local Theme = require("../Core/Theme")
 
-local Extras = {}
+local Hud = {}
 
 local function handleFor(window, scope, frame)
 	local handle = { Frame = frame }
@@ -26,7 +26,7 @@ end
 
 -- Options: Fields, a list of "Title", "User", "Executor", "FPS", "Ping",
 -- "Time", "Date", any other text, or functions returning text.
-function Extras.watermark(window, options)
+function Hud.watermark(window, options)
 	options = options or {}
 	local scope = window.scope:child()
 	local fields = options.Fields or { "Title", "Executor", "Time" }
@@ -97,7 +97,7 @@ function Extras.watermark(window, options)
 end
 
 -- Lists every bound key with the row it belongs to; active ones are marked.
-function Extras.keybindList(window, options)
+function Hud.keybindList(window, options)
 	options = options or {}
 	local scope = window.scope:child()
 	local panel = Create.new("Frame", {
@@ -158,4 +158,4 @@ function Extras.keybindList(window, options)
 	return handleFor(window, scope, panel)
 end
 
-return Extras
+return Hud

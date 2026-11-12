@@ -17,7 +17,7 @@ Tab.__index = Tab
 -- SectionStyle, Tier or PaidOnly (lock every row inside), LockText.
 function Tab.new(window, options)
 	local self = setmetatable({
-		kit = window.kit,
+		library = window.library,
 		window = window,
 		scope = window.scope:child(),
 		entries = {},
@@ -120,7 +120,7 @@ function Tab:buildButton(style, parent, scope, order)
 
 	self.bar = nil
 	if style == "Sidebar" then
-		button.Size = UDim2.new(1, 0, 0, if self.kit.touch then 44 else 36)
+		button.Size = UDim2.new(1, 0, 0, if self.library.touch then 44 else 36)
 		-- An accent marker on the leading edge of the open tab.
 		self.bar = Create.new("Frame", {
 			Name = "Marker",
@@ -148,7 +148,7 @@ function Tab:buildButton(style, parent, scope, order)
 		icon.Position = UDim2.fromScale(0.5, 0.5)
 		label.Visible = false
 	elseif style == "Top" then
-		button.Size = UDim2.fromOffset(0, if self.kit.touch then 40 else 32)
+		button.Size = UDim2.fromOffset(0, if self.library.touch then 40 else 32)
 		button.AutomaticSize = Enum.AutomaticSize.X
 		Create.padding(button, 12, 0)
 		Create.list(button, "Horizontal", 6)

@@ -29,7 +29,7 @@ end
 -- `onCommit(color, transparency)` runs when a drag ends or a hex is entered,
 -- not on every move: a colour change often rebuilds something expensive.
 function ColorPicker.control(row, options, onCommit)
-	local scope, kit = row.scope, row.kit
+	local scope, library = row.scope, row.library
 	local color = options.Default or WHITE
 	local transparency = if options.Alpha then options.Transparency or 0 else 0
 	local hue, saturation, value = color:ToHSV()
@@ -90,7 +90,7 @@ function ColorPicker.control(row, options, onCommit)
 	end
 
 	local function bar(parent, order)
-		local track = Create.new("TextButton", { Size = UDim2.new(1, 0, 0, if kit.touch then 22 else 14), BackgroundColor3 = WHITE, LayoutOrder = order, Parent = parent })
+		local track = Create.new("TextButton", { Size = UDim2.new(1, 0, 0, if library.touch then 22 else 14), BackgroundColor3 = WHITE, LayoutOrder = order, Parent = parent })
 		Create.corner(-1, track)
 		local cursor = Create.new("Frame", { Size = UDim2.new(0, 4, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = WHITE, Parent = track })
 		Create.corner(-1, cursor)
@@ -99,7 +99,7 @@ function ColorPicker.control(row, options, onCommit)
 	end
 
 	scope:connect(swatch.Activated, function()
-		local popup = Popup.toggle(kit, swatch, {
+		local popup = Popup.toggle(library, swatch, {
 			Width = 224,
 			OnClose = function()
 				redraw = nil
@@ -135,7 +135,7 @@ function ColorPicker.control(row, options, onCommit)
 
 		local box = Create.new("TextBox", {
 			Name = "Hex",
-			Size = UDim2.new(1, 0, 0, if kit.touch then 40 else 28),
+			Size = UDim2.new(1, 0, 0, if library.touch then 40 else 28),
 			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			LayoutOrder = 3,

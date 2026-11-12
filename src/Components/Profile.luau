@@ -217,7 +217,7 @@ function Profile.chip(window, scope, parent)
 	picture.AnchorPoint = Vector2.new(0.5, 0.5)
 	picture.Position = UDim2.fromScale(0.5, 0.5)
 	scope:connect(chip.Activated, function()
-		local popup = Popup.toggle(window.kit, chip, { Width = 230 })
+		local popup = Popup.toggle(window.library, chip, { Width = 230 })
 		if popup then
 			Profile.card(window, popup.scope, popup.frame)
 		end

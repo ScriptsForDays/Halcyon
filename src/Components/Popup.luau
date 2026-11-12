@@ -17,24 +17,24 @@ local function contains(instance, position)
 	return position.X >= origin.X and position.X <= origin.X + size.X and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
 
-function Popup.close(kit)
-	if kit.popup then
-		kit.popup.close()
+function Popup.close(library)
+	if library.popup then
+		library.popup.close()
 	end
 end
 
 -- Opens a popup under `anchor`, or closes it when it is already open there.
 -- Returns the popup ({ frame, scope, close }) or nil when it closed.
-function Popup.toggle(kit, anchor, options)
-	local open = kit.popup
-	Popup.close(kit)
+function Popup.toggle(library, anchor, options)
+	local open = library.popup
+	Popup.close(library)
 	if open and open.anchor == anchor then
 		return nil
 	end
 
-	local overlay = Mount.overlay(kit)
-	local scope = kit.scope:child()
-	local width = options.Width or math.max(anchor.AbsoluteSize.X / kit.scale, 180)
+	local overlay = Mount.overlay(library)
+	local scope = library.scope:child()
+	local width = options.Width or math.max(anchor.AbsoluteSize.X / library.scale, 180)
 
 	-- The holder carries the position and the panel carries the scale, so
 	-- scaling never moves the popup away from its anchor.
@@ -51,7 +51,7 @@ function Popup.toggle(kit, anchor, options)
 	Create.stroke("stroke", panel)
 	Create.padding(panel, 6)
 	Create.list(panel, "Vertical", 4)
-	Create.new("UIScale", { Scale = kit.scale, Parent = panel })
+	Create.new("UIScale", { Scale = library.scale, Parent = panel })
 	scope:add(holder)
 
 	local popup = { anchor = anchor, frame = panel, scope = scope }
@@ -72,11 +72,11 @@ function Popup.toggle(kit, anchor, options)
 	end
 
 	function popup.close()
-		if kit.popup ~= popup then
+		if library.popup ~= popup then
 			return
 		end
-		kit.popup = nil
-		kit.scope:release(scope)
+		library.popup = nil
+		library.scope:release(scope)
 		if options.OnClose then
 			options.OnClose()
 		end
@@ -110,7 +110,7 @@ function Popup.toggle(kit, anchor, options)
 		end
 	end)
 
-	kit.popup = popup
+	library.popup = popup
 	place()
 	-- The panel drops the last few pixels into place.
 	panel.Position = UDim2.fromOffset(0, -6)

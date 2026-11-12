@@ -46,9 +46,9 @@ function Dialog.button(scope, parent, options)
 end
 
 -- The scrim and an empty card. Returns { card, scope, Close, Closed }.
-function Dialog.shell(kit, options)
-	local overlay = Mount.overlay(kit)
-	local scope = kit.scope:child()
+function Dialog.shell(library, options)
+	local overlay = Mount.overlay(library)
+	local scope = library.scope:child()
 	local shell = { scope = scope, Closed = false }
 
 	local scrim = Create.new("TextButton", {
@@ -86,7 +86,7 @@ function Dialog.shell(kit, options)
 			return
 		end
 		shell.Closed = true
-		kit.scope:release(scope)
+		library.scope:release(scope)
 		if options.OnClose then
 			options.OnClose()
 		end
@@ -135,8 +135,8 @@ end
 -- Options: Title, Content, Icon, Dismissible, and Buttons as a list of
 -- { Title, Variant = "Primary" | "Danger", Callback }. Name each button by
 -- its outcome ("Delete", "Keep"), not "Yes" or "OK".
-function Dialog.open(kit, options)
-	local shell = Dialog.shell(kit, options)
+function Dialog.open(library, options)
+	local shell = Dialog.shell(library, options)
 	Dialog.heading(shell.card, options.Title, options.Icon)
 	if options.Content then
 		Dialog.text(shell.card, options.Content, 1)
