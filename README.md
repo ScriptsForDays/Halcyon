@@ -214,6 +214,7 @@ Below 560 px of window width the sidebar becomes a strip of tabs, two columns fo
 - [docs/themes.md](docs/themes.md): palettes and custom themes
 - [docs/icons.md](docs/icons.md): packs and custom icons
 - [LLM.txt](LLM.txt): the whole API in one file, written for AI coding assistants
+- [docs/llm-guide.md](docs/llm-guide.md): how an AI assistant should choose controls and lay out a hub
 
 ## In Roblox Studio
 

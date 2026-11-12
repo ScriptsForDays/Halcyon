@@ -1,6 +1,13 @@
 # Halcyon: reference for AI coding assistants
 
-Halcyon is a Roblox UI library for script hubs, written in Luau and loaded as one file. This file is the complete API. Use only what is listed here; do not invent options, methods or icon names. Longer explanations are in docs/api.md, docs/key-system.md, docs/themes.md and docs/icons.md.
+Halcyon is a Roblox UI library for script hubs, written in Luau and loaded as one file. This file is the complete public API, written so an assistant can build with it without guessing. Use only what is listed here; do not invent options, methods, looks or icon names.
+
+Read in this order:
+1. "Mental model" and "Rules" (short, prevent most mistakes).
+2. The component you need, in "Components".
+3. docs/llm-guide.md before laying out a whole hub: it explains how to choose controls, how much to put on a tab, and what to leave out. It gives reasons, not a fixed design.
+
+Longer human docs: docs/api.md, docs/styles.md, docs/key-system.md, docs/themes.md, docs/icons.md.
 
 ## Load
 
@@ -8,137 +15,349 @@ Halcyon is a Roblox UI library for script hubs, written in Luau and loaded as on
 local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/ScriptsForDays/Halcyon/main/dist/Halcyon.luau"))()
 ```
 
-In Roblox Studio: `require(game.ReplicatedStorage.Halcyon)` with dist/Halcyon.luau pasted into a ModuleScript.
+Roblox Studio: paste dist/Halcyon.luau into a ModuleScript named Halcyon in ReplicatedStorage, or insert dist/Halcyon.rbxmx, then `require(game.ReplicatedStorage.Halcyon)` from a LocalScript.
 
 ## Minimal hub
 
 ```lua
 local Window = Halcyon:CreateWindow({ Title = "My Hub", Icon = "sparkles", Folder = "MyHub" })
-if not Window then return end -- only needed when KeySystem is set
+if not Window then return end -- needed only with a KeySystem (the player can close the prompt)
 
-local Tab = Window:Tab({ Title = "Player", Icon = "user" })
-local Section = Tab:Section({ Title = "Movement", Icon = "footprints" })
+local Player = Window:Tab({ Title = "Player", Icon = "user" })
+local Movement = Player:Section({ Title = "Movement", Icon = "footprints" })
 
-local fly = Section:Toggle({
-	Title = "Fly",
-	Description = "WASD to steer",
-	Flag = "Fly",
-	Callback = function(enabled) end,
-})
-Section:Slider({ Title = "Walk speed", Min = 16, Max = 120, Default = 32, Flag = "WalkSpeed", Callback = function(value) end })
+Movement:Toggle({ Title = "Fly", Description = "WASD to steer", Flag = "Fly", Callback = function(on) end })
+Movement:Slider({ Title = "Walk speed", Min = 16, Max = 120, Default = 32, Suffix = " st/s", Flag = "WalkSpeed", Callback = function(speed) end })
 
 Window:SettingsTab()
-Window.OnUnload:Connect(function() --[[ stop your features, restore what you changed ]] end)
+Window.OnUnload:Connect(function() --[[ stop features, restore what you changed ]] end)
 Window:LoadAutoload()
 ```
 
-## Rules that prevent the usual mistakes
+## Mental model
 
-1. Everything takes ONE table of options: `Tab:Toggle({ Title = "Fly" })`, never positional arguments.
-2. `Title` is required on every element except Divider, Code and Image.
-3. A `Flag` must be unique in the window. A duplicate raises an error.
-4. `Set(value)` ALWAYS runs the Callback, even with the same value. Creating an element does not, except a Toggle with `Default = true`, whose Callback runs once, deferred.
-5. A Slider's `Default` is only displayed. Apply the starting value yourself if the game needs it.
-6. `CreateWindow` with a `KeySystem` YIELDS and returns `nil` when the player closes the prompt. Always write `if not Window then return end`.
-7. Call `Window:LoadAutoload()` last, after every element exists.
-8. Put cleanup in `Window.OnUnload:Connect(...)`. Do not keep your own duplicate-run guard: a second run with the same `Folder` unloads the first window automatically.
-9. Do not send a notification for every toggle. Notify on results the player cannot see: saved, failed, loaded.
-10. Name tabs for their contents ("Combat", "Visuals"), not "Main" or "Misc". Name a toggle for the feature ("Fly"), not "Enable fly".
-11. Config, key and settings files need executor file functions. Without them the calls return `false, message`; show the message, never claim it saved.
-12. Icons are Lucide names (`"house"`, `"settings"`, `"sword"`), or `"pack:name"`, or an asset id. Never emoji or text glyphs.
-13. A key prompt in a client script is not security. Do not describe it as protecting the script.
+- **Window**: one per hub. Top bar (title, version tag, search, minimise, close), navigation (sidebar, rail, top strip or bottom dock), pages, and an optional profile card. Running the same hub again (same `Folder`) unloads the old window first.
+- **Tab**: a page. Has a button in the navigation. Tabs can share a sidebar `Group` heading.
+- **Section** ("groupbox"): a titled box of rows on a tab. A wide window shows two columns; `Side = "Right"` puts a section in the second one. On a narrow window everything stacks in creation order.
+- **Row**: every element is a row: title and description on the left, its control on the right. Narrow rows move wide controls under the title.
+- **Handle**: every element returns a handle with `Get`, `Set`, `Changed` and the shared methods below.
+- **Flag**: a unique string on an element. Flagged values are saved in configs and restored by `LoadConfig`/`LoadAutoload`.
+- **Looks**: every kind of control has named looks (`Style`). Defaults are always fine; looks are optional polish. See "Looks and presets".
+- **Lifecycle**: `CreateWindow` (may yield for a key prompt), build tabs and elements, `LoadAutoload()` last, `OnUnload` for cleanup. `Window:Unload()` or the Unload button removes everything Halcyon made.
+- **Theme**: colours are roles (`accent`, `text`, `surface`...), never literal colours. Changing the theme recolours everything already on screen.
 
-## Halcyon
+## Rules
 
-- `Halcyon:CreateWindow(options) -> Window | nil`
-- `Halcyon:Authenticate(keySystemOptions) -> access | nil` (yields; the prompt without a window)
-- `Halcyon:Notify(options) -> { Dismiss }`
-- `Halcyon:SetNotificationDefaults({ Duration, Position, Progress, MaxVisible })`
-- `Halcyon:Dialog(options)`
-- `Halcyon:SetTheme(name)`, `:GetTheme()`, `:GetThemes()`, `:AddTheme(palette) -> ok, message`, `:SetAccent(Color3 | nil)`
-- `Halcyon:AddIconPack(name, icons)`, `:SetIconPack(name)`, `:SetFont(font)`
-- `Halcyon:GetExecutor() -> name, version`
-- `Halcyon:GetStyles(kind?) -> names`, `:AddStyle(kind, name, spec, base?)`, `:GetPresets()`, `:AddPreset(name, options)`
-- `Halcyon:Unload()`
-- `Halcyon.Version`, `Halcyon.ThemeChanged:Connect(function(name) end)`
+1. Every constructor takes ONE table: `Section:Toggle({ Title = "Fly" })`. `Label("text")` is the only string shortcut (also valid for Tab).
+2. `Title` is required on every element except Divider, Code, Image, Buttons, Table and Space.
+3. A `Flag` must be unique in the window; a duplicate raises an error. Flag only what should be saved.
+4. `Set(value)` always runs the Callback, even for the same value. Creating an element never does, except a Toggle with `Default = true`, whose Callback runs once, deferred, after the hub finishes building.
+5. A Slider's `Default` is only displayed. Apply the starting value to the game yourself if needed.
+6. With a `KeySystem`, `CreateWindow` yields and returns `nil` if the player closes the prompt: `if not Window then return end`.
+7. Call `Window:LoadAutoload()` last.
+8. Cleanup goes in `Window.OnUnload:Connect(...)`. Do not add your own "already running" guard; a second run replaces the first.
+9. Notify for results the player cannot see (saved, failed, loaded, finished). Never notify for each toggle.
+10. Name tabs for contents ("Combat", "Visuals"), not "Main"/"Misc". Name toggles for the feature ("Fly"), not "Enable fly"/"Toggle fly".
+11. File-backed features (configs, keys, settings, URL images) need executor file functions. Calls return `false, message` without them; show the message, never claim success.
+12. Icons are Lucide names (`"house"`), `"pack:name"`, asset ids, URLs or workspace files. Never emoji or text glyphs as icons.
+13. A client-side key prompt is not security. Never describe it as protecting the script.
+14. Do not set looks element by element across a hub. Leave defaults, or use one `Preset` / one window `Styles` table.
+15. Use only features listed here. If the user asks for something Halcyon lacks, say so instead of inventing an option.
+
+## Library (Halcyon)
+
+| Call | Returns / does |
+|---|---|
+| `Halcyon:CreateWindow(options)` | Window, or nil if a key prompt was closed (yields with KeySystem) |
+| `Halcyon:Authenticate(keySystemOptions)` | access table or nil; the key prompt without a window (yields) |
+| `Halcyon:Notify(options)` | notice handle (see Notifications) |
+| `Halcyon:SetNotificationDefaults({ Duration, Position, Progress, MaxVisible, Style, Sound })` | defaults for later notices |
+| `Halcyon:Dialog(options)` | dialog shell (see Dialogs) |
+| `Halcyon:SetTheme(name)`, `:GetTheme()`, `:GetThemes()` | theme control |
+| `Halcyon:AddTheme(palette)` | `ok, message`; see Themes |
+| `Halcyon:SetAccent(Color3 or nil)` | accent override over any theme |
+| `Halcyon:AddIconPack(name, icons)`, `:SetIconPack(name)` | icon packs |
+| `Halcyon:SetFont(font)` | font family for things built afterwards |
+| `Halcyon:Image(source, callback)` | image id now, or nil then `callback(id, problem)` |
+| `Halcyon:GetStyles(kind?)` | look names of a kind; with no kind, the kinds |
+| `Halcyon:AddStyle(kind, name, spec, base?)` | `ok, message`; a custom look |
+| `Halcyon:GetPresets()`, `:AddPreset(name, options)` | presets |
+| `Halcyon:GetExecutor()` | name, version |
+| `Halcyon:Unload()` | removes every window |
+| `Halcyon.Version`, `Halcyon.ThemeChanged` | version string, signal(name) |
 
 ## CreateWindow options
 
-- `Title`, `Subtitle`, `Icon`
-- `Version = "v1.2.0"`: the tag beside the title; `ShowVersion = false` hides it
-- `Folder`: save folder and hub identity (default: Title)
-- `Theme`: name or palette table. Names: Midnight, Onyx, Rose, Aqua, Ember, Forest, Amethyst, Crimson, Glacier, Daylight, OLED, Contrast, Sunset, Ocean, Aurora, Latte
-- `Preset`: "Classic" | "Minimal" | "Glass" | "Neon" | "Compact". Fills only options the hub left unset.
-- `Styles = { Kind = "Look" }`: default look per kind. Kinds and looks are listed in docs/styles.md; `Halcyon:GetStyles(kind)` lists them at runtime.
-- `WindowStyle`: "Solid" | "Glass" | "Gradient" | "Image"; `Transparency` (0 to 0.6); `BackgroundImage`, `BackgroundImageTransparency`
-- `OpenAnimation`: "Pop" | "Zoom" | "Rise" | "Drop" | "Slide" | "Unroll" | "None"; `PageTransition`: "Rise" | "Slide" | "None"
-- `TabIndicator`: "Bar" | "Pill" | "Underline" | "Dot" | "Glow" | "Fill"; `TopbarControls`: "Default" | "Mac"
+All optional. Defaults in brackets.
+
+**Identity**
+- `Title` ["Halcyon"], `Subtitle`, `Icon` (any image source), `Version` (tag beside the title, e.g. "v1.2.0"), `ShowVersion` [true]
+- `Folder` [Title]: save folder and hub identity. Keep it stable across releases.
+- `TopbarImage`: a picture before the title (image source, or `true` for `Icon`); `TopbarImageStyle`: "Circle" | "Rounded" | "Square" | "Squircle" | "Ring" | "Badge" ["Circle"]
+
+**Layout**
+- `Size` [Vector2.new(740, 500)], always fitted to the screen; `Scale` 0.75-1.25 [1]
+- `TabStyle`: "Sidebar" | "Rail" | "Top" | "Dock" ["Sidebar"]; narrow windows use "Top"
+- `SidebarWidth` 150-280 [196]; `SidebarToggle` [false]: a top-bar button folding the sidebar to the rail
+- `CollapsedGroups`: sidebar groups that start folded; `CollapsibleGroups` [true]
+- `MinimizeStyle`: "Topbar" | "Pill" | "Chip" ["Topbar"]; `Minimizable` [true]; `Resizable` [true, mouse only]; `Snap` [false]
+- `ToggleKey` [Enum.KeyCode.RightShift]; `OpenButton` [false; always on for touch]
+
+**Looks** (see "Looks and presets")
+- `Preset`: "Classic" | "Minimal" | "Glass" | "Neon" | "Compact"
+- `Styles = { Kind = "Look" }`; single options: `SectionStyle`, `TabIndicator`, `WindowStyle`, `OpenAnimation`, `PageTransition`, `TopbarControls`, `ButtonEffect`, `ToggleThumb`, `SliderTooltipStyle`
 - `Radius`: "Sharp" | "Soft" | "Default" | "Round"; `Density`: "Compact" | "Default" | "Spacious"; `TextSize`: "Default" | "Large" | "Larger"
-- `AccentGradient = true | Color3`, `SafeStatusColors = true`, `SidebarWidth`, `SidebarToggle = true`, `Snap = true`, `CommandPalette = true` (Ctrl+K), `PaletteKey`
-- `TabStyle`: "Sidebar" (default) | "Rail" | "Top" | "Dock"
-- `SectionStyle`: "Card" (default) | "Outlined" | "Flat" | "Glass" | "Accent" | "Inset" | "Header"
-- `Size`: Vector2 or offset UDim2 (default 740 x 500); `Scale`: 0.75 to 1.25
-- `ToggleKey`: Enum.KeyCode (default RightShift)
-- `Font`, `IconPack`, `DisplayOrder`
-- `Profile`: false, or `{ Avatar = "Headshot" | "Viewport" | "None", Anonymous, ShowUsername, ShowTier, ShowExecutor, ShowClock, ShowDate, ClockFormat, DateFormat, Name, Subtitle }`
-- `KeySystem`: see below
-- `Tiers = { "Free", "Paid" }`, `Tier = "Free"`, `PaidTier = "Paid"`: tiers without the prompt
-- `LockText` (default "Requires {tier}"), `PaidLockText` (default "Paid only")
-- `Notifications = { Duration, Position, Progress, MaxVisible }`
-- `MinimizeStyle`: "Topbar" (default) | "Pill" | "Chip"
-- `SliderTooltipStyle`: "Rounded" (default) | "Sharp" | "Pill" | "Plain"
-- `ToggleOutlineColor`: Color3
-- `ToggleThumb`: "Circle" (default) | "Oval" | "Square"
-- `ButtonEffect`: "Sweep" (default) | "Ripple" | "Lift" | "Glow" | "None"
-- `ShadowTransparency` (default 0.5), `ShadowImage`
-- `LockHint`, `PaidLockHint`: second line on locked section overlays
-- `CollapsedGroups = { "Group name" }`
-- Switches, on unless `false`: `ConfirmUnload`, `LockShimmer`, `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`, `FocusRing`. `OpenButton = true` shows the open button on desktop.
+- `Theme` (name or palette table), `Font`, `IconPack`, `AccentGradient` (true or Color3), `SafeStatusColors` [false]
+- `Transparency` 0-0.6 [0]; `BackgroundImage`, `BackgroundImageTransparency` [0.75]; `Shadow` [true], `ShadowTransparency` [0.5]
+- `SliderTooltips` [true]; `ToggleOutline` [true], `ToggleOutlineColor`; `LockShimmer` [true]; `FocusRing` [true]
+
+**Behaviour**
+- `Search` [true]; `CommandPalette` [false] (Ctrl+K), `PaletteKey` [K]
+- `ConfirmUnload` [true]; `SavePreferences` [true]; `DisplayOrder` [2147483000]
+- `Notifications = { Duration, Position, Progress, MaxVisible, Style, Sound }`
+
+**Access**
+- `KeySystem` (see Key system); or `Tiers`, `Tier`, `PaidTier` for tiers without a prompt
+- `LockText` ["Requires {tier}"], `PaidLockText` ["Paid only"], `LockHint`, `PaidLockHint` ["Unlock with a paid key"]
+
+**Extras**
+- `Profile`: false, or table (see Profile)
+- `UpdateLog`: true, or table (see Update log)
 
 ## Window
 
-Methods: `Tab(options)`, `SelectTab(tab)`, `SettingsTab(options)`, `Show()`, `Hide()`, `Toggle()`, `Minimize(bool)`, `SetMinimizeStyle(name)`, `Search(text)`, `SetTabStyle(name)`, `SetScale(number)`, `SetToggleKey(keyCode)`, `SetTitle(text)`, `SetSubtitle(text)`, `SetVersion(text)`, `SetVersionVisible(bool)`, `SetAnonymous(bool)`, `SetProfile(table)`, `SetAccent(color)`, `SetReducedMotion(bool)`, `SetGroupCollapsed(name, bool)`, `SetSliderTooltips(enabled, style)`, `SetToggleOutline(enabled, color)`, `SetLockText(text, paidText)`, `SetLockHint(hint, paidHint)`, `GetKeyExpiry()`, `GetTier()`, `HasTier(name)`, `IsPaid()`, `SetTier(name)`, `Notify(options)`, `Dialog(options)`, `Watermark(options)`, `KeybindList(options)`, `SaveConfig(name)`, `LoadConfig(name)`, `DeleteConfig(name)`, `ListConfigs()`, `SetAutoload(name)`, `GetAutoload()`, `LoadAutoload()`, `Unload()`.
+**Methods**
+- Structure: `Tab(options)`, `SelectTab(tab)`, `SettingsTab(options)`, `ConfigSection(tabOrSection, options)`, `PersonaliseSection(tab, options)`, `ThemeBuilder(tab, options)`, `About(tab, options)`
+- Visibility: `Show()`, `Hide()`, `Toggle()`, `Minimize(bool)`, `SetMinimizeStyle(name)`, `SetEnabled(bool)` (greys every row), `Lock(options)`, `Unlock()`
+- Look: `SetTabStyle(name)`, `SetScale(n)`, `SetTransparency(n)`, `SetAccent(color)`, `SetReducedMotion(bool)`, `SetPersonal(key, value)`, `SetSliderTooltips(enabled, style)`, `SetToggleOutline(enabled, color)`
+- Top bar: `SetTitle`, `SetSubtitle`, `SetVersion`, `SetVersionVisible`, `AddTopbarButton({ Icon, Callback })` -> `{ Destroy }`, `Search(text)`, `OpenPalette()`
+- Profile: `SetAnonymous(bool)`, `SetProfile(table)`
+- Access: `GetTier()`, `HasTier(name)`, `IsPaid()`, `SetTier(name)`, `GetKeyExpiry()`, `SetLockText(text, paidText)`, `SetLockHint(hint, paidHint)`, `Require(names)` -> missing executor functions
+- Feedback: `Notify(options)`, `Dialog(options)`, `Loading(options)`, `Changelog(options)`, `AddUpdate(release)`, `Watermark(options)`, `KeybindList(options)`
+- Configs: `SaveConfig(name)`, `LoadConfig(name)`, `DeleteConfig(name)`, `ConfigExists(name)`, `ListConfigs()`, `SetAutoload(name)`, `GetAutoload()`, `LoadAutoload()` (all return `ok, message` where relevant)
+- Ending: `RequestUnload()` (asks first unless ConfirmUnload = false), `Unload()`
 
-Added in 2.0: `SetTransparency(n)`, `SetEnabled(bool)`, `AddTopbarButton({ Icon, Callback })`, `SetPersonal(key, value)` (Font, TextSize, Radius, Density, Transparency, NoticePosition, AccentGradient, SafeStatus), `PersonaliseSection(tab)`, `ThemeBuilder(tab)`, `OpenPalette()`, `Loading(options) -> { SetProgress(fraction, text), Done() }` (only real progress), `Changelog({ Version, Entries = { { Kind = "New" | "Improved" | "Fixed" | "Removed", Text } }, Force })` (once per version), `About(tab, { Description, Credits, Discord, Links })`, `Lock({ Title, Text, Icon, Button })`, `Unlock()`. `SettingsTab({ Personalise = true, ThemeBuilder = true })`.
+**Fields**: `Flags` (flag -> handle), `Visible`, `access`, signals `OnUnload`, `TabChanged(tab)`, `ConfigChanged(action, name)`, `KeybindsChanged`.
 
-More: `RequestUnload()` (asks first unless ConfirmUnload = false), `ConfigSection(tabOrSection, options)`, `ConfigExists(name)`, `Require(names) -> missing`, `Tab:SetBadge(value)`. `SettingsTab({ ScaleControl = "Slider" })`. Slider `Live = false` calls back once on release.
+## Tab
 
-Fields: `Flags` (flag name -> handle) `ConfigChanged` (action, name),, `OnUnload`, `TabChanged`, `KeybindsChanged` (signals), `Visible`, `access`.
+`Window:Tab({ Title, Icon, Group, Description, SectionStyle, Tier, PaidOnly, LockText, LockHint })`
 
-## Tab and Section
+- `Description` adds a page heading with that line under it.
+- Methods: `Section(options)`, `Select()`, `SetTitle(text)`, `SetBadge(value)` (number, short word, true for a dot, nil to clear), `Notice({ Title, Content, Kind, Dismissible })` (callout at the top of the page) -> `{ SetContent, Destroy }`, `EmptyState({ Icon, Title, Text, Kind = "error", Button = { Title, Callback } })` -> `{ SetText, Destroy }`, `About(options)`.
+- Every element method also exists on a tab; those rows go into an untitled flat section.
 
-`Window:Tab({ Title, Icon, Group, Description, SectionStyle, Tier, PaidOnly, LockText })` -> tab with `Section(options)`, `Select()`, `SetTitle(text)`, `Notice({ Title, Content, Kind, Dismissible })`, `EmptyState({ Icon, Title, Text, Kind = "error", Button })`, `About(options)` and every element method.
+## Section
 
-`Tab:Section({ Title, Icon, IconColor, Description, Badge, Style, Side = "Left" | "Right", Collapsible, Collapsed, Tabs = { "A", "B" }, Switch = { Default, Flag, Callback }, MaxHeight, Tier, PaidOnly, LockText })` -> section with `SetTitle`, `SetBadge`, `SetCollapsed(bool)`, `SetVisible(bool)`, `Tab(name)` (an inner tab, with every element method), `SelectTab(name)`, `ShowWhen(source, value)`, `Destroy()` and every element method.
+`Tab:Section({ Title, Icon, IconColor, Description, Badge, Style, Side, Collapsible, Collapsed, Tabs, Switch, MaxHeight, Tier, PaidOnly, LockText, LockHint })`
 
-`Group` puts tabs under a shared, foldable heading in the sidebar. `Side = "Right"` uses the second column when the page is wide enough.
+- `Style`: Card (default), Outlined, Flat, Glass, Accent, Inset, Header.
+- `Side`: "Left" (default) | "Right".
+- `Collapsible` [true]: the title folds it. `Collapsed` starts folded.
+- `Tabs = { "Aim", "Visuals" }`: tabs inside the box. `section:Tab("Visuals"):Toggle({...})`; elements added to the section itself go to the first. `SelectTab(name)`.
+- `Switch = { Default, Flag, Callback }`: a switch in the header; off greys every row in the section.
+- `MaxHeight = 240`: rows scroll past that height.
+- `Tier` / `PaidOnly`: one overlay covers the section with `LockText` and `LockHint`.
+- Methods: `SetTitle`, `SetBadge`, `SetCollapsed(bool)`, `SetVisible(bool)`, `ShowWhen(source, value)`, `Destroy()`, and every element method.
 
-## Elements
+## Every element
 
-Common options: `Title`, `Description`, `Icon`, `Flag`, `Callback`, `Tier`, `PaidOnly`, `LockText`, `Badge` ("New" | "Beta" | "Risky" | "Paid" | text | { Text, Color }), `Info` (text behind an info icon), `Requires` ({ "hookfunction", ... }: locked with the missing names when the executor lacks them), `Style` (the element's look), `Tooltip` (text or { Title, Text, Key, Style }; on a Slider, true/false is its value bubble instead), `Spotlight` ({ Title, Text, Id }: shown once until dismissed).
+**Shared options**
+- `Title` (string; see rule 2), `Description` (second line), `Icon` (leading icon)
+- `Flag` (saved in configs), `Callback`
+- `Tier`, `PaidOnly`, `LockText`, `LockHint` (lock this row)
+- `Badge`: "New" | "Beta" | "Risky" | "Paid" | any text | `{ Text, Color }`
+- `Info`: longer text behind an info icon
+- `Tooltip`: hover text, or `{ Title, Text, Key, Style = "Card" | "Plain" | "Follow" }` (on a Slider, `Tooltip = true/false` is its value bubble instead)
+- `Spotlight = { Title, Text, Id }`: a one-time pointer at a new feature, remembered once dismissed
+- `Requires = { "hookfunction", ... }`: locks the row naming the executor functions that are missing
+- `Style`: the element's look
 
-Common handle members: `Get()`, `Set(value)`, `Changed:Connect(fn)`, `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `ShowWhen(elementOrFlag, value | function)`, `Spotlight(options)`, `Destroy()`, `Frame`, `Kind`, `Flag`.
+**Shared handle**
+- `Get()`, `Set(value)`, `Changed:Connect(fn)`
+- `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`
+- `Lock(text, icon)`, `Unlock()`, `IsLocked()`
+- `ShowWhen(elementOrFlag, valueOrFunction)`: visible only while another element has that value (a multi-select matches when it includes it; a function receives the value)
+- `Spotlight(options)`, `Destroy()`
+- Fields: `Frame`, `Kind`, `Flag`, `Title`
 
-- `Button({ Variant = "Row" | "Filled" | "Outline" | "Danger" | "Soft" | "Ghost" | "Gradient" | "Success", Icon, Effect = "Sweep" | "Ripple" | "Lift" | "Glow" | "Press" | "Fill" | "None", TrailingIcon, Hold = seconds, Confirm = true | "wording", ShowDone })`: Callback(); `Press()`, `SetLoading(bool, text)`, `IsLoading()`. Without Variant the whole row is the button.
-- `Buttons({ Title?, Buttons = { { Title, Icon, Variant, Callback } } })`: several buttons sharing one row.
-- `Toggle({ Default, Style = "Switch" | "Large" | "Slim" | "Square" | "Labelled" | "Icon" | "Glow" | "Checkbox" | "Circle" | "Chip", Thumb = "Circle" | "Oval" | "Square", Keybind = { Default, Mode = "Toggle" | "Hold", Flag }, Color = { Default, Alpha, Flag, Callback }, Outline, OutlineColor })`: Callback(boolean). Add-ons are `handle.Keybind` and `handle.Color`.
-- `Slider({ Min, Max, Step, Default, Suffix, Prefix, Percent, Format = fn, Display = "Box" | "Text" | "Fraction" | "None", DefaultMarker, Style = "Line" | "Thin" | "Thick" | "Handle" | "Ticks" | "Bare" | "Block", Stacked, Range, Width, Tooltip, TooltipStyle, Live })`: Callback(number), or Callback({ low, high }) with `Range = true`.
-- `Dropdown({ Values, Default, Multi, AllowNone, Searchable, Placeholder, Width, Style = "Box" | "Minimal" | "Chips" | "Inline", Players = true, ExcludeSelf })`: Callback(value | nil), or Callback(list) with `Multi = true`; `Refresh(values)`. A value may be `{ Text, Value, Icon, Image, Description, Disabled }`, and `{ Heading = "Name" }` starts a group.
-- `Radio({ Values, Default, Inline })`, `Checklist({ Values, Default, SelectAll })`, `Chips({ Values, Default, Multi })`, `Tiles({ Items = { { Title, Icon, Description, Value } }, Columns, Multi })`.
-- `Input({ Default, Placeholder, Numeric, Min, Max, Live, MaxLength, Width, Style = "Boxed" | "Underline" | "Filled" | "Pill", LeadingIcon, Clearable, Counter, Password, MultiLine, Lines })`: Callback(string), or Callback(number) with `Numeric = true`.
-- `Keybind({ Default, Mode = "Press" | "Toggle" | "Hold", Style = "Chip" | "Keycap" | "Brackets", ModePicker, ChangedCallback, ModeChangedCallback })`: Callback() for Press, Callback(boolean) for Toggle and Hold. Value is the Enum.KeyCode. `GetMode()`, `SetMode(name)`.
-- `ColorPicker({ Default, Alpha, Transparency, Palette = true | { Color3 }, Recent })`: Callback(Color3, transparency). `Set` takes a Color3 or a hex string.
-- `DatePicker({ Default = { Year, Month, Day, Hour, Minute }, Time, WeekStart })`: Callback(table); `GetTimestamp()`.
-- `Segmented({ Values, Default, Stacked })`: Callback(value).
-- `Stepper({ Min, Max, Step, Default, Suffix, Drag })`: Callback(number).
-- `Rating({ Max, Default, Icon })`, `Status({ Status, Kind, Pulse })` with `SetStatus(text, kind)`, `Countdown({ Seconds | Ends, Done, Format, Callback })`, `Accordion({ Content, Open })`, `Space({ Height })`.
-- `Table({ Title?, Columns = { "Name", { Title, Width, Align } }, Rows, Sortable, MaxHeight })`: `SetRows`, `AddRow`, `Clear`.
-- `Progress({ Value, Max, Suffix })`: `Set(number)`.
-- `Paragraph({ Title, Content, Icon, Image, Buttons })`: `Set(text)` or `Set({ Title, Content })`.
-- `Label("text")` or `Label({ Title, Style = "Plain" | "Info" | "Success" | "Warning" | "Danger" | "Note" })`.
-- `Divider({ Title })`.
+## Components
+
+Each entry: what it is for, when not to use it, options with defaults, value and callback, looks, phone behaviour, mistakes.
+
+### Toggle
+- For: an on/off feature (Fly, ESP, Auto farm).
+- Not for: actions that happen once (use Button); choosing between named modes (use Segmented/Radio).
+- Options: `Default` [false], `Style`, `Thumb` ("Circle" | "Oval" | "Square"), `Outline` [window], `OutlineColor`, `Keybind = { Default = Enum.KeyCode.X, Mode = "Toggle" | "Hold", Flag }`, `Color = { Default, Alpha, Flag, Callback }`.
+- Value: boolean. Callback(on) on every Set and once at start if `Default = true`.
+- Looks: Switch (default), Large, Slim, Square, Labelled, Icon, Glow, Checkbox, Circle, Chip.
+- Add-ons: `handle.Keybind` (key chip beside it), `handle.Color` (swatch beside it), each with its own Flag.
+- Phone: the whole row is the press target.
+- Mistakes: naming it "Enable X"; a toggle that does a one-shot action; forgetting to undo the feature when it turns off.
+
+### Button
+- For: an action now (Teleport, Rejoin, Collect all).
+- Not for: a setting that stays on (Toggle).
+- Options: `Variant`/`Style` ("Row" default: the whole row is the button; "Filled", "Outline", "Danger", "Soft", "Ghost", "Gradient", "Success"), `Icon` (inside a drawn button), `TrailingIcon` (row look), `Effect` ("Sweep", "Ripple", "Lift", "Glow", "Press", "Fill", "None"), `Hold` (seconds to hold), `Confirm` (true or wording of the confirming second press), `ShowDone` (tick or cross after the Callback).
+- Value: none. Callback() on press; `Press()` runs it. `SetLoading(bool, text)` blocks presses with a spinner; `IsLoading()`.
+- Mistakes: Danger look without Confirm/Hold for destructive actions; many Filled buttons on one page (one primary per section reads best).
+
+### Buttons
+- For: two to four related actions side by side (Save / Load, Accept / Decline).
+- Options: `Buttons = { { Title, Icon, Variant, Callback } }`, optional `Title` above.
+- Value: none. `Changed` fires with the pressed title.
+- Mistakes: more than four buttons; unrelated actions in one row.
+
+### Slider
+- For: a number in a known range (speed, FOV, distance).
+- Not for: a handful of named levels (Segmented), unbounded numbers (Input with Numeric), exact counts (Stepper).
+- Options: `Min` [0], `Max` [100], `Step` [1], `Default` [Min], `Suffix`, `Prefix`, `Percent` (show share of range), `Format = function(v) return text end`, `Display` ("Box" typed value [default], "Text", "Fraction", "None"), `DefaultMarker`, `Range` (two knobs, value { low, high }), `Stacked` (track under the title), `Width` [130], `Tooltip` [window], `TooltipStyle` ("Rounded", "Sharp", "Pill", "Plain"), `Live` [true; false calls back once on release].
+- Value: number (or { low, high }). Callback on change while dragging (or on release with Live = false), and on Set.
+- Looks: Line (default), Thin, Thick, Handle, Ticks, Bare, Block.
+- Phone: the track moves under the title in narrow rows.
+- Mistakes: expecting Default to be applied; Live = true for something expensive (use Live = false); Step finer than the game uses.
+
+### Dropdown
+- For: one or several choices from a list too long for Segmented (maps, players, weapons).
+- Not for: 2-4 options (Segmented or Radio show them all at once).
+- Options: `Values` (plain values, or `{ Text, Value, Icon, Image, Description, Disabled }`, or `{ Heading = "Group" }`), `Default` [first value unless AllowNone/Placeholder], `Multi`, `AllowNone`, `Placeholder`, `Searchable` [auto above 8 values], `Width` [150], `Players = true` (server players, kept up to date), `ExcludeSelf`.
+- Value: the chosen value or nil; with Multi, a list in Values order. `Refresh(values)` replaces the options and drops vanished picks.
+- Looks: Box (default), Minimal, Chips (picks as removable chips), Inline (list opens in the row).
+- Mistakes: rebuilding the element to change options (use Refresh); using Text as identity when Value differs.
+
+### Radio
+- For: one of 2-6 options that should all be visible.
+- Options: `Values`, `Default` [first], `Inline` (side by side), `AllowNone`.
+- Value: one value.
+
+### Checklist
+- For: several independent on/off items of one kind (loot to collect, mobs to target).
+- Options: `Values`, `Default` (list), `Inline`, `SelectAll` (true or its label).
+- Value: list in Values order.
+
+### Chips
+- For: compact tag-like choices (game modes, filters).
+- Options: `Values`, `Default`, `Multi`.
+- Value: one value, or a list with Multi.
+
+### Tiles
+- For: picking among a few visual options (teleport spots, loadouts) where an icon helps.
+- Options: `Items = { { Title, Icon, Image, Description, Value, Disabled } }`, `Columns` [3; 2 on narrow rows], `Multi`, `Default`, `AllowNone`, `Height`.
+- Value: one value or a list.
+- Mistakes: more than ~9 tiles (use Dropdown).
+
+### Segmented
+- For: 2-4 short, mutually exclusive modes (Low / Medium / High).
+- Options: `Values`, `Default`, `Stacked`.
+- Value: one of Values.
+
+### Input
+- For: free text or an unbounded number (a player name, a message, an amount).
+- Options: `Default`, `Placeholder`, `Numeric` (with `Min`, `Max`), `MaxLength`, `Counter`, `Live` [false: callback when typing ends], `Width` [150], `LeadingIcon`, `Clearable`, `Password` (dots while not typing), `MultiLine` (with `Lines` [4]).
+- Value: string, or number with Numeric. Invalid numeric text is rejected and the old value kept.
+- Looks: Boxed (default), Underline, Filled, Pill.
+- Mistakes: Live = true for something that runs on every keystroke and is expensive.
+
+### Keybind
+- For: a key the player chooses for an action.
+- Options: `Default` (Enum.KeyCode), `Mode` ("Press" default, "Toggle", "Hold"), `ModePicker` (right-click or long press to change mode), `ChangedCallback(key)`, `ModeChangedCallback(mode)`.
+- Value: Enum.KeyCode or nil. Callback() on press (Press), Callback(bool) for Toggle and Hold. `GetMode()`, `SetMode(name)`.
+- Looks: Chip (default), Keycap, Brackets.
+- Notes: press the chip then a key; Escape cancels, Backspace clears. Keys typed into text boxes are ignored. A Toggle's own `Keybind` option is usually better than a separate Keybind row.
+
+### ColorPicker
+- For: a colour (ESP colour, highlight).
+- Options: `Default` (Color3), `Alpha` (adds transparency), `Transparency`, `Palette` (true or list of Color3), `Recent` [true].
+- Value: Color3 (and transparency). Callback when a drag ends or a hex is typed, not every move. `Set` accepts a hex string.
+
+### DatePicker
+- For: a date and optionally a time (schedule, event).
+- Options: `Default = { Year, Month, Day, Hour, Minute }` [today], `Time`, `WeekStart` ("Monday" | "Sunday"), `Width`.
+- Value: that table. `GetTimestamp()`.
+
+### Stepper
+- For: a small exact count (amount to buy, number of runs).
+- Options: `Min`, `Max`, `Step` [1], `Default` [0], `Suffix`, `Drag` [true: drag the number sideways].
+- Value: number.
+
+### Rating
+- For: a small level choice shown as icons (1-5 strength).
+- Options: `Max` [5], `Default` [0], `Icon` ["star"], `AllowNone`.
+- Value: number.
+
+### Progress
+- For: showing progress the hub measures (quest, download).
+- Options: `Value` [0], `Max` [100], `Suffix`.
+- Value: number; `Set(n)` moves it. No Callback.
+- Mistakes: faking progress on a timer.
+
+### Status
+- For: a state the player should see at a glance (Online, Patched, Farming).
+- Options: `Status` (words), `Kind` ("success", "warning", "danger", "info", "muted"), `Pulse`.
+- `SetStatus(text, kind)`, `SetPulse(bool)`. Words always state the state; colour is never the only signal.
+
+### Countdown
+- For: time left until something the hub knows (boss spawn, cooldown).
+- Options: `Seconds` or `Ends` (os.time value), `Done` (text at zero), `Format`, `Callback` (at zero).
+- `Set(seconds)`, `SetEnd(timestamp)`, `Get()` seconds left.
+
+### Table
+- For: rows and columns of read-only data (leaderboard, item stats, logs).
+- Options: `Columns` ("Name" or `{ Title, Width = 0..1, Align }`), `Rows`, `Sortable` [true], `MaxHeight` [220], `Striped` [true], `EmptyText`, optional `Title`.
+- `SetRows(rows)`, `AddRow(values)`, `Clear()`. Numbers sort as numbers.
+
+### Accordion
+- For: help text, FAQ, patch notes inside a tab.
+- Options: `Content` (rich text), `Open`.
+- `SetOpen(bool)`, `Set(content)`.
+
+### Paragraph
+- For: a titled block of explanation.
+- Options: `Content` (rich text), `Icon`, `Image`, `ImageSize` [48], `Buttons = { { Title, Variant, Callback } }`.
+- `Set(text)` or `Set({ Title, Content })`.
+
+### Label
+- For: one line of text; callouts for info, warnings, success.
+- `Label("text")` or `Label({ Title, Style = "Plain" | "Info" | "Success" | "Warning" | "Danger" | "Note", Icon })`. `SetKind(name)`.
+- Mistakes: using Warning callouts for routine text (they lose meaning).
+
+### Divider, Space, Code, Image
+- `Divider({ Title })`: a rule, optionally titled.
+- `Space({ Height = 8 })`: empty room.
 - `Code({ Title, Code })`: a code block with a copy button; `Set(code)`.
-- `Image({ Image, Height, Crop })`.
+- `Image({ Image, Height = 140, Crop })`: any image source.
+
+## Looks and presets
+
+- Pick a look: element `Style`; window `Styles = { Toggle = "Slim" }`; or `Preset`.
+- Precedence: element Style > window Styles/single options > Preset > default. Misspelt names fall back to the default.
+- Presets: Classic (default look), Minimal, Glass, Neon, Compact.
+- Kinds and looks:
+  - Toggle: Switch, Large, Slim, Square, Labelled, Icon, Glow, Checkbox, Circle, Chip
+  - Slider: Line, Thin, Thick, Handle, Ticks, Bare, Block
+  - Button: Row, Filled, Outline, Danger, Soft, Ghost, Gradient, Success
+  - ButtonEffect: Sweep, Ripple, Lift, Glow, Press, Fill, None
+  - Input: Boxed, Underline, Filled, Pill
+  - Dropdown: Box, Minimal, Chips, Inline
+  - Keybind: Chip, Keycap, Brackets
+  - Label: Plain, Info, Success, Warning, Danger, Note
+  - Section: Card, Outlined, Flat, Glass, Accent, Inset, Header
+  - TabIndicator: Bar, Pill, Underline, Dot, Glow, Fill
+  - Navigation: Sidebar, Rail, Top, Dock
+  - Window: Solid, Glass, Gradient, Image
+  - Open: Pop, Zoom, Rise, Drop, Slide, Unroll, None
+  - PageTransition: Rise, Slide, None
+  - Controls: Default, Mac
+  - Minimize: Topbar, Pill, Chip
+  - TopbarImage: Circle, Rounded, Square, Squircle, Ring, Badge
+  - Notification: Default, Timer, Compact, Banner, Progress, Accent, Glass, Achievement, Snackbar, Island
+  - Tooltip: Card, Plain, Follow
+  - Watermark: Card, Pill, Accent, Minimal
+  - KeybindList: Card, Glass, Minimal
+  - UpdateLog: Timeline, Cards, Compact
+  - Thumb: Circle, Oval, Square
+  - SliderTooltip: Rounded, Sharp, Pill, Plain
+- `Halcyon:AddStyle("Toggle", "Wide", { width = 52 }, "Switch")` makes a look from a base.
 
 ## Key system
 
@@ -146,14 +365,13 @@ Common handle members: `Get()`, `Set(value)`, `Changed:Connect(fn)`, `SetTitle(t
 KeySystem = {
 	Title = "My Hub access", Note = "Where to get a key", Icon = "key-round",
 	SaveKey = true, MaxAttempts = 5, Cooldown = 30, DefaultTier = "Free",
-	ShowExpiry = true, -- false hides key expiry on the prompt and the profile card
-	ButtonEffect = "Sweep",
+	ShowExpiry = true, ButtonEffect = "Sweep",
+	Discord = "https://discord.gg/yourcode", -- round invite button under the prompt; false/nil leaves it out
 	OnSuccess = function(access) end, OnFail = function(message) end,
 	Tiers = { -- lowest to highest
+		{ NoKey = true }, -- "Keyless": continue with no key, listed first
 		{ Name = "Free", Description = "…", Keys = { "KEY" }, Link = "https://…", LinkLabel = "Get a key", Duration = 86400 },
-		{ NoKey = true }, -- the Keyless tier: continue with no key; Name defaults to "Keyless"
 		{ Name = "Free", AdService = { Name = "Linkvertise", Link = "https://…", Confirm = function(key) return ok, message end } },
-		{ Name = "Free", AdService = { Name = "Lootlabs", RequiresKey = false, Link = "https://…", Confirm = function() return ok end } },
 		{ Name = "Paid", Validate = function(key) return ok, message end },
 		{ Name = "Paid", Remote = { Url = "https://…", Method = "POST", Headers = {}, Body = function(key) return body end, Accept = function(body, status) return ok, message end } },
 		{ Name = "Staff", Keys = { "…" }, Paid = true },
@@ -161,52 +379,96 @@ KeySystem = {
 }
 ```
 
-- "Free" means a key the player earns (usually through an ad service); never give the Free tier `NoKey`. A tier with no key is "Keyless" and is listed first.
-- One tier only: put `Keys`, `Remote`, `Link` at the top level and omit `Tiers`. A top-level `Validate(key)` may return `true` or a tier name.
-- `access` = `{ Tier, Rank, Tiers, PaidRank, Key, Saved, Data, ExpiresAt, ShowExpiry }`. A tier may also set `Icon` and `Tag` for its card in the prompt.
-- A section or tab with `Tier`/`PaidOnly` shows one overlay over its rows with `LockText` and `LockHint`.
-- No key system and no `Tiers`: the window's tier is `"Keyless"`. Rows with `Tier` or `PaidOnly` stay locked.
-- Lock rows: `PaidOnly = true` (any paid tier) or `Tier = "Name"` (that tier or higher), on an element, section or tab.
-- The tier named "Paid" is paid by default; `Paid = true` marks another. Tiers above a paid one are paid too.
-- `Confirm` and `Validate` must ask the hub's own server (or the ad service's API). Halcyon cannot detect a finished ad by itself and bundles no service endpoints; do not invent any.
+- "Free" is a key the player earns (usually via an ad service); never give Free `NoKey`. No key = "Keyless".
+- One tier only: put `Keys`, `Remote`, `Link` at the top level and omit `Tiers`. A top-level `Validate(key)` may return true or a tier name.
+- `access` = `{ Tier, Rank, Tiers, PaidRank, Key, Saved, Data, ExpiresAt, ShowExpiry }`. Tiers may set `Icon` and `Tag` for their card.
+- Locks: `PaidOnly = true` (any paid tier) or `Tier = "Name"` (that tier or higher) on an element, section or tab. "Paid" is paid by default; `Paid = true` marks another tier; tiers above a paid one are paid.
+- No key system and no Tiers: the tier is "Keyless"; locked rows stay locked.
+- `Confirm`/`Validate`/`Remote` must ask the hub's own server or the ad service's API. Halcyon cannot detect a finished ad and bundles no endpoints; never invent any.
+- Running `CreateWindow` again in the same session reuses granted access; `KeySystem.Reprompt = true` asks again.
 
-## Notifications and dialogs
+## Profile
+
+`Profile = false` hides the card. Otherwise a table, all optional:
+- `Avatar` ("Headshot" | "Viewport" | "None"), `Anonymous`, `ShowUsername`, `ShowTier`, `ShowExecutor`, `ShowClock`, `ShowDate`, `ClockFormat`, `DateFormat`, `Name`, `Subtitle`
+- `Discord = "https://discord.gg/yourcode"`: a round invite button beside the tier, separate from the key prompt's. A table `{ Link, Icon }` sets your own mark; the default is the Discord logo.
+
+## Notifications
 
 ```lua
-Window:Notify({ Title, Content, Kind = "info" | "success" | "warning" | "danger", Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress" | "Accent" | "Glass" | "Achievement" | "Snackbar" | "Island", Sound = true | soundId, Icon, Duration = 4, Progress = true, Actions = { { Title, Callback } } })
--- returns { Dismiss, SetTitle, SetContent, SetProgress(0..1), Done(title, kind) }; a Progress notice stays until Done.
-Halcyon:SetNotificationDefaults({ Duration = 6, Position = "TopRight", Progress = true, MaxVisible = 3 })
-Window:Dialog({ Title, Content, Icon, Dismissible, Buttons = { { Title = "Keep" }, { Title = "Delete", Variant = "Danger", Callback = fn } } })
+local notice = Window:Notify({
+	Title = "Config saved", Content = "…",
+	Kind = "info" | "success" | "warning" | "danger",
+	Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress" | "Accent" | "Glass" | "Achievement" | "Snackbar" | "Island",
+	Icon = "save", Duration = 4, Progress = true, Sound = false,
+	Actions = { { Title = "Undo", Callback = fn } },
+})
+-- notice.Dismiss(), SetTitle(t), SetContent(t), SetProgress(0..1), Done(title, kind)
 ```
 
-`Duration = 0` stays until tapped. Positions: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight. Dialog button `Variant`: "Primary" | "Danger".
+- `Duration = 0` stays until tapped. A Progress notice stays until `Done`.
+- Positions: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight (narrow screens use the top). Island always sits at the top centre.
+- Snackbar shows its first action as a word (Undo).
 
-## Settings tab and overlays
+## Dialogs and panels
 
-- `Window:SettingsTab({ Title, Icon, Group, Theme, Accent, Navigation, Scale, ReduceMotion, MenuKey, Minimize, Anonymous, Configs, Unload })`: each named row is on unless `false`.
-- `Window:Watermark({ Fields = { "Title", "User", "Executor", "FPS", "Ping", "Time", "Date", "any text", function() return "text" end } })` -> `{ SetVisible, Destroy }`.
-- `Window:KeybindList({ Title })` -> `{ SetVisible, Destroy }`.
+- `Window:Dialog({ Title, Content, Icon, Dismissible, Buttons = { { Title, Variant = "Primary" | "Danger" | "Ghost", Delay = seconds, Callback } } })`. Name buttons by outcome ("Delete", "Keep"). `Delay` holds a button back with a countdown. Dismissible: a press outside or Escape closes.
+- `Window:Loading({ Title, Text, Icon })` -> `{ SetProgress(fraction, text), Done() }`: report real setup steps only.
+- `Window:Changelog({ Version, Title, Entries = { { Kind, Text } }, Force })`: a What's new card shown once per version.
+- `Window:About(tab, { Description, Credits = { { Name, Role } }, Discord, Links = { { Title, Url } } })`: links copy on press.
+- `Window:Lock({ Title, Text, Icon, Button = { Title, Callback } })`, `Window:Unlock()`: maintenance or update screens.
+
+## Update log
+
+```lua
+UpdateLog = {
+	Title = "Updates", Icon = "clock", Group = "Info", Style = "Timeline" | "Cards" | "Compact",
+	Popup = false, Search = true, Filters = true, ExpandAll = false,
+	Updates = {
+		{ Version = "1.2.0", Date = "12 Nov 2026", Title = "Auto farm", Summary = "…", Image = "rbxassetid://…", Pinned = false,
+			Entries = { { Kind = "New" | "Improved" | "Fixed" | "Removed" | "Security", Text = "…" }, "plain string = New" } },
+	},
+}
+Window:AddUpdate({ Version = "1.2.1", Entries = { { Kind = "Fixed", Text = "…" } } })
+```
+
+- The tab is added after the hub's own tabs. Releases sort by version number (1.10 after 1.9), newest first; the newest is open and marked Latest; the tab is badged until opened.
+- `Popup = true` shows the newest release once as a What's new card.
+- `UpdateLog = false` (or nil) builds nothing; AddUpdate then warns.
+
+## Images
+
+Anywhere an image or icon is accepted:
+- an icon name ("sword", "solar:home"), an asset id (1234, "rbxassetid://1234", "rbxthumb://...")
+- an http(s) URL: downloaded once to Halcyon/assets/, shown through getcustomasset
+- a workspace file ("myhub/logo.png"): must stay inside the workspace
+
+Images over 5 MB are refused. Without getcustomasset (Studio, some executors) an image icon shows instead. `Halcyon:Image(source, callback)` gives you an id for your own use.
+
+## Personalisation and settings
+
+- `Window:SettingsTab({ Title, Icon, Group, ScaleControl = "Slider", Personalise = true, ThemeBuilder = true, ... })`. Rows Theme, Accent, Navigation, Scale, ReduceMotion, MenuKey, Minimize, Anonymous, Configs, Unload are on unless set false. Personalise and ThemeBuilder are off unless true.
+- `Window:SetPersonal(key, value)` with Font, TextSize, Radius, Density, Transparency (0-0.6), NoticePosition, AccentGradient, SafeStatus. Saved per player.
+- `Window:Watermark({ Fields = { "Title", "User", "Executor", "FPS", "Ping", "Time", "Date", "text", fn }, Style, Position })` and `Window:KeybindList({ Title, Style, Position })` -> `{ SetVisible, Destroy }`.
 
 ## Themes and icons
 
+- Themes: Midnight (default), Onyx, Rose, Aqua, Ember, Forest, Amethyst, Crimson, Glacier, Daylight, OLED, Contrast, Sunset, Ocean, Aurora, Latte.
 - Roles: background, surface, card, raised, hover, stroke, text, textMuted, accent, accentHover, onAccent, focus, success, warning, danger, info.
-- `Halcyon:AddTheme({ Name = "Mine", Base = "Midnight", accent = Color3.fromRGB(80, 220, 160) })`: roles left out come from `Base`. Returns `ok, message`; refused when a role is missing or text is unreadable.
-- Icon values: `"lucide-name"`, `"pack:name"` with pack one of lucide, solar, geist, craft, gravity, sfsymbols, an asset id number, or `"rbxassetid://…"`.
-- Built-in Lucide names that always draw, even offline: x, check, chevron-down, chevron-right, chevron-up, chevron-left, search, settings, minus, plus, copy, lock, lock-open, key, key-round, crown, user, users, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, bell, palette, keyboard, house, sword, swords, shield, zap, star, heart, target, crosshair, map, map-pin, compass, rocket, flame, gem, coins, gift, trophy, gamepad-2, move, menu, refresh-cw, download, upload, save, trash-2, folder, file, file-text, code, terminal, link, globe, clock, calendar, sun, moon, monitor, smartphone, cpu, wifi, activity, sliders-horizontal, list, layout-grid, layers, box, package, wrench, hammer, bug, sparkles, bot, ghost, skull, footprints, wind, droplet, leaf, mountain, car, plane, shopping-cart, tag, ticket, badge-check, wallet, camera, image, video, music, volume-2, mic, message-circle, send, mail, hash, pipette, power, log-out, play, pause, timer, gauge, fingerprint, scan, radar, pin, bookmark, flag, funnel, arrow-right, arrow-left, arrow-up, arrow-down, person-standing, hand, shield-check, paintbrush, panel-left.
-- Other Lucide names load from the network on first use and stay blank if that fails.
+- `Halcyon:AddTheme({ Name = "Mine", Base = "Midnight", accent = Color3.fromRGB(80, 220, 160) })`: roles left out come from Base. Refused when text would be unreadable.
+- Icon packs: lucide (default, a core set built in), solar, geist, craft, gravity, sfsymbols (downloaded on first use). Use "pack:name".
+- Built-in Lucide names that draw offline: x, check, chevron-down, chevron-right, chevron-up, chevron-left, search, settings, minus, plus, copy, lock, lock-open, key, key-round, crown, user, users, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, bell, palette, keyboard, house, sword, swords, shield, zap, star, heart, target, crosshair, map, map-pin, compass, rocket, flame, gem, coins, gift, trophy, gamepad-2, move, menu, refresh-cw, download, upload, save, trash-2, folder, file, file-text, code, terminal, link, globe, clock, calendar, sun, moon, monitor, smartphone, cpu, wifi, activity, sliders-horizontal, list, layout-grid, layers, box, package, wrench, hammer, bug, sparkles, bot, ghost, skull, footprints, wind, droplet, leaf, mountain, car, plane, shopping-cart, tag, ticket, badge-check, wallet, camera, image, video, music, volume-2, mic, message-circle, send, mail, hash, pipette, power, log-out, play, pause, timer, gauge, fingerprint, scan, radar, pin, bookmark, flag, funnel, arrow-right, arrow-left, arrow-up, arrow-down, person-standing, hand, shield-check, paintbrush, panel-left, maximize-2, minimize-2, grip-vertical, ellipsis, external-link, circle, circle-user-round, square, toggle-left, text-cursor-input, mouse-pointer-2, type, at-sign, credit-card, droplet.
+- Other Lucide names download on first use and stay blank if that fails.
 
 ## Files written (executor workspace)
 
-- `Halcyon/<Folder>/configs/<name>.json`: values of flagged elements
-- `Halcyon/<Folder>/autoload.txt`: the config `LoadAutoload()` loads
-- `Halcyon/<Folder>/settings.json`: the player's interface choices
-- `Halcyon/<Folder>/key.json`: the accepted key, plain text
-- `Halcyon/cache/icons/<pack>.lua`: downloaded icon packs
+- Halcyon/<Folder>/configs/<name>.json: flagged values
+- Halcyon/<Folder>/autoload.txt: the config LoadAutoload loads
+- Halcyon/<Folder>/settings.json: interface choices, personal look, seen spotlights and updates
+- Halcyon/<Folder>/key.json: the accepted key
+- Halcyon/cache/icons/<pack>.lua: icon packs
+- Halcyon/assets/<hash>.<ext>: downloaded images
 
 ## Extending the library
 
-Source is in `src/`; `dist/Halcyon.luau` is generated by `node tools/bundle.mjs` and never edited by hand.
-
-To add an element: create `src/Elements/Name.luau` exporting `Name.new(container, options)`, build it on `Row.new(container, options, { button = true })` (or no third argument for a row holding its own controls), put controls in `row.slot`, give `row.handle` a `Get` and `Set`, call `row.fire(value)` from `Set`, connect everything through `row.scope:connect(...)`, colour everything with `Theme = { Property = "role" }`, then add one line to `MODULES` in `src/Elements/Registry.luau`. Add assertions to `tests/library.test.luau` and run `node tools/test.mjs`.
-
-An element must not create its own ScreenGui (use `Popup.toggle`), run per-frame work, use a literal colour in place of a role, or call a Callback while it is being created.
+Source is in src/; dist/Halcyon.luau is generated by `node tools/bundle.mjs`. To add an element: create src/Elements/Name.luau exporting `Name.new(container, options)`, build on `Row.new(container, options, layout)`, put controls in `row.slot`, give `row.handle` Get and Set, call `row.fire(value)` from Set, connect through `row.scope`, colour with `Theme = { Property = "role" }`, and add it to MODULES in src/Elements/Registry.luau. Add tests under tests/ and run `node tools/test.mjs`. An element must not create its own ScreenGui, run per-frame work, use literal colours for themed parts, or call its Callback while being created.
