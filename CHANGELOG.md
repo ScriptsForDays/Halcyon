@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.0.0
+
+A look for every control, presets, and the UI pieces hub developers used to build by hand. Nothing changes until a hub opts in: the defaults draw as 1.0 did.
+
+- **Style system.** Every kind of control registers named looks. Pick one per element (`Style`), per window (`Styles = {...}`), or with a preset (`Preset = "Classic" | "Minimal" | "Glass" | "Neon" | "Compact"`). Hubs can add their own looks (`AddStyle`) and presets (`AddPreset`). `Radius`, `Density` and `TextSize` retune the whole library.
+- **Control looks.**
+  - Toggle: 10 looks.
+  - Slider: 7 looks, plus Prefix, Percent, Format, Display and DefaultMarker.
+  - Button: 8 looks, 2 more effects (Press, Fill), Hold, Confirm, ShowDone and SetLoading.
+  - Input: 4 looks, plus LeadingIcon, Clearable, Counter, Password and MultiLine.
+  - Dropdown: Box, Minimal, Chips and Inline, with option icons, descriptions, headings, disabled options and player lists.
+  - Keybind: 3 looks and a mode picker.
+  - Colour picker: palette, recent colours and copy.
+- **New controls:** Radio, Checklist, Chips, Tiles, Rating, Accordion, Status, Countdown, Table, DatePicker, Buttons (several in one row), Space and callout Labels. Paragraph takes an image and buttons, and Stepper can be dragged.
+- **Window:**
+  - Solid, Glass, Gradient and Image surfaces, with Transparency.
+  - Open animations: Pop, Zoom, Rise, Drop, Slide and Unroll.
+  - Page transitions and Mac-style dot controls.
+  - Top-bar buttons, a sidebar toggle and width, edge snapping, and `SetEnabled`.
+- **Navigation and sections:**
+  - Tab markers: Bar, Pill, Underline, Dot, Glow and Fill.
+  - Page headers and notices.
+  - Search that matches tab names and marks the match.
+  - Section looks: Glass, Accent, Inset and Header.
+  - Tabs inside sections, header switches, `MaxHeight`, and `ShowWhen` dependencies.
+- **Feedback:**
+  - Hover tooltips on any row.
+  - One-time spotlights.
+  - Five notice looks (Accent, Glass, Achievement, Snackbar, Island) and an opt-in chime.
+  - Watermark and keybind-list looks.
+  - A Ctrl+K command palette.
+  - Dialog buttons held back by a countdown, a Ghost button, and Escape to close.
+- **Personalisation:**
+  - Six new themes (OLED, Contrast, Sunset, Ocean, Aurora, Latte).
+  - Players change font, text size, corners, spacing, transparency and notice position live, with their choices saved.
+  - A theme builder with save, copy and import.
+  - Gradient accent and colour-blind-friendly status colours.
+  - A focus ring for gamepad and keyboard navigation.
+- **Hub panels:** `Loading` (real progress only), `Changelog` (once per version), `About`, `EmptyState`, `Lock`/`Unlock`.
+- **Rebuilding:** running `CreateWindow` again in the same session keeps the access the player was already given (`KeySystem.Reprompt = true` asks again).
+
 ## 1.0.0
 
 First release.

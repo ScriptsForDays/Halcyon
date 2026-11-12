@@ -4,6 +4,7 @@
 
 local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
+local Panels = require("./Panels")
 local Registry = require("../Elements/Registry")
 local Section = require("./Section")
 local Styles = require("../Core/Styles")
@@ -196,6 +197,17 @@ function Tab:Notice(options)
 		scope:connect(close.Activated, notice.Destroy)
 	end
 	return notice
+end
+
+-- A centred card for a tab with nothing to show yet, or that failed to
+-- load (Kind = "error"). Returns { SetText, Destroy }.
+function Tab:EmptyState(options)
+	return Panels.state(self, options)
+end
+
+-- An About section on this tab; see Panels.about.
+function Tab:About(options)
+	return Panels.about(self.window, self, options)
 end
 
 -- Hides rows that do not match and sections left empty. Returns the match

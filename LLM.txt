@@ -58,6 +58,7 @@ Window:LoadAutoload()
 - `Halcyon:SetTheme(name)`, `:GetTheme()`, `:GetThemes()`, `:AddTheme(palette) -> ok, message`, `:SetAccent(Color3 | nil)`
 - `Halcyon:AddIconPack(name, icons)`, `:SetIconPack(name)`, `:SetFont(font)`
 - `Halcyon:GetExecutor() -> name, version`
+- `Halcyon:GetStyles(kind?) -> names`, `:AddStyle(kind, name, spec, base?)`, `:GetPresets()`, `:AddPreset(name, options)`
 - `Halcyon:Unload()`
 - `Halcyon.Version`, `Halcyon.ThemeChanged:Connect(function(name) end)`
 
@@ -66,9 +67,16 @@ Window:LoadAutoload()
 - `Title`, `Subtitle`, `Icon`
 - `Version = "v1.2.0"`: the tag beside the title; `ShowVersion = false` hides it
 - `Folder`: save folder and hub identity (default: Title)
-- `Theme`: name or palette table. Names: Midnight, Onyx, Rose, Aqua, Ember, Forest, Amethyst, Crimson, Glacier, Daylight
+- `Theme`: name or palette table. Names: Midnight, Onyx, Rose, Aqua, Ember, Forest, Amethyst, Crimson, Glacier, Daylight, OLED, Contrast, Sunset, Ocean, Aurora, Latte
+- `Preset`: "Classic" | "Minimal" | "Glass" | "Neon" | "Compact". Fills only options the hub left unset.
+- `Styles = { Kind = "Look" }`: default look per kind. Kinds and looks are listed in docs/styles.md; `Halcyon:GetStyles(kind)` lists them at runtime.
+- `WindowStyle`: "Solid" | "Glass" | "Gradient" | "Image"; `Transparency` (0 to 0.6); `BackgroundImage`, `BackgroundImageTransparency`
+- `OpenAnimation`: "Pop" | "Zoom" | "Rise" | "Drop" | "Slide" | "Unroll" | "None"; `PageTransition`: "Rise" | "Slide" | "None"
+- `TabIndicator`: "Bar" | "Pill" | "Underline" | "Dot" | "Glow" | "Fill"; `TopbarControls`: "Default" | "Mac"
+- `Radius`: "Sharp" | "Soft" | "Default" | "Round"; `Density`: "Compact" | "Default" | "Spacious"; `TextSize`: "Default" | "Large" | "Larger"
+- `AccentGradient = true | Color3`, `SafeStatusColors = true`, `SidebarWidth`, `SidebarToggle = true`, `Snap = true`, `CommandPalette = true` (Ctrl+K), `PaletteKey`
 - `TabStyle`: "Sidebar" (default) | "Rail" | "Top" | "Dock"
-- `SectionStyle`: "Card" (default) | "Outlined" | "Flat"
+- `SectionStyle`: "Card" (default) | "Outlined" | "Flat" | "Glass" | "Accent" | "Inset" | "Header"
 - `Size`: Vector2 or offset UDim2 (default 740 x 500); `Scale`: 0.75 to 1.25
 - `ToggleKey`: Enum.KeyCode (default RightShift)
 - `Font`, `IconPack`, `DisplayOrder`
@@ -85,11 +93,13 @@ Window:LoadAutoload()
 - `ShadowTransparency` (default 0.5), `ShadowImage`
 - `LockHint`, `PaidLockHint`: second line on locked section overlays
 - `CollapsedGroups = { "Group name" }`
-- Switches, on unless `false`: `ConfirmUnload`, `LockShimmer`, `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`. `OpenButton = true` shows the open button on desktop.
+- Switches, on unless `false`: `ConfirmUnload`, `LockShimmer`, `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`, `FocusRing`. `OpenButton = true` shows the open button on desktop.
 
 ## Window
 
 Methods: `Tab(options)`, `SelectTab(tab)`, `SettingsTab(options)`, `Show()`, `Hide()`, `Toggle()`, `Minimize(bool)`, `SetMinimizeStyle(name)`, `Search(text)`, `SetTabStyle(name)`, `SetScale(number)`, `SetToggleKey(keyCode)`, `SetTitle(text)`, `SetSubtitle(text)`, `SetVersion(text)`, `SetVersionVisible(bool)`, `SetAnonymous(bool)`, `SetProfile(table)`, `SetAccent(color)`, `SetReducedMotion(bool)`, `SetGroupCollapsed(name, bool)`, `SetSliderTooltips(enabled, style)`, `SetToggleOutline(enabled, color)`, `SetLockText(text, paidText)`, `SetLockHint(hint, paidHint)`, `GetKeyExpiry()`, `GetTier()`, `HasTier(name)`, `IsPaid()`, `SetTier(name)`, `Notify(options)`, `Dialog(options)`, `Watermark(options)`, `KeybindList(options)`, `SaveConfig(name)`, `LoadConfig(name)`, `DeleteConfig(name)`, `ListConfigs()`, `SetAutoload(name)`, `GetAutoload()`, `LoadAutoload()`, `Unload()`.
+
+Added in 2.0: `SetTransparency(n)`, `SetEnabled(bool)`, `AddTopbarButton({ Icon, Callback })`, `SetPersonal(key, value)` (Font, TextSize, Radius, Density, Transparency, NoticePosition, AccentGradient, SafeStatus), `PersonaliseSection(tab)`, `ThemeBuilder(tab)`, `OpenPalette()`, `Loading(options) -> { SetProgress(fraction, text), Done() }` (only real progress), `Changelog({ Version, Entries = { { Kind = "New" | "Improved" | "Fixed" | "Removed", Text } }, Force })` (once per version), `About(tab, { Description, Credits, Discord, Links })`, `Lock({ Title, Text, Icon, Button })`, `Unlock()`. `SettingsTab({ Personalise = true, ThemeBuilder = true })`.
 
 More: `RequestUnload()` (asks first unless ConfirmUnload = false), `ConfigSection(tabOrSection, options)`, `ConfigExists(name)`, `Require(names) -> missing`, `Tab:SetBadge(value)`. `SettingsTab({ ScaleControl = "Slider" })`. Slider `Live = false` calls back once on release.
 
@@ -97,30 +107,35 @@ Fields: `Flags` (flag name -> handle) `ConfigChanged` (action, name),, `OnUnload
 
 ## Tab and Section
 
-`Window:Tab({ Title, Icon, Group, SectionStyle, Tier, PaidOnly, LockText })` -> tab with `Section(options)`, `Select()`, `SetTitle(text)` and every element method.
+`Window:Tab({ Title, Icon, Group, Description, SectionStyle, Tier, PaidOnly, LockText })` -> tab with `Section(options)`, `Select()`, `SetTitle(text)`, `Notice({ Title, Content, Kind, Dismissible })`, `EmptyState({ Icon, Title, Text, Kind = "error", Button })`, `About(options)` and every element method.
 
-`Tab:Section({ Title, Icon, Style, Side = "Left" | "Right", Collapsible, Collapsed, Tier, PaidOnly, LockText })` -> section with `SetTitle`, `SetCollapsed(bool)`, `SetVisible(bool)`, `Destroy()` and every element method.
+`Tab:Section({ Title, Icon, IconColor, Description, Badge, Style, Side = "Left" | "Right", Collapsible, Collapsed, Tabs = { "A", "B" }, Switch = { Default, Flag, Callback }, MaxHeight, Tier, PaidOnly, LockText })` -> section with `SetTitle`, `SetBadge`, `SetCollapsed(bool)`, `SetVisible(bool)`, `Tab(name)` (an inner tab, with every element method), `SelectTab(name)`, `ShowWhen(source, value)`, `Destroy()` and every element method.
 
 `Group` puts tabs under a shared, foldable heading in the sidebar. `Side = "Right"` uses the second column when the page is wide enough.
 
 ## Elements
 
-Common options: `Title`, `Description`, `Icon`, `Flag`, `Callback`, `Tier`, `PaidOnly`, `LockText`, `Badge` ("New" | "Beta" | "Risky" | "Paid" | text | { Text, Color }), `Info` (text behind an info icon), `Requires` ({ "hookfunction", ... }: locked with the missing names when the executor lacks them).
+Common options: `Title`, `Description`, `Icon`, `Flag`, `Callback`, `Tier`, `PaidOnly`, `LockText`, `Badge` ("New" | "Beta" | "Risky" | "Paid" | text | { Text, Color }), `Info` (text behind an info icon), `Requires` ({ "hookfunction", ... }: locked with the missing names when the executor lacks them), `Style` (the element's look), `Tooltip` (text or { Title, Text, Key, Style }; on a Slider, true/false is its value bubble instead), `Spotlight` ({ Title, Text, Id }: shown once until dismissed).
 
-Common handle members: `Get()`, `Set(value)`, `Changed:Connect(fn)`, `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `Destroy()`, `Frame`, `Kind`, `Flag`.
+Common handle members: `Get()`, `Set(value)`, `Changed:Connect(fn)`, `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `ShowWhen(elementOrFlag, value | function)`, `Spotlight(options)`, `Destroy()`, `Frame`, `Kind`, `Flag`.
 
-- `Button({ Variant = "Filled" | "Outline" | "Danger", Effect = "Sweep" | "Ripple" | "Lift" | "Glow" | "None", TrailingIcon })`: Callback(); `Press()`. Without Variant the whole row is the button.
-- `Toggle({ Default, Style = "Switch" | "Checkbox", Thumb = "Circle" | "Oval" | "Square", Keybind = { Default, Mode = "Toggle" | "Hold", Flag }, Color = { Default, Alpha, Flag, Callback }, Outline, OutlineColor })`: Callback(boolean). Add-ons are `handle.Keybind` and `handle.Color`.
-- `Slider({ Min, Max, Step, Default, Suffix, Stacked, Range, Width, Tooltip, TooltipStyle })`: Callback(number), or Callback({ low, high }) with `Range = true`.
-- `Dropdown({ Values, Default, Multi, AllowNone, Searchable, Placeholder, Width })`: Callback(value | nil), or Callback(list) with `Multi = true`; `Refresh(values)`.
-- `Input({ Default, Placeholder, Numeric, Min, Max, Live, MaxLength, Width })`: Callback(string), or Callback(number) with `Numeric = true`.
-- `Keybind({ Default, Mode = "Press" | "Toggle" | "Hold", ChangedCallback })`: Callback() for Press, Callback(boolean) for Toggle and Hold. Value is the Enum.KeyCode.
-- `ColorPicker({ Default, Alpha, Transparency })`: Callback(Color3, transparency). `Set` takes a Color3 or a hex string.
+- `Button({ Variant = "Row" | "Filled" | "Outline" | "Danger" | "Soft" | "Ghost" | "Gradient" | "Success", Icon, Effect = "Sweep" | "Ripple" | "Lift" | "Glow" | "Press" | "Fill" | "None", TrailingIcon, Hold = seconds, Confirm = true | "wording", ShowDone })`: Callback(); `Press()`, `SetLoading(bool, text)`, `IsLoading()`. Without Variant the whole row is the button.
+- `Buttons({ Title?, Buttons = { { Title, Icon, Variant, Callback } } })`: several buttons sharing one row.
+- `Toggle({ Default, Style = "Switch" | "Large" | "Slim" | "Square" | "Labelled" | "Icon" | "Glow" | "Checkbox" | "Circle" | "Chip", Thumb = "Circle" | "Oval" | "Square", Keybind = { Default, Mode = "Toggle" | "Hold", Flag }, Color = { Default, Alpha, Flag, Callback }, Outline, OutlineColor })`: Callback(boolean). Add-ons are `handle.Keybind` and `handle.Color`.
+- `Slider({ Min, Max, Step, Default, Suffix, Prefix, Percent, Format = fn, Display = "Box" | "Text" | "Fraction" | "None", DefaultMarker, Style = "Line" | "Thin" | "Thick" | "Handle" | "Ticks" | "Bare" | "Block", Stacked, Range, Width, Tooltip, TooltipStyle, Live })`: Callback(number), or Callback({ low, high }) with `Range = true`.
+- `Dropdown({ Values, Default, Multi, AllowNone, Searchable, Placeholder, Width, Style = "Box" | "Minimal" | "Chips" | "Inline", Players = true, ExcludeSelf })`: Callback(value | nil), or Callback(list) with `Multi = true`; `Refresh(values)`. A value may be `{ Text, Value, Icon, Image, Description, Disabled }`, and `{ Heading = "Name" }` starts a group.
+- `Radio({ Values, Default, Inline })`, `Checklist({ Values, Default, SelectAll })`, `Chips({ Values, Default, Multi })`, `Tiles({ Items = { { Title, Icon, Description, Value } }, Columns, Multi })`.
+- `Input({ Default, Placeholder, Numeric, Min, Max, Live, MaxLength, Width, Style = "Boxed" | "Underline" | "Filled" | "Pill", LeadingIcon, Clearable, Counter, Password, MultiLine, Lines })`: Callback(string), or Callback(number) with `Numeric = true`.
+- `Keybind({ Default, Mode = "Press" | "Toggle" | "Hold", Style = "Chip" | "Keycap" | "Brackets", ModePicker, ChangedCallback, ModeChangedCallback })`: Callback() for Press, Callback(boolean) for Toggle and Hold. Value is the Enum.KeyCode. `GetMode()`, `SetMode(name)`.
+- `ColorPicker({ Default, Alpha, Transparency, Palette = true | { Color3 }, Recent })`: Callback(Color3, transparency). `Set` takes a Color3 or a hex string.
+- `DatePicker({ Default = { Year, Month, Day, Hour, Minute }, Time, WeekStart })`: Callback(table); `GetTimestamp()`.
 - `Segmented({ Values, Default, Stacked })`: Callback(value).
-- `Stepper({ Min, Max, Step, Default, Suffix })`: Callback(number).
+- `Stepper({ Min, Max, Step, Default, Suffix, Drag })`: Callback(number).
+- `Rating({ Max, Default, Icon })`, `Status({ Status, Kind, Pulse })` with `SetStatus(text, kind)`, `Countdown({ Seconds | Ends, Done, Format, Callback })`, `Accordion({ Content, Open })`, `Space({ Height })`.
+- `Table({ Title?, Columns = { "Name", { Title, Width, Align } }, Rows, Sortable, MaxHeight })`: `SetRows`, `AddRow`, `Clear`.
 - `Progress({ Value, Max, Suffix })`: `Set(number)`.
-- `Paragraph({ Title, Content, Icon })`: `Set(text)` or `Set({ Title, Content })`.
-- `Label("text")` or `Label({ Title })`.
+- `Paragraph({ Title, Content, Icon, Image, Buttons })`: `Set(text)` or `Set({ Title, Content })`.
+- `Label("text")` or `Label({ Title, Style = "Plain" | "Info" | "Success" | "Warning" | "Danger" | "Note" })`.
 - `Divider({ Title })`.
 - `Code({ Title, Code })`: a code block with a copy button; `Set(code)`.
 - `Image({ Image, Height, Crop })`.
@@ -158,7 +173,7 @@ KeySystem = {
 ## Notifications and dialogs
 
 ```lua
-Window:Notify({ Title, Content, Kind = "info" | "success" | "warning" | "danger", Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress", Icon, Duration = 4, Progress = true, Actions = { { Title, Callback } } })
+Window:Notify({ Title, Content, Kind = "info" | "success" | "warning" | "danger", Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress" | "Accent" | "Glass" | "Achievement" | "Snackbar" | "Island", Sound = true | soundId, Icon, Duration = 4, Progress = true, Actions = { { Title, Callback } } })
 -- returns { Dismiss, SetTitle, SetContent, SetProgress(0..1), Done(title, kind) }; a Progress notice stays until Done.
 Halcyon:SetNotificationDefaults({ Duration = 6, Position = "TopRight", Progress = true, MaxVisible = 3 })
 Window:Dialog({ Title, Content, Icon, Dismissible, Buttons = { { Title = "Keep" }, { Title = "Delete", Variant = "Danger", Callback = fn } } })

@@ -56,11 +56,11 @@ Styles.register("Toggle", "Square", {
 })
 Styles.register("Toggle", "Labelled", {
 	kind = "switch",
-	width = 52,
-	height = 22,
+	width = 60,
+	height = 24,
 	corner = -1,
 	inset = 3,
-	thumb = { width = 16, height = 16, corner = -1 },
+	thumb = { width = 18, height = 18, corner = -1 },
 	labels = { "ON", "OFF" },
 })
 Styles.register("Toggle", "Icon", {
@@ -216,7 +216,7 @@ function Toggle.new(container, options)
 				Size = UDim2.fromOffset(0, height),
 				AutomaticSize = Enum.AutomaticSize.X,
 				AnchorPoint = Vector2.new(1, 0.5),
-				TextSize = 9,
+				TextSize = 12,
 				Weight = "bold",
 				Parent = track,
 			})

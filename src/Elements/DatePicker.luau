@@ -147,7 +147,7 @@ function DatePicker.new(container, options)
 		for index, name in names do
 			Create.new("TextLabel", {
 				Text = name,
-				TextSize = 11,
+				TextSize = 12,
 				Weight = "bold",
 				TextXAlignment = Enum.TextXAlignment.Center,
 				LayoutOrder = index,

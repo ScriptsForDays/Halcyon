@@ -59,7 +59,7 @@ local function build(library, spec, look)
 				Size = UDim2.fromOffset(0, 16),
 				AutomaticSize = Enum.AutomaticSize.X,
 				Text = tostring(spec.Key),
-				TextSize = 11,
+				TextSize = 12,
 				Weight = "bold",
 				LayoutOrder = 1,
 				Theme = { BackgroundColor3 = "raised", TextColor3 = "textMuted" },
@@ -139,7 +139,6 @@ function Tooltip.attach(row, spec)
 			end
 		end)
 	end
-
 
 	scope:connect(target.MouseEnter, function()
 		generation += 1

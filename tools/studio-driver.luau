@@ -45,6 +45,13 @@ local function run(command)
 	elseif name == "personal" then
 		local key, value = string.match(argument, "^(%w+)=(.*)$")
 		Window:SetPersonal(key, if value == "true" then true elseif value == "false" then false else tonumber(value) or value)
+	elseif name == "look" then
+		-- look:Preset=Glass,WindowStyle=Glass rebuilds the example in that look.
+		local chosen = {}
+		for key, value in string.gmatch(argument, "(%w+)=(%w+)") do
+			chosen[key] = value
+		end
+		start(chosen)
 	elseif name == "palette" then
 		Window:OpenPalette()
 	elseif name == "set" then

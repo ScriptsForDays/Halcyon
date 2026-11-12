@@ -116,6 +116,9 @@ function Halcyon:CreateWindow(options)
 	local registry = Env.globals()
 	registry.HalcyonWindows = registry.HalcyonWindows or {}
 	local previous = registry.HalcyonWindows[folder]
+	-- A rebuild in the same session (a new look, a reloaded hub) keeps the
+	-- access the player was already given instead of asking for the key again.
+	local granted = if previous and previous.access and previous.access.Tiers then previous.access else nil
 	if previous then
 		pcall(previous.Unload, previous)
 	end
@@ -142,7 +145,9 @@ function Halcyon:CreateWindow(options)
 	end
 
 	local access
-	if options.KeySystem then
+	if options.KeySystem and granted and options.KeySystem.Reprompt ~= true then
+		access = granted
+	elseif options.KeySystem then
 		access = KeySystem.prompt(library, options.KeySystem, { folder = folder, title = options.Title or "Halcyon" })
 		if not access then
 			return nil

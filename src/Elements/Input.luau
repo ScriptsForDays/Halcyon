@@ -92,7 +92,7 @@ function Input.new(container, options)
 			Name = "Counter",
 			Size = UDim2.fromScale(0, 1),
 			AutomaticSize = Enum.AutomaticSize.X,
-			TextSize = 11,
+			TextSize = 12,
 			LayoutOrder = 4,
 			Theme = { TextColor3 = "textMuted" },
 			Parent = inner,

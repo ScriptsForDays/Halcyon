@@ -57,7 +57,7 @@ function Table.new(container, options)
 			Name = "Cell",
 			Size = UDim2.new(column.width, 0, 1, 0),
 			Text = text,
-			TextSize = if header then 11 else 13,
+			TextSize = if header then 12 else 13,
 			Weight = if header then "bold" else "regular",
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextXAlignment = Enum.TextXAlignment[column.align or "Left"] or Enum.TextXAlignment.Left,

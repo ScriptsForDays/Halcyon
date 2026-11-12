@@ -111,7 +111,7 @@ function Tiles.new(container, options)
 				Name = "Description",
 				Size = UDim2.new(1, 0, 0, 14),
 				Text = tostring(entry.description),
-				TextSize = 11,
+				TextSize = 12,
 				TextXAlignment = Enum.TextXAlignment.Center,
 				TextTruncate = Enum.TextTruncate.AtEnd,
 				LayoutOrder = 2,

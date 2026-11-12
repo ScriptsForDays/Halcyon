@@ -54,7 +54,7 @@ function Presets.register(name, preset)
 		table.insert(Presets.order, name)
 	end
 	Presets.list[name] = preset
-	return true
+	return true, nil
 end
 
 -- Returns the window options with the named preset filled in underneath.

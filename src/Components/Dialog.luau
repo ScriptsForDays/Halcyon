@@ -1,6 +1,8 @@
 -- A modal card over a scrim. The scrim takes every press, so nothing under
 -- the dialog can be clicked until it is answered.
 
+local UserInputService = game:GetService("UserInputService")
+
 local Create = require("../Core/Create")
 local Effects = require("../Core/Effects")
 local Env = require("../Core/Env")
@@ -12,6 +14,7 @@ local VARIANTS = {
 	Primary = { fill = "accent", hover = "accentHover", text = "onAccent" },
 	Danger = { fill = "danger", hover = "danger", text = "onAccent" },
 	Default = { fill = "raised", hover = "hover", text = "text" },
+	Ghost = { fill = "surface", hover = "raised", text = "textMuted" },
 }
 
 local Dialog = {}
@@ -94,6 +97,12 @@ function Dialog.shell(library, options)
 
 	if options.Dismissible then
 		scope:connect(scrim.Activated, shell.Close)
+		-- Escape closes a dialog that a press outside would close too.
+		scope:connect(UserInputService.InputBegan, function(input)
+			if input.KeyCode == Enum.KeyCode.Escape then
+				shell.Close()
+			end
+		end)
 	end
 	return shell
 end
@@ -137,9 +146,10 @@ function Dialog.text(parent, content, order)
 	})
 end
 
--- Options: Title, Content, Icon, Dismissible, and Buttons as a list of
--- { Title, Variant = "Primary" | "Danger", Callback }. Name each button by
--- its outcome ("Delete", "Keep"), not "Yes" or "OK".
+-- Options: Title, Content, Icon, Dismissible (a press outside or Escape
+-- closes it), and Buttons as a list of { Title, Variant = "Primary" |
+-- "Danger" | "Ghost", Delay (seconds before it can be pressed), Callback }.
+-- Name each button by its outcome ("Delete", "Keep"), not "Yes" or "OK".
 function Dialog.open(library, options)
 	local shell = Dialog.shell(library, options)
 	Dialog.heading(shell.card, options.Title, options.Icon)
@@ -151,7 +161,26 @@ function Dialog.open(library, options)
 	Create.list(actions, "Horizontal", 8, { HorizontalAlignment = Enum.HorizontalAlignment.Right })
 	for index, settings in options.Buttons or { { Title = "Close" } } do
 		local button = Dialog.button(shell.scope, actions, { Title = settings.Title, Variant = settings.Variant, LayoutOrder = index })
+		-- Delay holds a button back for a few seconds, counting down on it,
+		-- so a destructive choice cannot be pressed by reflex.
+		local waiting = tonumber(settings.Delay) or 0
+		if waiting > 0 then
+			button.AutoButtonColor = false
+			button.TextTransparency = 0.5
+			shell.scope:add(task.spawn(function()
+				for left = math.ceil(waiting), 1, -1 do
+					button.Text = `{settings.Title} ({left})`
+					task.wait(1)
+				end
+				waiting = 0
+				button.Text = settings.Title
+				button.TextTransparency = 0
+			end))
+		end
 		shell.scope:connect(button.Activated, function()
+			if waiting > 0 then
+				return
+			end
 			shell.Close()
 			Env.call(settings.Title or "Dialog", settings.Callback)
 		end)

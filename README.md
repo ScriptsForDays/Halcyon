@@ -1,6 +1,6 @@
 # Halcyon
 
-A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gives you a window with tabs, sections and fifteen controls, a key system with tiers, saved configs, ten themes, six icon packs, and a layout that reflows from a desktop monitor down to a phone.
+A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gives you a window with tabs, sections and over thirty controls, a named look for every one of them, presets, a key system with tiers, saved configs, sixteen themes the player can extend, six icon packs, and a layout that reflows from a desktop monitor down to a phone.
 
 ![The Halcyon example hub](assets/hero.jpg)
 
@@ -58,16 +58,17 @@ Window:LoadAutoload() -- loads the config the player marked, if any
 
 | | |
 |---|---|
-| **Buttons** | Filled, outline and danger buttons with a Sweep, Ripple, Lift or Glow effect |
-| **Controls** | Button, Toggle (switch or checkbox, three thumb shapes, an optional keybind and colour), Slider (single or range, with a value tooltip), Dropdown (single, multi, searchable), Input, Keybind, ColorPicker (with alpha), Segmented, Stepper, Progress, Paragraph, Label, Divider, Code, Image |
-| **Layout** | Four navigation styles (Sidebar, Rail, Top, Dock), three section styles (Card, Outlined, Flat), one or two columns, collapsible sections and sidebar groups, three ways to minimise |
+| **Looks** | Every control has named looks: 10 toggles, 7 sliders, 8 buttons with 7 effects, 4 inputs, 4 dropdowns, 7 sections, 6 tab markers, 4 window surfaces, 7 open animations, 10 notices. Pick per element, per window, or with a preset (Classic, Minimal, Glass, Neon, Compact) |
+| **Controls** | Button (hold to confirm, press twice, loading and done states), Buttons in a row, Toggle, Slider (prefix, percent, ticks, range), Dropdown (icons, descriptions, headings, player lists, chips, inline), Radio, Checklist, Chips, Tiles, Input (password, multi-line, counter, clear), Keybind (mode picker), ColorPicker (palette, recent, copy), DatePicker, Segmented, Stepper, Rating, Progress, Status, Countdown, Table, Accordion, Paragraph, callout Labels, Divider, Code, Image, Space |
+| **Layout** | Four navigation styles, tabs inside sections, a header switch per section, sections that scroll past a height, `ShowWhen` dependencies, page headers and notices, one or two columns, collapsible sections and sidebar groups, three ways to minimise, edge snapping |
 | **Key system** | Tiers such as Free and Paid, or your own; listed keys, your own validator or your own server; ad-service confirmation for free keys; saved keys with an expiry countdown; rows and whole sections locked to a tier or to paid keys |
-| **Feedback** | Notifications in five styles (Default, Timer, Compact, Banner, Progress) with buttons, dialogs, a watermark, a keybind list |
-| **For hub code** | Row badges and info tips, `Requires` to lock rows the executor can't run, tab badges, a config section you can place anywhere, a two-step unload |
+| **Feedback** | Ten notice looks with buttons and an optional chime, hover tips on any row, one-time spotlights on new features, dialogs with countdown buttons, a Ctrl+K command palette, a watermark and keybind list in several looks |
+| **For hub code** | A real-progress loading screen, a What's new card shown once per version, an About section, empty and error states, a lock screen, row badges and info tips, `Requires`, tab badges, a config section, a two-step unload |
 | **Saving** | Configs for every flagged control, autoload, and the player's own interface choices |
-| **Looks** | Inter by default, ten themes, your own themes, an accent override, a soft window shadow, six icon packs, your own font |
+| **Personalisation** | Players pick font, text size, corners, spacing, window transparency, notice position, a gradient accent and colour-blind-friendly status colours, and build, save and share their own themes |
 | **Profile** | Avatar (headshot or 3D viewport), name, tier, executor, date and time, with an anonymous mode |
-| **Search** | One box that filters every tab and opens the first one with a match |
+| **Search** | One box that filters every tab, matches tab names and marks the matching words |
+| **Access** | Gamepad and keyboard focus ring, 44 px touch targets, larger text, reduced motion |
 
 ![Controls: checkbox, multi dropdown, notifications](assets/controls.jpg)
 
@@ -95,6 +96,32 @@ Window:SettingsTab({ Accent = false, Scale = false, Unload = false }) -- leave r
 ```
 
 The full list is in [docs/api.md](docs/api.md).
+
+## Looks and presets
+
+Defaults look the same as Halcyon 1.0. Opt into a look per element, per window, or all at once:
+
+```lua
+local Window = Halcyon:CreateWindow({
+	Title = "My Hub",
+	Preset = "Glass", -- Classic, Minimal, Glass, Neon, Compact
+	Styles = { Toggle = "Slim", Slider = "Thick" }, -- wins over the preset
+	TabIndicator = "Pill",
+	OpenAnimation = "Rise",
+	CommandPalette = true, -- Ctrl+K
+})
+Section:Toggle({ Title = "Fly", Style = "Labelled" }) -- one element's own look
+```
+
+The example's **Looks** tab lists every look with the line that turns it on, and can rebuild the hub in any preset so you can compare them. Every look and option is listed in [docs/styles.md](docs/styles.md).
+
+| | |
+|---|---|
+| ![Toggle and slider looks](assets/looks-controls.jpg) | ![Dropdown, chips and tiles](assets/looks-choices.jpg) |
+| ![Glass preset with Mac controls](assets/looks-glass.jpg) | ![Notice looks and a spotlight](assets/looks-notices.jpg) |
+| ![Command palette](assets/looks-palette.jpg) | ![Personalise section](assets/looks-personalise.jpg) |
+| ![What's new card](assets/looks-changelog.jpg) | ![Loading screen](assets/looks-loading.jpg) |
+| ![Empty state](assets/looks-empty.jpg) | ![Lock screen](assets/looks-lock.jpg) |
 
 ## Key system
 
@@ -182,6 +209,7 @@ Below 560 px of window width the sidebar becomes a strip of tabs, two columns fo
 ## Documentation
 
 - [docs/api.md](docs/api.md): every option and method
+- [docs/styles.md](docs/styles.md): every look, preset and personalisation setting
 - [docs/key-system.md](docs/key-system.md): tiers, ad services, paid locks, your own server
 - [docs/themes.md](docs/themes.md): palettes and custom themes
 - [docs/icons.md](docs/icons.md): packs and custom icons

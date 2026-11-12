@@ -5,9 +5,9 @@
 local RADIUS = {
 	-- Square edges with a hint of softening; pills become small squares.
 	Sharp = { scale = 0.25, pill = 3 },
-	Soft = { scale = 0.6 },
-	Default = { scale = 1 },
-	Round = { scale = 1.4 },
+	Soft = { scale = 0.6, pill = nil },
+	Default = { scale = 1, pill = nil },
+	Round = { scale = 1.4, pill = nil },
 }
 
 local DENSITY = {

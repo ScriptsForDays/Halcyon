@@ -32,7 +32,7 @@ function Styles.register(kind, name, spec)
 		table.insert(found.order, name)
 	end
 	found.specs[name] = spec
-	return true
+	return true, nil
 end
 
 -- Registers a look based on another one, changing only the fields given.

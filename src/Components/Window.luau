@@ -16,6 +16,7 @@ local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Notifications = require("./Notifications")
+local Panels = require("./Panels")
 local Personalise = require("./Personalise")
 local Popup = require("./Popup")
 local Profile = require("./Profile")
@@ -193,6 +194,8 @@ function Window.new(library, options, access)
 	end
 	-- The player's own look: restored early for what applies at build time,
 	-- and again once the window exists.
+	-- The last version whose "What's new" card the player saw.
+	self.changelogSeen = if type(saved.changelog) == "string" then saved.changelog else nil
 	-- Spotlights the player already dismissed.
 	self.seenSpotlights = {}
 	for _, id in if type(saved.seen) == "table" then saved.seen else {} do
@@ -390,6 +393,30 @@ end
 
 function Window:ThemeBuilder(tab, options)
 	return Personalise.builder(self, tab, options)
+end
+
+-- A loading screen over the window that moves only when the hub reports
+-- progress. Returns { SetProgress(fraction, text), Done() }.
+function Window:Loading(options)
+	return Panels.loading(self, options)
+end
+
+-- A "What's new" card shown once per version. See Panels.changelog.
+function Window:Changelog(options)
+	return Panels.changelog(self, options)
+end
+
+function Window:About(tab, options)
+	return Panels.about(self, tab, options)
+end
+
+-- Blocks the window with a message until Unlock.
+function Window:Lock(options)
+	return Panels.lock(self, options)
+end
+
+function Window:Unlock()
+	return Panels.unlock(self)
 end
 
 -- Opens the search over every tab and row; see CommandPalette.luau.
@@ -1444,6 +1471,7 @@ function Window:writePreferences()
 	end
 	local encoded, text = Env.encode({
 		seen = seen,
+		changelog = self.changelogSeen,
 		personal = self.personal,
 		themes = themes,
 		version = PREFERENCES_VERSION,
