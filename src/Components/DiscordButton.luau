@@ -49,15 +49,13 @@ function DiscordButton.new(scope, parent, settings, report)
 	-- The Discord logo unless the hub gives its own: an icon name, an asset
 	-- id, a URL or a file.
 	Icons.apply(glyph, settings.Icon or LOGO)
-	-- Hover: the fill brightens, a soft ring spreads out from the edge and
-	-- the logo lifts with a slight tilt. A press sinks the whole button.
+	-- Hover: the fill brightens and the logo lifts with a slight tilt. A
+	-- press sinks the whole button.
 	local scale = Create.new("UIScale", { Parent = button })
 	local markScale = Create.new("UIScale", { Parent = glyph })
-	local halo = Create.new("UIStroke", { Thickness = 0, Transparency = 1, Color = BLURPLE, Parent = button })
 	local hovered = false
 	local function settle()
 		Motion.tween(button, "fast", { BackgroundColor3 = if hovered then BLURPLE_HOVER else BLURPLE })
-		Motion.tween(halo, "base", { Thickness = if hovered then 4 else 0, Transparency = if hovered then 0.55 else 1 })
 		Motion.tween(markScale, "spring", { Scale = if hovered then 1.12 else 1 })
 		Motion.tween(glyph, "spring", { Rotation = if hovered then -8 else 0 })
 		Motion.tween(scale, "spring", { Scale = if hovered then 1.06 else 1 })
