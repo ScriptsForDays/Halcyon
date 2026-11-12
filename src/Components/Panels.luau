@@ -12,6 +12,7 @@ local TAGS = {
 	Improved = "info",
 	Fixed = "success",
 	Removed = "danger",
+	Security = "warning",
 }
 
 local Panels = {}

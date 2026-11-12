@@ -55,6 +55,8 @@ The example hub's **Looks** tab shows every look side by side, each with the lin
 | `Minimize` | Topbar, Pill, Chip | `MinimizeStyle` |
 | `Notification` | Default, Timer, Compact, Banner, Progress, Accent, Glass, Achievement, Snackbar, Island | each notice's `Style`, or `Notifications.Style` |
 | `Tooltip` | Card, Plain, Follow | `Styles.Tooltip`, or the tooltip's `Style` |
+| `TopbarImage` | Circle, Rounded, Square, Squircle, Ring, Badge | `TopbarImageStyle` |
+| `UpdateLog` | Timeline, Cards, Compact | `UpdateLog.Style` |
 | `Watermark` | Card, Pill, Accent, Minimal | the watermark's `Style` |
 | `KeybindList` | Card, Glass, Minimal | the list's `Style` |
 

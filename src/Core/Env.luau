@@ -21,6 +21,8 @@ local Env = {
 	request = optional(request),
 	getgenv = optional(getgenv),
 	gethui = optional(gethui),
+	-- Older executors name it getsynasset.
+	getcustomasset = optional(getcustomasset) or optional(getsynasset),
 	NO_FILES = "This executor has no file functions, so nothing can be saved.",
 	NO_HTTP = "HTTP requests are not available here.",
 }

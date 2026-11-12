@@ -978,6 +978,15 @@ local function getgenv()
 	return Stub.genv
 end
 
+-- Files become asset ids the way an executor does it; Stub.noAssets turns it off.
+local function getcustomasset(path)
+	if Stub.noAssets then
+		error("getcustomasset is not available")
+	end
+	assert(Stub.files[path] ~= nil, "no such file: " .. tostring(path))
+	return "rbxasset://custom/" .. path
+end
+
 local function request(options)
 	if Stub.request then
 		return Stub.request(options)

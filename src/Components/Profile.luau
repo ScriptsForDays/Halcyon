@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 
 local Create = require("../Core/Create")
+local DiscordButton = require("./DiscordButton")
 local Env = require("../Core/Env")
 local Popup = require("./Popup")
 
@@ -213,6 +214,20 @@ function Profile.card(window, scope, parent)
 		})
 	end
 	local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
+	-- Profile = { Discord = "https://discord.gg/..." } adds a round invite
+	-- button at the card's right edge; separate from the key prompt's.
+	local discord = DiscordButton.settings(settings.Discord)
+	if discord then
+		DiscordButton.new(scope, card, { Link = discord.Link, Icon = discord.Icon, Size = 30, LayoutOrder = 2 }, function(copied, link)
+			window:Notify({
+				Title = if copied then "Discord invite copied" else "Discord invite",
+				Content = if copied then "Paste it into your browser to join." else link,
+				Kind = if copied then "success" else "info",
+				Style = "Compact",
+				Duration = if copied then 3 else 8,
+			})
+		end)
+	end
 	local expiry
 	if window.access.ExpiresAt and window.access.ShowExpiry then
 		expiry = line(text, "", 3, 12, "medium", "warning")

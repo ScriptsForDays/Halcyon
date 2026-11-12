@@ -95,6 +95,7 @@ local LEGACY = {
 	OpenAnimation = "Open",
 	PageTransition = "PageTransition",
 	TopbarControls = "Controls",
+	TopbarImageStyle = "TopbarImage",
 	TabIndicator = "TabIndicator",
 }
 

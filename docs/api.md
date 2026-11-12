@@ -61,6 +61,8 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 | `ToggleOutlineColor` | A `Color3` for the toggle hover outline *(default: the accent)* |
 | `ToggleThumb` | The shape of every switch's thumb: `"Circle"` *(default)*, `"Oval"` or `"Square"` |
 | `CollapsedGroups` | Sidebar groups that start folded, by name |
+| `TopbarImage`, `TopbarImageStyle` | A picture before the title (any image source, or `true` for the window `Icon`) in a `"Circle"`, `"Rounded"`, `"Square"`, `"Squircle"`, `"Ring"` or `"Badge"` shape. `false` keeps the plain icon |
+| `UpdateLog` | `true`, or `{ Title, Icon, Group, Style = "Timeline" \| "Cards" \| "Compact", Popup, Search, Filters, ExpandAll, Updates = { ... } }`: a tab of releases. See [Update log](#update-log) |
 | `Preset` | A coordinated set of looks: `"Classic"`, `"Minimal"`, `"Glass"`, `"Neon"`, `"Compact"`. What you set yourself wins |
 | `Styles` | A default look per kind, such as `{ Toggle = "Slim", Slider = "Thick" }`; see [styles.md](styles.md) |
 | `WindowStyle`, `Transparency`, `BackgroundImage` | `"Solid"`, `"Glass"`, `"Gradient"` or `"Image"`; how see-through (0 to 0.6); a picture behind the contents |
@@ -129,6 +131,7 @@ Profile = {
 | `Window:Loading(options)` | A loading screen that moves only as you report progress: `SetProgress(fraction, text)`, `Done()` |
 | `Window:Changelog({ Version, Entries, Force })` | A "What's new" card, shown once per version |
 | `Window:About(tab, options)` | Credits and links the player can copy (`Description`, `Credits`, `Discord`, `Links`) |
+| `Window:AddUpdate(release)` | Adds a release to the update log |
 | `Window:Lock(options)`, `:Unlock()` | Covers the window with a message (`Title`, `Text`, `Icon`, `Button`) |
 
 Fields: `Window.Flags` (handles by flag), `Window.ConfigChanged` (fires `action, name` after a save, load, delete or autoload), `Window.OnUnload`, `Window.TabChanged`, `Window.KeybindsChanged` (signals with `:Connect`), `Window.Visible`.
@@ -266,6 +269,43 @@ Window:Dialog({
 ```
 
 Button `Variant` is `"Primary"`, `"Danger"`, `"Ghost"` or left out; `Delay = 3` holds a button back for three seconds with a countdown on it. `Dismissible = true` lets a press outside, or Escape, close it.
+
+## Images
+
+Anywhere Halcyon takes an image or icon (window and tab icons, `TopbarImage`, the Image element, Paragraph and dropdown pictures, tiles, `BackgroundImage`, notice and key prompt icons) it accepts:
+
+- an icon name (`"sword"`, `"solar:home"`);
+- an asset id (`1234`, `"rbxassetid://1234"`, `"rbxthumb://..."`);
+- an `http(s)` URL;
+- a file in the executor's workspace (`"myhub/logo.png"`).
+
+URLs are downloaded once to `Halcyon/assets/` and shown through `getcustomasset`. Files are passed to `getcustomasset` directly and must stay inside the workspace. Images over 5 MB are refused. Without `getcustomasset` (Roblox Studio, some executors) an image icon shows instead.
+
+`Halcyon:Image(source, callback)` resolves one for your own use: it returns the id when it is ready, otherwise calls `callback(id, problem)`.
+
+## Discord buttons
+
+`KeySystem = { Discord = "https://discord.gg/yourcode" }` puts a round invite button under the key prompt. `Profile = { Discord = "https://discord.gg/yourcode" }` puts one on the profile card. Each is separate and off unless given; `false` leaves it out. Pressing it copies the invite and tells the player. Pass `{ Link, Icon, Label }` instead of a string to change the mark or the prompt's label.
+
+## Update log
+
+```lua
+local Window = Halcyon:CreateWindow({
+	Title = "My Hub",
+	UpdateLog = {
+		Popup = true, -- show the newest release once as a What's new card
+		Updates = {
+			{ Version = "1.2.0", Date = "12 Nov 2026", Title = "Auto farm", Summary = "Optional line under the title", Entries = {
+				{ Kind = "New", Text = "Auto farm for the mines" },
+				{ Kind = "Fixed", Text = "Teleports no longer fail after respawn" },
+			} },
+		},
+	},
+})
+Window:AddUpdate({ Version = "1.2.1", Entries = { { Kind = "Fixed", Text = "Crash on join" } } })
+```
+
+Releases are ordered by version number (1.10 comes after 1.9), newest first; `Pinned = true` keeps one on top. Entry kinds are New, Improved, Fixed, Removed and Security; a plain string is New. The newest release is open, older ones are folded, and the tab carries a badge until the player opens it. Players can search and filter by kind. Looks: Timeline (default), Cards, Compact. `UpdateLog = false` builds nothing.
 
 ## Configs
 

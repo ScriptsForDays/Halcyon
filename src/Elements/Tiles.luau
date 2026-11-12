@@ -6,6 +6,7 @@
 -- Height (each card's height).
 
 local Create = require("../Core/Create")
+local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Options = require("./Options")
 local Row = require("./Row")
@@ -91,7 +92,7 @@ function Tiles.new(container, options)
 				Parent = content,
 			})
 			if entry.image then
-				card.icon.Image = entry.image
+				Icons.apply(card.icon, entry.image)
 			end
 		end
 		Create.new("TextLabel", {

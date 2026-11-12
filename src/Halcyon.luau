@@ -7,6 +7,7 @@
 
 local UserInputService = game:GetService("UserInputService")
 
+local Assets = require("./Core/Assets")
 local Config = require("./Core/Config")
 local ConfigSection = require("./Components/ConfigSection")
 local Create = require("./Core/Create")
@@ -55,6 +56,7 @@ local Halcyon = {
 	Version = "__VERSION__",
 	ThemeChanged = Theme.Changed,
 	Internal = {
+		Assets = Assets,
 		Config = Config,
 		Create = Create,
 		Drag = Drag,
@@ -250,6 +252,13 @@ end
 -- SectionStyle, ButtonEffect and so on) that `Preset = name` fills in.
 function Halcyon:AddPreset(name, preset)
 	return Presets.register(name, preset)
+end
+
+-- An image the hub brings itself: a URL, a workspace file or an asset id.
+-- Returns the id when it is ready; otherwise loads it and calls
+-- `callback(id, problem)`. Needs getcustomasset for URLs and files.
+function Halcyon:Image(source, callback)
+	return Assets.resolve(source, callback)
 end
 
 function Halcyon:GetExecutor()

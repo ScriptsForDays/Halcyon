@@ -4,6 +4,7 @@
 -- Pack files are read as data with patterns. They are never run, so a changed
 -- upstream file cannot execute code here.
 
+local Assets = require("./Assets")
 local Env = require("./Env")
 local IconData = require("./IconData")
 
@@ -129,6 +130,31 @@ end
 function Icons.apply(image, name)
 	local wanted = tostring(name)
 	image:SetAttribute("HalcyonIcon", wanted)
+	-- A URL or workspace file is the hub's own picture, loaded through
+	-- getcustomasset; a fallback icon stands in until or unless it loads.
+	local kind = Assets.kind(name)
+	if kind == "url" or kind == "file" then
+		-- Cleared first: the load can finish before resolve returns.
+		image.Image = ""
+		local id = Assets.resolve(name, function(loaded)
+			if image:GetAttribute("HalcyonIcon") ~= wanted then
+				return
+			end
+			if loaded then
+				show(image, { Image = loaded })
+			else
+				local fallback = Icons.resolve("image")
+				if fallback then
+					show(image, fallback)
+				end
+			end
+		end)
+		if id then
+			show(image, { Image = id })
+			return true
+		end
+		return false
+	end
 	local icon, pending = Icons.resolve(name)
 	if icon then
 		show(image, icon)

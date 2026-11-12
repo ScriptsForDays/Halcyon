@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0
+
+- Images from a URL or a workspace file anywhere the UI takes an image, loaded through `getcustomasset` and cached. `Halcyon:Image` for your own use.
+- `TopbarImage` puts a picture before the window title in six shapes: Circle, Rounded, Square, Squircle, Ring and Badge.
+- Discord invite buttons for the key prompt (`KeySystem.Discord`) and the profile card (`Profile.Discord`), each separate and off unless given.
+- `UpdateLog`: a tab of releases with kind tags, search, filters, an unseen badge and an optional What's new popup. `Window:AddUpdate` adds releases later.
+
 ## 2.0.0
 
 A look for every control, presets, and the UI pieces hub developers used to build by hand. Nothing changes until a hub opts in: the defaults draw as 1.0 did.

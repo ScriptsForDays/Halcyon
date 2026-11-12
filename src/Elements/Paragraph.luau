@@ -1,5 +1,6 @@
 local Create = require("../Core/Create")
 local Env = require("../Core/Env")
+local Icons = require("../Core/Icons")
 local Row = require("./Row")
 local Styles = require("../Core/Styles")
 
@@ -22,12 +23,12 @@ function Paragraph.new(container, options)
 		local picture = Create.new("ImageLabel", {
 			Name = "Picture",
 			Size = UDim2.fromOffset(size, size),
-			Image = tostring(options.Image),
 			ScaleType = Enum.ScaleType.Crop,
 			LayoutOrder = -1,
 			Parent = row.titleBlock.Parent,
 		})
 		Create.corner(8, picture)
+		Icons.apply(picture, options.Image)
 	end
 
 	if type(options.Buttons) == "table" then

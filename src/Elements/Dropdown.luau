@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 
 local Create = require("../Core/Create")
+local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Options = require("./Options")
 local Popup = require("../Components/Popup")
@@ -285,7 +286,7 @@ function Dropdown.new(container, options)
 					Parent = item,
 				})
 				if entry.image then
-					picture.Image = entry.image
+					Icons.apply(picture, entry.image)
 					Create.corner(-1, picture)
 				end
 				lead = 10 + picture.Size.X.Offset + 8

@@ -179,6 +179,28 @@ Stub.byName(dialog(), "Key").FocusLost:Fire(true)
 Stub.check(type(access) == "table" and access.Tier == "Access" and access.Rank == 1, "Authenticate returns the access table")
 Stub.equal(Stub.files["Halcyon/Auth/key.json"], nil, "SaveKey = false writes nothing")
 
+-- A Discord invite under the prompt, only when given.
+Stub.genv.setclipboard = function(text)
+	Stub.clipboard = text
+end
+task.spawn(function()
+	Halcyon:Authenticate({ Folder = "AuthDiscord", Keys = { "abc" }, SaveKey = false, Discord = "https://discord.gg/example" })
+end)
+local invite = Stub.byName(dialog(), "Discord")
+Stub.check(invite ~= nil, "Discord = link puts an invite button on the key prompt")
+Stub.click(invite)
+Stub.flush()
+Stub.equal(Stub.clipboard, "https://discord.gg/example", "pressing it copies the invite")
+Stub.check(Stub.byText(dialog(), "Discord invite copied. Paste it into your browser.") ~= nil, "and the prompt says so")
+Stub.byName(dialog(), "Key").Text = "abc"
+Stub.byName(dialog(), "Key").FocusLost:Fire(true)
+task.spawn(function()
+	Halcyon:Authenticate({ Folder = "AuthNoDiscord", Keys = { "abc" }, SaveKey = false, Discord = false })
+end)
+Stub.check(Stub.byName(dialog(), "Discord") == nil, "Discord = false leaves it out")
+Stub.byName(dialog(), "Key").Text = "abc"
+Stub.byName(dialog(), "Key").FocusLost:Fire(true)
+
 -- An ad service on the free tier: the hub's Confirm decides, not the prompt.
 open({
 	Title = "Ad Hub",

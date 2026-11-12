@@ -6,6 +6,7 @@ local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
 local CommandPalette = require("./CommandPalette")
+local Assets = require("../Core/Assets")
 local Config = require("../Core/Config")
 local Create = require("../Core/Create")
 local Dialog = require("./Dialog")
@@ -23,6 +24,7 @@ local Profile = require("./Profile")
 local Signal = require("../Core/Signal")
 local Styles = require("../Core/Styles")
 local Tab = require("./Tab")
+local UpdateLog = require("./UpdateLog")
 local Theme = require("../Core/Theme")
 
 local TOPBAR = 48
@@ -72,6 +74,15 @@ Styles.register("PageTransition", "None", {})
 -- three coloured dots on the left.
 Styles.register("Controls", "Default", {})
 Styles.register("Controls", "Mac", { dots = true })
+
+-- The picture before the title (kind "TopbarImage"): corner is its radius
+-- (-1 round), ring adds an accent outline, dot a small status dot.
+Styles.register("TopbarImage", "Circle", { corner = -1 })
+Styles.register("TopbarImage", "Rounded", { corner = 8 })
+Styles.register("TopbarImage", "Square", { corner = 3 })
+Styles.register("TopbarImage", "Squircle", { corner = 11, size = 30 })
+Styles.register("TopbarImage", "Ring", { corner = -1, ring = true })
+Styles.register("TopbarImage", "Badge", { corner = 8, dot = true })
 
 -- Snapping pulls a dragged window to a screen edge or the centre line
 -- within this many pixels.
@@ -194,6 +205,8 @@ function Window.new(library, options, access)
 	end
 	-- The player's own look: restored early for what applies at build time,
 	-- and again once the window exists.
+	-- The newest update-log release the player has opened.
+	self.updateSeen = if type(saved.updateSeen) == "string" then saved.updateSeen else nil
 	-- The last version whose "What's new" card the player saw.
 	self.changelogSeen = if type(saved.changelog) == "string" then saved.changelog else nil
 	-- Spotlights the player already dismissed.
@@ -343,6 +356,22 @@ function Window.new(library, options, access)
 		CommandPalette.bind(self)
 	end
 	Personalise.restore(self, saved.personal, false)
+	-- The update log is built once the hub's own tabs exist, so it comes
+	-- after them in the navigation.
+	local updates = UpdateLog.settings(options.UpdateLog)
+	if updates then
+		self.pendingUpdates = {}
+		task.defer(function()
+			if self.scope.cleaned then
+				return
+			end
+			local log = UpdateLog.build(self, updates)
+			for _, update in self.pendingUpdates do
+				log.add(update)
+			end
+			self.pendingUpdates = nil
+		end)
+	end
 	if options.FocusRing ~= false then
 		self:buildFocusRing()
 	end
@@ -408,6 +437,19 @@ end
 
 function Window:About(tab, options)
 	return Panels.about(self, tab, options)
+end
+
+-- Adds a release to the update log: { Version, Date, Title, Summary,
+-- Image, Pinned, Entries = { { Kind = "New" | "Improved" | "Fixed" |
+-- "Removed" | "Security", Text } } }. Needs UpdateLog on the window.
+function Window:AddUpdate(update)
+	if self.updateLog then
+		self.updateLog.add(update)
+	elseif self.pendingUpdates then
+		table.insert(self.pendingUpdates, update)
+	else
+		warn("[Halcyon] AddUpdate needs UpdateLog = true on CreateWindow; the release was not added.")
+	end
 end
 
 -- Blocks the window with a message until Unlock.
@@ -504,13 +546,13 @@ function Window:buildSurface()
 			Name = "Backdrop",
 			Size = UDim2.fromScale(1, 1),
 			ZIndex = 0,
-			Image = tostring(options.BackgroundImage or ""),
 			ScaleType = Enum.ScaleType.Crop,
 			-- The page colour lies over the picture so text stays readable.
 			ImageTransparency = math.clamp(tonumber(options.BackgroundImageTransparency) or 0.75, 0, 1),
 			Parent = root,
 		})
 		Create.corner(12, image)
+		Icons.apply(image, options.BackgroundImage)
 		self.backdrop = image
 	end
 	self:SetTransparency(tonumber(options.Transparency) or look.transparency or 0)
@@ -591,7 +633,13 @@ function Window:buildTopbar()
 	local brand = Create.new("Frame", { Name = "Brand", Size = UDim2.fromScale(1, 1), Parent = topbar })
 	local inset = Create.padding(brand, 16, 0)
 	Create.list(brand, "Horizontal", 10)
-	if self.Icon then
+	local picture = self.options.TopbarImage
+	if picture == true then
+		picture = self.Icon
+	end
+	if picture then
+		self:buildTopbarImage(brand, picture)
+	elseif self.Icon then
 		Create.icon(self.Icon, 20, "accent", brand)
 	end
 	local titles = Create.new("Frame", { Name = "Titles", Size = UDim2.fromScale(0, 1), LayoutOrder = 1, Parent = brand }, {
@@ -727,6 +775,47 @@ function Window:buildTopbar()
 			self:savePreferences()
 		end,
 	})
+end
+
+-- The hub's own picture before its title, in one of the TopbarImage looks.
+-- Any image source works: an icon name, an asset id, a URL or a file.
+function Window:buildTopbarImage(brand, source)
+	local look = Styles.pick("TopbarImage", self.options.TopbarImageStyle, self)
+	local size = look.size or 28
+	local holder = Create.new("Frame", { Name = "TopbarImage", Size = UDim2.fromOffset(size, size), Parent = brand })
+	local image = Create.new("ImageLabel", {
+		Name = "Image",
+		Size = UDim2.fromScale(1, 1),
+		ScaleType = Enum.ScaleType.Crop,
+		Theme = { BackgroundColor3 = "raised" },
+		Parent = holder,
+	})
+	Create.corner(look.corner or -1, image)
+	-- An icon name is tinted like the old icon; a picture keeps its colours.
+	if Assets.kind(source) == nil and type(source) == "string" then
+		image.BackgroundTransparency = 1
+		image.ScaleType = Enum.ScaleType.Fit
+		Theme.bind(image, "ImageColor3", "accent")
+	end
+	Icons.apply(image, source)
+	if look.ring then
+		Create.new("UIStroke", { Thickness = 2, Theme = { Color = "accent" }, Parent = image })
+	end
+	if look.dot then
+		local dot = Create.new("Frame", {
+			Name = "Dot",
+			Size = UDim2.fromOffset(9, 9),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -1, 1, -1),
+			ZIndex = 2,
+			Theme = { BackgroundColor3 = "success" },
+			Parent = holder,
+		})
+		Create.corner(-1, dot)
+		Create.new("UIStroke", { Thickness = 2, Theme = { Color = "background" }, Parent = dot })
+	end
+	self.topbarImage = image
+	return image
 end
 
 -- Close, minimise and a size switch as three coloured dots on the left of
@@ -1472,6 +1561,7 @@ function Window:writePreferences()
 	local encoded, text = Env.encode({
 		seen = seen,
 		changelog = self.changelogSeen,
+		updateSeen = self.updateSeen,
 		personal = self.personal,
 		themes = themes,
 		version = PREFERENCES_VERSION,

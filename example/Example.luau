@@ -41,18 +41,66 @@ local function start(look)
 		OpenAnimation = look.OpenAnimation,
 		TabIndicator = look.TabIndicator,
 		TopbarControls = look.TopbarControls,
+		TopbarImageStyle = look.TopbarImageStyle or "Rounded",
 		Title = "Halcyon",
 		Subtitle = "Example hub",
-		Version = "v2.0.0",
+		Version = "v2.1.0",
 		Icon = "sparkles",
+		-- Any image works here: an asset id, a workspace file or a URL. URLs
+		-- and files need an executor with getcustomasset; Studio shows the
+		-- fallback icon instead.
+		TopbarImage = "https://i.insider.com/602ee9ced3ad27001837f2ac?width=700",
 		Folder = "HalcyonExample",
 		Theme = "Midnight",
 		TabStyle = "Sidebar",
 		-- Ctrl+K opens a search over every tab and setting.
 		CommandPalette = true,
-		Profile = { Avatar = "Headshot", ShowClock = true },
+		Profile = { Avatar = "Headshot", ShowClock = true, Discord = "https://discord.gg/example" },
+		-- Releases shown in their own tab, newest first. Popup shows the newest
+		-- one once as a What's new card.
+		UpdateLog = {
+			Title = "Updates",
+			Group = "Library",
+			Popup = false,
+			Updates = {
+				{
+					Version = "2.1.0",
+					Date = "12 Nov 2026",
+					Title = "Images and invites",
+					Summary = "Bring your own pictures, and point players at your Discord.",
+					Entries = {
+						{ Kind = "New", Text = "Discord buttons on the key prompt and the profile card." },
+						{ Kind = "New", Text = "Images from a URL or a workspace file, anywhere the UI takes one." },
+						{ Kind = "New", Text = "An image in the top bar, in six shapes." },
+						{ Kind = "New", Text = "This update log." },
+					},
+				},
+				{
+					Version = "2.0.0",
+					Date = "12 Nov 2026",
+					Title = "A look for everything",
+					Entries = {
+						{ Kind = "New", Text = "Named looks for every control, and five presets." },
+						{ Kind = "New", Text = "Ctrl+K searches every tab and setting." },
+						{ Kind = "Improved", Text = "Players can change font, corners and spacing." },
+						{ Kind = "Fixed", Text = "Inline dropdowns no longer stack their layouts." },
+					},
+				},
+				{
+					Version = "1.0.0",
+					Date = "1 Nov 2026",
+					Title = "First release",
+					Entries = {
+						{ Kind = "New", Text = "Window, tabs, sections and fifteen controls." },
+						{ Kind = "Security", Text = "Key checks run before any feature loads." },
+					},
+				},
+			},
+		},
 		KeySystem = {
 			Title = "Halcyon example",
+			-- A round invite button under the prompt; false leaves it out.
+			Discord = "https://discord.gg/example",
 			Note = "Demo keys: HALCYON-FREE and HALCYON-PAID. Keyless needs none.",
 			Tiers = {
 				{ Name = "Keyless", NoKey = true, Description = "Try it with no key. Rows marked Free or Paid stay locked." },
@@ -442,6 +490,7 @@ local function start(look)
 	picker("Open animation", "Open", "OpenAnimation")
 	picker("Tab marker", "TabIndicator", "TabIndicator")
 	picker("Window buttons", "Controls", "TopbarControls")
+	picker("Top-bar image", "TopbarImage", "TopbarImageStyle")
 	Trial:Buttons({
 		Buttons = {
 			{
