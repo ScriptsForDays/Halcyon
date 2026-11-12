@@ -33,7 +33,18 @@ local function layer(button, radius)
 	if existing then
 		return existing
 	end
-	local group = Create.new("CanvasGroup", { Name = "Effects", Size = UDim2.fromScale(1, 1), ZIndex = 2, Parent = button })
+	-- A button's UIPadding would inset the layer, and the light would stop
+	-- short of its edges; the layer reaches back out over the padding.
+	local pad = button:FindFirstChildOfClass("UIPadding")
+	local left, top = if pad then pad.PaddingLeft else UDim.new(), if pad then pad.PaddingTop else UDim.new()
+	local right, bottom = if pad then pad.PaddingRight else UDim.new(), if pad then pad.PaddingBottom else UDim.new()
+	local group = Create.new("CanvasGroup", {
+		Name = "Effects",
+		Position = UDim2.new(-left.Scale, -left.Offset, -top.Scale, -top.Offset),
+		Size = UDim2.new(1 + left.Scale + right.Scale, left.Offset + right.Offset, 1 + top.Scale + bottom.Scale, top.Offset + bottom.Offset),
+		ZIndex = 2,
+		Parent = button,
+	})
 	Create.corner(radius, group)
 	return group
 end

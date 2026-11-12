@@ -17,7 +17,7 @@ function Segmented.new(container, options)
 	local group = Create.new("Frame", { Name = "Segments", Theme = { BackgroundColor3 = row.controlRole } })
 	Create.corner(8, group)
 	Create.padding(group, 2)
-	Create.list(group, "Horizontal", 2)
+	local groupLayout = Create.list(group, "Horizontal", 2)
 
 	local function draw(timing)
 		for _, segment in segments do
@@ -46,7 +46,7 @@ function Segmented.new(container, options)
 	for index, item in values do
 		local button = Create.new("TextButton", {
 			Name = "Segment",
-			Size = UDim2.new(0, 0, 1, 0),
+			Size = UDim2.fromOffset(0, row.reach),
 			LayoutOrder = index,
 			Text = tostring(item),
 			TextSize = 13,
@@ -54,7 +54,7 @@ function Segmented.new(container, options)
 			Parent = group,
 		})
 		Create.corner(6, button)
-		Create.padding(button, 12, 0)
+		Create.padding(button, 9, 0)
 		segments[index] = { button = button, value = item, flex = Create.new("UIFlexItem", { Parent = button }) }
 		scope:connect(button.Activated, function()
 			handle:Set(item)
@@ -71,11 +71,16 @@ function Segmented.new(container, options)
 		elseif below then
 			below.Visible = false
 		end
-		group.Size = if stacked then UDim2.new(1, 0, 0, row.reach + 4) else UDim2.fromOffset(0, row.reach + 4)
-		group.AutomaticSize = if stacked then Enum.AutomaticSize.None else Enum.AutomaticSize.X
+		-- Stacked, the segments wrap to a second line rather than run past the
+		-- row when their labels are too long for one.
+		group.Size = if stacked then UDim2.fromScale(1, 0) else UDim2.fromOffset(0, 0)
+		group.AutomaticSize = if stacked then Enum.AutomaticSize.Y else Enum.AutomaticSize.XY
+		groupLayout.Wraps = stacked
+		-- Each segment starts at its own text width and stacked segments share
+		-- only the space left over, so a longer or bolder label is never cut.
 		for _, segment in segments do
-			segment.button.AutomaticSize = if stacked then Enum.AutomaticSize.None else Enum.AutomaticSize.X
-			segment.flex.FlexMode = if stacked then Enum.UIFlexMode.Fill else Enum.UIFlexMode.None
+			segment.button.AutomaticSize = Enum.AutomaticSize.X
+			segment.flex.FlexMode = if stacked then Enum.UIFlexMode.Grow else Enum.UIFlexMode.None
 		end
 		group.Parent = if stacked then below else row.slot
 	end

@@ -64,10 +64,14 @@ function SliderTooltip.new(row, styleName)
 	if style.corner ~= 0 then
 		Create.corner(style.corner, bubble)
 	end
-	Create.padding(bubble, 8, 4)
+	Create.padding(bubble, 9, 3)
+	-- A fixed line height with room for the bold font's ascenders and
+	-- descenders; a label sized to its text bounds alone clipped them.
 	local label = Create.new("TextLabel", {
 		Name = "Value",
-		AutomaticSize = Enum.AutomaticSize.XY,
+		Size = UDim2.fromOffset(0, 18),
+		AutomaticSize = Enum.AutomaticSize.X,
+		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 12,
 		Weight = "bold",
 		Theme = { TextColor3 = "onAccent" },

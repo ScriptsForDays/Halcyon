@@ -168,7 +168,12 @@ function Profile.card(window, scope, parent)
 		Theme = { TextColor3 = "text" },
 		Parent = heading,
 	}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+	line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
+	-- The tier badge has a line of its own under the others: the sidebar is
+	-- too narrow to share one without cutting the name or username short.
 	if settings.ShowTier then
+		local tierLine = Create.new("Frame", { Name = "TierLine", Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 4, Parent = text })
+		Create.padding(tierLine, 0, 3, 0, 0)
 		-- The tier the player holds: Keyless, or a key system tier. Paid tiers take the accent.
 		local paid = window:IsPaid()
 		local access = window.access
@@ -179,7 +184,7 @@ function Profile.card(window, scope, parent)
 			AutomaticSize = Enum.AutomaticSize.X,
 			LayoutOrder = 1,
 			Theme = { BackgroundColor3 = if paid then "accent" else "raised" },
-			Parent = heading,
+			Parent = tierLine,
 		})
 		Create.corner(5, badge)
 		Create.padding(badge, 6, 0)
@@ -190,14 +195,13 @@ function Profile.card(window, scope, parent)
 			Size = UDim2.fromScale(0, 1),
 			AutomaticSize = Enum.AutomaticSize.X,
 			Text = window:GetTier(),
-			TextSize = 12,
+			TextSize = 11,
 			Weight = "medium",
 			LayoutOrder = 1,
 			Theme = { TextColor3 = if paid then "onAccent" else "textMuted" },
 			Parent = badge,
 		})
 	end
-	line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
 	local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
 	local expiry
 	if window.access.ExpiresAt and window.access.ShowExpiry then

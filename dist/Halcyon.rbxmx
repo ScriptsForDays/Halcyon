@@ -1440,7 +1440,10 @@ TextTruncate = Enum.TextTruncate.AtEnd,
 Theme = { TextColor3 = "text" },
 Parent = heading,
 }, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
 if settings.ShowTier then
+local tierLine = Create.new("Frame", { Name = "TierLine", Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 4, Parent = text })
+Create.padding(tierLine, 0, 3, 0, 0)
 local paid = window:IsPaid()
 local access = window.access
 local icon = access.Icon or (if paid then "crown" elseif access.Keyless or access.NoKey then "lock-open" else "key")
@@ -1450,7 +1453,7 @@ Size = UDim2.fromScale(0, 1),
 AutomaticSize = Enum.AutomaticSize.X,
 LayoutOrder = 1,
 Theme = { BackgroundColor3 = if paid then "accent" else "raised" },
-Parent = heading,
+Parent = tierLine,
 })
 Create.corner(5, badge)
 Create.padding(badge, 6, 0)
@@ -1461,14 +1464,13 @@ Name = "Tier",
 Size = UDim2.fromScale(0, 1),
 AutomaticSize = Enum.AutomaticSize.X,
 Text = window:GetTier(),
-TextSize = 12,
+TextSize = 11,
 Weight = "medium",
 LayoutOrder = 1,
 Theme = { TextColor3 = if paid then "onAccent" else "textMuted" },
 Parent = badge,
 })
 end
-line(text, if settings.ShowUsername then username else "", 1, 12, "regular", "textMuted")
 local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
 local expiry
 if window.access.ExpiresAt and window.access.ShowExpiry then
@@ -3454,7 +3456,16 @@ local existing = button:FindFirstChild("Effects")
 if existing then
 return existing
 end
-local group = Create.new("CanvasGroup", { Name = "Effects", Size = UDim2.fromScale(1, 1), ZIndex = 2, Parent = button })
+local pad = button:FindFirstChildOfClass("UIPadding")
+local left, top = if pad then pad.PaddingLeft else UDim.new(), if pad then pad.PaddingTop else UDim.new()
+local right, bottom = if pad then pad.PaddingRight else UDim.new(), if pad then pad.PaddingBottom else UDim.new()
+local group = Create.new("CanvasGroup", {
+Name = "Effects",
+Position = UDim2.new(-left.Scale, -left.Offset, -top.Scale, -top.Offset),
+Size = UDim2.new(1 + left.Scale + right.Scale, left.Offset + right.Offset, 1 + top.Scale + bottom.Scale, top.Offset + bottom.Offset),
+ZIndex = 2,
+Parent = button,
+})
 Create.corner(radius, group)
 return group
 end
@@ -5779,7 +5790,7 @@ local segments = {}
 local group = Create.new("Frame", { Name = "Segments", Theme = { BackgroundColor3 = row.controlRole } })
 Create.corner(8, group)
 Create.padding(group, 2)
-Create.list(group, "Horizontal", 2)
+local groupLayout = Create.list(group, "Horizontal", 2)
 local function draw(timing)
 for _, segment in segments do
 local on = segment.value == value
@@ -5804,7 +5815,7 @@ end
 for index, item in values do
 local button = Create.new("TextButton", {
 Name = "Segment",
-Size = UDim2.new(0, 0, 1, 0),
+Size = UDim2.fromOffset(0, row.reach),
 LayoutOrder = index,
 Text = tostring(item),
 TextSize = 13,
@@ -5812,7 +5823,7 @@ Theme = { BackgroundColor3 = "accent", TextColor3 = "textMuted" },
 Parent = group,
 })
 Create.corner(6, button)
-Create.padding(button, 12, 0)
+Create.padding(button, 9, 0)
 segments[index] = { button = button, value = item, flex = Create.new("UIFlexItem", { Parent = button }) }
 scope:connect(button.Activated, function()
 handle:Set(item)
@@ -5826,11 +5837,12 @@ below.Visible = true
 elseif below then
 below.Visible = false
 end
-group.Size = if stacked then UDim2.new(1, 0, 0, row.reach + 4) else UDim2.fromOffset(0, row.reach + 4)
-group.AutomaticSize = if stacked then Enum.AutomaticSize.None else Enum.AutomaticSize.X
+group.Size = if stacked then UDim2.fromScale(1, 0) else UDim2.fromOffset(0, 0)
+group.AutomaticSize = if stacked then Enum.AutomaticSize.Y else Enum.AutomaticSize.XY
+groupLayout.Wraps = stacked
 for _, segment in segments do
-segment.button.AutomaticSize = if stacked then Enum.AutomaticSize.None else Enum.AutomaticSize.X
-segment.flex.FlexMode = if stacked then Enum.UIFlexMode.Fill else Enum.UIFlexMode.None
+segment.button.AutomaticSize = Enum.AutomaticSize.X
+segment.flex.FlexMode = if stacked then Enum.UIFlexMode.Grow else Enum.UIFlexMode.None
 end
 group.Parent = if stacked then below else row.slot
 end
@@ -6063,10 +6075,12 @@ Parent = body,
 if style.corner ~= 0 then
 Create.corner(style.corner, bubble)
 end
-Create.padding(bubble, 8, 4)
+Create.padding(bubble, 9, 3)
 local label = Create.new("TextLabel", {
 Name = "Value",
-AutomaticSize = Enum.AutomaticSize.XY,
+Size = UDim2.fromOffset(0, 18),
+AutomaticSize = Enum.AutomaticSize.X,
+TextXAlignment = Enum.TextXAlignment.Center,
 TextSize = 12,
 Weight = "bold",
 Theme = { TextColor3 = "onAccent" },
