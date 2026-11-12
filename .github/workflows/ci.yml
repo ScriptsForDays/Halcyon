@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the Luau runtime
+        run: |
+          curl -fsSL -o luau.zip https://github.com/luau-lang/luau/releases/latest/download/luau-ubuntu.zip
+          unzip -q luau.zip -d "$HOME/luau"
+          chmod +x "$HOME/luau/luau"
+          echo "$HOME/luau" >> "$GITHUB_PATH"
+
+      - name: The bundle matches the sources
+        run: node tools/bundle.mjs --check
+
+      - name: Behaviour tests
+        run: node tools/test.mjs

@@ -1,0 +1,14 @@
+{
+	"name": "halcyon-ui",
+	"version": "1.0.0",
+	"description": "A UI library for Roblox script hubs: themes, key system, configs, icon packs, PC and mobile layouts.",
+	"license": "MIT",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "node tools/bundle.mjs",
+		"check": "node tools/bundle.mjs --check",
+		"test": "node tools/test.mjs",
+		"icons": "node tools/build-icons.mjs"
+	}
+}

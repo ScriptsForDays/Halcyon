@@ -1,0 +1,10 @@
+# Third-party reference material; not ours to redistribute.
+refs/
+
+# Test harness output.
+.build/
+
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
