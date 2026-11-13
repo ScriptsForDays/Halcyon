@@ -467,6 +467,19 @@ window:Minimize(true)
 Stub.equal(window.root.Size.Y.Offset, 48, "minimised window is the top bar alone")
 window:Minimize(false)
 
+-- Folding instead of hiding leaves the player a way back on screen.
+window:SetMinimizeStyle("Pill")
+Stub.key(Enum.KeyCode.RightShift)
+Stub.check(window.pill.Visible and not window.root.Visible, "with a Pill style the menu key folds the window to its pill")
+Stub.key(Enum.KeyCode.RightShift)
+Stub.check(window.root.Visible and not window.pill.Visible, "and the key brings the window back")
+window:SetMinimizeStyle("Chip")
+Stub.key(Enum.KeyCode.RightShift)
+Stub.check(window.openButton.Visible and not window.root.Visible, "a Chip style folds it to the round button")
+Stub.key(Enum.KeyCode.RightShift)
+Stub.check(window.root.Visible and not window.openButton.Visible, "and back again")
+window:SetMinimizeStyle("Topbar")
+
 -- Pill and Chip each stand in for the window and bring it back.
 Stub.check(window:SetMinimizeStyle("Pill"), "minimise style changes")
 window:Minimize(true)

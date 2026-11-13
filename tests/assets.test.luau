@@ -134,3 +134,22 @@ Stub.equal(fallback.topbarImage:GetAttribute("HalcyonIcon"), "https://cdn.exampl
 Stub.check(fallback.topbarImage.Image ~= "", "and shows the fallback icon instead of nothing")
 fallback:Unload()
 Stub.noAssets = false
+
+-- A hub that builds its tabs a frame apart (the update log is made at the
+-- first pause) still lists them under their headings, with the log last.
+local spaced = Halcyon:CreateWindow({
+	Title = "Spaced Hub",
+	Folder = "SpacedHub",
+	SavePreferences = false,
+	UpdateLog = { Group = "Info", Updates = { { Version = "1.0.0", Entries = { "First" } } } },
+})
+spaced:Tab({ Title = "Farm", Group = "Game" })
+Stub.flush()
+spaced:Tab({ Title = "About", Group = "Info" })
+spaced:Tab({ Title = "Shop", Group = "Game" })
+local listed = {}
+for _, tab in spaced:navOrder() do
+	table.insert(listed, tab.Title)
+end
+Stub.equal(table.concat(listed, ","), "Farm,Shop,About,Updates", "tabs stay under their heading and the update log goes last")
+spaced:Unload()

@@ -5,6 +5,8 @@
 -- `Theme` binds colour properties to palette roles, `Weight` picks the font
 -- weight for text, and `Icon` draws a named icon on an image.
 
+local TextService = game:GetService("TextService")
+
 local Icons = require("./Icons")
 local Theme = require("./Theme")
 local Tokens = require("./Tokens")
@@ -48,6 +50,60 @@ function Create.setFamily(font)
 	Create.family = font
 	table.clear(Create.fonts)
 	return true
+end
+
+-- The font is an asset, so a window can draw before it has downloaded.
+-- Roblox then draws a stand-in face with other measurements, and every
+-- label jumps to its real size a moment later. `preload` starts fetching
+-- each weight; `waitForFont` yields until they have arrived, or until
+-- `limit` seconds pass.
+local waiting = {}
+
+function Create.preload()
+	local family = Create.family
+	if Create.loaded == family or Create.loading == family then
+		return
+	end
+	Create.loading = family
+	task.spawn(function()
+		for _, weight in WEIGHTS do
+			-- GetTextBoundsAsync yields until the font is ready. Where it is
+			-- missing (tests, the web demo) there is nothing to wait for.
+			pcall(function()
+				local params = Instance.new("GetTextBoundsParams")
+				params.Text = "Halcyon"
+				params.Font = Font.new(family, weight)
+				params.Size = 14
+				TextService:GetTextBoundsAsync(params)
+			end)
+		end
+		if Create.loading ~= family then
+			return
+		end
+		Create.loaded, Create.loading = family, nil
+		local threads = table.clone(waiting)
+		table.clear(waiting)
+		for _, thread in threads do
+			task.spawn(thread)
+		end
+	end)
+end
+
+function Create.waitForFont(limit)
+	Create.preload()
+	if Create.loaded == Create.family then
+		return
+	end
+	local thread = coroutine.running()
+	table.insert(waiting, thread)
+	task.delay(limit, function()
+		local index = table.find(waiting, thread)
+		if index then
+			table.remove(waiting, index)
+			task.spawn(thread)
+		end
+	end)
+	coroutine.yield()
 end
 
 function Create.new(className: string, properties: { [string]: any }, children: { Instance }?): any

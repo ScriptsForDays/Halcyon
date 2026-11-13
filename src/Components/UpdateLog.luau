@@ -161,6 +161,8 @@ function UpdateLog.build(window, settings)
 	})
 	local log = { tab = tab, updates = {}, sections = {}, filter = "All", query = "", order = 0 }
 	window.updateLog = log
+	tab.trailing = true
+	window:buildNav()
 
 	-- Search and kind filters sit above the releases when there is enough to
 	-- sift through; a short log does not need them.

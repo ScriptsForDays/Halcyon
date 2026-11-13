@@ -60,7 +60,7 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 | `Tiers`, `Tier`, `PaidTier` | Tiers without the prompt, for hubs with their own login: a list of names, the player's tier, and which one is paid *(default `"Paid"`)* |
 | `LockText`, `PaidLockText` | Wording on locked rows *(defaults `"Requires {tier}"` and `"Paid only"`)* |
 | `Notifications` | Defaults for notices: `{ Duration, Position, Progress, MaxVisible }` |
-| `MinimizeStyle` | `"Topbar"` *(default)*, `"Pill"` or `"Chip"` |
+| `MinimizeStyle` | `"Topbar"` *(default)*, `"Pill"` or `"Chip"`. With Pill or Chip, the menu key folds the window to it and back instead of hiding it |
 | `SliderTooltipStyle` | `"Rounded"` *(default)*, `"Sharp"`, `"Pill"` or `"Plain"` |
 | `ToggleOutlineColor` | A `Color3` for the toggle hover outline *(default: the accent)* |
 | `ToggleThumb` | The shape of every switch's thumb: `"Circle"` *(default)*, `"Oval"` or `"Square"` |
@@ -70,7 +70,7 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 | `Preset` | A coordinated set of looks: `"Classic"`, `"Minimal"`, `"Glass"`, `"Neon"`, `"Compact"`. What you set yourself wins |
 | `Styles` | A default look per kind, such as `{ Toggle = "Slim", Slider = "Thick" }`; see [styles.md](styles.md) |
 | `WindowStyle`, `Transparency`, `BackgroundImage` | `"Solid"`, `"Glass"`, `"Gradient"` or `"Image"`; how see-through (0 to 0.6); a picture behind the contents |
-| `OpenAnimation`, `PageTransition`, `TabIndicator`, `TopbarControls` | How the window appears, how a page arrives, how the open tab is marked, and `"Mac"` dot buttons |
+| `OpenAnimation`, `PageTransition`, `TabIndicator`, `TopbarControls` | How the window appears (`"Rise"` by default, a short slide), how a page arrives, how the open tab is marked, and `"Mac"` dot buttons |
 | `Radius`, `Density`, `TextSize` | Corner, spacing and text-size settings |
 | `AccentGradient`, `SafeStatusColors` | A second accent colour for fills; colour-blind-friendly status colours |
 | `SidebarWidth`, `SidebarToggle`, `Snap` | Sidebar width, a button that folds it, snapping to screen edges |

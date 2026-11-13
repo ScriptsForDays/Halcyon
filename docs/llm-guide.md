@@ -91,6 +91,7 @@ Halcyon's defaults are a complete, consistent design. Customising looks is optio
 - **Two-column layouts** stack on narrow screens. Write the sections in the order a phone user should see them.
 - **Phones have no keyboard.** Hover tooltips become long-press, and keybinds are irrelevant on touch. Don't put essential information only in a tooltip.
 - **On phones** the window always has an open button, so don't build your own.
+- **Very large hubs** (hundreds of rows) can build the first tab, then the rest a frame apart with `task.wait()` between tabs, so opening never stalls on one long frame. Call `LoadAutoload()` after the last one. The example hub does this.
 
 ## 8. Key system and access
 

@@ -198,58 +198,23 @@ function Row.new(container, options, layout)
 		scope:connect(slot:GetPropertyChangedSignal("AbsoluteSize"), arrange)
 	end
 
-	-- The veil dims the row and takes its input while it is disabled or locked.
-	local veil = Create.new("TextButton", {
-		Name = "Veil",
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 5,
-		Visible = false,
-		BackgroundTransparency = 0.45,
-		Theme = { BackgroundColor3 = if filled then container.rowRole or "raised" else container.surface },
-		Parent = frame,
-	})
-	Create.corner(8, veil)
-	-- A locked row wears an accent badge where its control was: an icon and
-	-- the hub's own wording, so the row reads as an upgrade and not as broken.
-	local lock = Create.new("Frame", {
-		Name = "Lock",
-		Size = UDim2.fromOffset(0, 24),
-		AutomaticSize = Enum.AutomaticSize.X,
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0, 22),
-		Theme = { BackgroundColor3 = "accent" },
-		Parent = veil,
-	})
-	Create.corner(-1, lock)
-	-- The badge's contents sit in their own frame so the shimmer layer is
-	-- not laid out as one of them.
-	local badge = Create.new("Frame", { Name = "Badge", Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, Parent = lock })
-	local badgePadding = Create.padding(badge, 10, 0)
-	local badgeLayout = Create.list(badge, "Horizontal", 6)
-	local lockIcon = Create.icon("lock", 13, "onAccent", badge)
-	local lockLabel = Create.new("TextLabel", {
-		Name = "Reason",
-		Size = UDim2.fromScale(0, 1),
-		AutomaticSize = Enum.AutomaticSize.X,
-		TextSize = 12,
-		Weight = "bold",
-		LayoutOrder = 1,
-		Theme = { TextColor3 = "onAccent" },
-		Parent = badge,
-	})
-	local shimmer = Effects.shimmer(scope, lock, -1)
-	-- While locked, the title keeps clear of the badge instead of running
-	-- under it. In a narrow row the badge shrinks to its icon and the reason
-	-- moves into the description line, so the title is not squeezed.
+	-- The veil dims the row and takes its input while it is disabled or
+	-- locked, and a locked row wears an accent badge on it where its control
+	-- was. Both are built the first time a row needs them: most rows never
+	-- do, and making them for every row up front was a fifth of a large
+	-- hub's instances, all laid out while the window opened.
+	local veil, lock, badge, badgePadding, badgeLayout, lockIcon, lockLabel, shimmer, headRoom
 	local refresh
 	-- True while a locked row is too narrow for the badge's wording.
 	local narrowLock = false
 	-- The wording's width, kept from when it last showed: a hidden label
 	-- can report no width, which would flip the row back to wide.
 	local labelWidth = 0
-	local headRoom = if head then Create.new("UIPadding", { Parent = head }) else nil
+	-- While locked, the title keeps clear of the badge instead of running
+	-- under it. In a narrow row the badge shrinks to its icon and the reason
+	-- moves into the description line, so the title is not squeezed.
 	local function makeRoom()
-		if not headRoom then
+		if not headRoom or not lock then
 			return
 		end
 		local scale = row.library.scale
@@ -276,17 +241,64 @@ function Row.new(container, options, layout)
 		end
 		headRoom.PaddingRight = UDim.new(0, if lock.Visible then lock.AbsoluteSize.X / scale + 12 else 0)
 	end
-	scope:connect(lock:GetPropertyChangedSignal("AbsoluteSize"), makeRoom)
-	scope:connect(frame:GetPropertyChangedSignal("AbsoluteSize"), makeRoom)
-	-- Centred on the title and description, where the control was; a track or
-	-- bar under the title stays clear of it.
-	if head then
-		local function align()
-			lock.Position = UDim2.new(1, -12, 0, (head.AbsolutePosition.Y - frame.AbsolutePosition.Y + head.AbsoluteSize.Y / 2) / row.library.scale)
+
+	local function buildVeil()
+		if veil then
+			return
 		end
-		scope:connect(head:GetPropertyChangedSignal("AbsoluteSize"), align)
-		scope:connect(head:GetPropertyChangedSignal("AbsolutePosition"), align)
-		align()
+		veil = Create.new("TextButton", {
+			Name = "Veil",
+			Text = "",
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 5,
+			Visible = false,
+			BackgroundTransparency = 0.45,
+			Theme = { BackgroundColor3 = if filled then container.rowRole or "raised" else container.surface },
+			Parent = frame,
+		})
+		Create.corner(8, veil)
+		lock = Create.new("Frame", {
+			Name = "Lock",
+			Size = UDim2.fromOffset(0, 24),
+			AutomaticSize = Enum.AutomaticSize.X,
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -12, 0, 22),
+			Visible = false,
+			Theme = { BackgroundColor3 = "accent" },
+			Parent = veil,
+		})
+		Create.corner(-1, lock)
+		-- The badge's contents sit in their own frame so the shimmer layer is
+		-- not laid out as one of them.
+		badge = Create.new("Frame", { Name = "Badge", Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, Parent = lock })
+		badgePadding = Create.padding(badge, 10, 0)
+		badgeLayout = Create.list(badge, "Horizontal", 6)
+		lockIcon = Create.icon("lock", 13, "onAccent", badge)
+		lockLabel = Create.new("TextLabel", {
+			Name = "Reason",
+			Text = "",
+			Size = UDim2.fromScale(0, 1),
+			AutomaticSize = Enum.AutomaticSize.X,
+			TextSize = 12,
+			Weight = "bold",
+			LayoutOrder = 1,
+			Theme = { TextColor3 = "onAccent" },
+			Parent = badge,
+		})
+		shimmer = Effects.shimmer(scope, lock, -1)
+		headRoom = if head then Create.new("UIPadding", { Parent = head }) else nil
+		scope:connect(lock:GetPropertyChangedSignal("AbsoluteSize"), makeRoom)
+		scope:connect(frame:GetPropertyChangedSignal("AbsoluteSize"), makeRoom)
+		-- Centred on the title and description, where the control was; a
+		-- track or bar under the title stays clear of it.
+		if head then
+			local function align()
+				lock.Position = UDim2.new(1, -12, 0, (head.AbsolutePosition.Y - frame.AbsolutePosition.Y + head.AbsoluteSize.Y / 2) / row.library.scale)
+			end
+			scope:connect(head:GetPropertyChangedSignal("AbsoluteSize"), align)
+			scope:connect(head:GetPropertyChangedSignal("AbsolutePosition"), align)
+			align()
+		end
 	end
 
 	local state = { disabled = false, locked = false, reason = nil, description = options.Description }
@@ -297,20 +309,26 @@ function Row.new(container, options, layout)
 	handle.row = row
 
 	function refresh()
-		veil.Visible = state.disabled or state.locked or state.blocked
-		lock.Visible = state.locked and not state.quiet
-		makeRoom()
+		local covered = state.disabled or state.locked or state.blocked == true
+		if covered then
+			buildVeil()
+		end
+		if veil then
+			veil.Visible = covered
+			lock.Visible = state.locked and not state.quiet
+			makeRoom()
+			-- One veil for both: light enough that a locked feature's name stays readable.
+			veil.BackgroundTransparency = 0.45
+			if lock.Visible and row.window.lockShimmer then
+				shimmer.start()
+			else
+				shimmer.stop()
+			end
+			lockLabel.Text = state.reason or ""
+		end
 		if slot then
 			slot.Visible = not state.locked
 		end
-		-- One veil for both: light enough that a locked feature's name stays readable.
-		veil.BackgroundTransparency = 0.45
-		if lock.Visible and row.window.lockShimmer then
-			shimmer.start()
-		else
-			shimmer.stop()
-		end
-		lockLabel.Text = state.reason or ""
 		if description then
 			-- A narrow locked row says why in the description instead of the badge.
 			local shown = if state.locked and narrowLock then state.reason else state.description
@@ -379,6 +397,7 @@ function Row.new(container, options, layout)
 	-- A `quiet` lock shows no badge: the section's overlay speaks for the row.
 	function handle:Lock(reason, icon, quiet)
 		state.locked, state.reason, state.quiet = true, reason or "Locked", quiet == true
+		buildVeil()
 		Icons.apply(lockIcon, icon or "lock")
 		refresh()
 	end

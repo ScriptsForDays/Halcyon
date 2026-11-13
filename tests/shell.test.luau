@@ -44,6 +44,21 @@ Stub.advance(1)
 Stub.check(rising.root.Visible, "showing again during the exit cancels the hide")
 rising:Unload()
 
+-- A new window waits in its starting pose until a frame has been drawn, so a
+-- long first layout doesn't swallow the motion; scaling would make the text
+-- look like it grows.
+local RunService = game:GetService("RunService")
+local fresh = Halcyon:CreateWindow({ Title = "Fresh Hub", Folder = "FreshHub" })
+local settled = fresh.root.Position
+Stub.flush()
+Stub.equal(fresh.root.Position, settled + UDim2.fromOffset(0, 14), "a new window starts a little below its place")
+Stub.equal(fresh.uiScale.Scale, 1, "at full size")
+RunService.RenderStepped:Fire(1 / 60)
+RunService.Heartbeat:Fire(1 / 60)
+Stub.advance(1)
+Stub.equal(fresh.root.Position, settled, "then rises into place after the first frame")
+fresh:Unload()
+
 -- Mac controls, top bar buttons, sidebar toggle and width.
 local pressed = 0
 local mac = Halcyon:CreateWindow({ Title = "Mac Hub", Folder = "MacHub", TopbarControls = "Mac", SidebarToggle = true, SidebarWidth = 230 })

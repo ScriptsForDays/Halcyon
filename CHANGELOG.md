@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.1
+
+- Text no longer starts small and jumps to size when a window opens. The library starts loading its font as soon as it loads, and `CreateWindow` waits for it (at most two seconds, and only the first time).
+- The default open look is now Rise, a short slide. Pop scaled the whole window, which redrew every label at each step; it is still there for hubs that choose it. The motion now starts once the first frame is drawn, so a long first layout no longer swallows it.
+- With a Pill or Chip minimise style, the menu key folds the window to the pill or chip and back instead of hiding it.
+- Rows build their lock overlay only when they are first locked or disabled, which cut about a quarter of the instances in a large hub.
+- The navigation keeps tabs under their sidebar heading and the update log last, even when a hub builds its tabs a frame apart.
+- The example hub builds its first tab at once and the rest over the next few frames, so it opens without a long freeze.
+
 ## 2.2.0
 
 - Every built-in part turns on or off with `true` or `false` on `CreateWindow`, and `Window:Set` and `Window:Get` flip and read them live. New switches: `Close`, `Drag`, `Tooltips`, `Animations`, `Blur`, `Watermark`, `KeybindList`, `SettingsTab` and `NotificationCenter`. `Minimize` and `Resize` are the plain names for `Minimizable` and `Resizable`, which still work. `Halcyon:GetSwitches()` lists them.

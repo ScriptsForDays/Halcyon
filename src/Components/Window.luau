@@ -3,6 +3,7 @@
 -- scope, so Unload is one clean().
 
 local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local CommandPalette = require("./CommandPalette")
@@ -58,11 +59,13 @@ Styles.register("Window", "Image", { image = true })
 
 -- How the window appears and leaves (kind "Open"): scale grows from this
 -- size, offset slides from this many pixels away, unroll opens down from
--- the top bar.
+-- the top bar. Rise is the default because it only moves the window: a
+-- scaling open redraws every label at each step, so text looks like it
+-- starts small and grows.
+Styles.register("Open", "Rise", { offset = Vector2.new(0, 14) })
 Styles.register("Open", "Pop", { scale = 0.96 })
 Styles.register("Open", "Zoom", { scale = 0.86, timing = "spring" })
-Styles.register("Open", "Rise", { offset = Vector2.new(0, 18), scale = 0.99 })
-Styles.register("Open", "Drop", { offset = Vector2.new(0, -18), scale = 0.99 })
+Styles.register("Open", "Drop", { offset = Vector2.new(0, -18) })
 Styles.register("Open", "Slide", { offset = Vector2.new(-28, 0) })
 Styles.register("Open", "Unroll", { unroll = true })
 Styles.register("Open", "None", {})
@@ -294,6 +297,7 @@ function Window.new(library, options, access)
 
 	self.openButton = Create.new("TextButton", {
 		Name = "Open",
+		Text = "",
 		Size = UDim2.fromOffset(48, 48),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 10),
@@ -312,6 +316,7 @@ function Window.new(library, options, access)
 
 	self.pill = Create.new("TextButton", {
 		Name = "Pill",
+		Text = "",
 		Size = UDim2.fromOffset(0, 44),
 		AutomaticSize = Enum.AutomaticSize.X,
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -349,7 +354,7 @@ function Window.new(library, options, access)
 
 	self.scope:connect(UserInputService.InputBegan, function(input, processed)
 		if not processed and not library.listeningForKey and self.toggleKey and input.KeyCode == self.toggleKey then
-			self:Toggle()
+			self:menuKey()
 		end
 	end)
 	self.scope:connect(self.gui:GetPropertyChangedSignal("AbsoluteSize"), function()
@@ -385,7 +390,7 @@ function Window.new(library, options, access)
 	end
 	Switches.build(self)
 	self:layout()
-	self:pop()
+	self:pop(true)
 	return self
 end
 
@@ -588,30 +593,73 @@ end
 
 -- The window grows, slides or unrolls into place as it appears, in the
 -- window's Open look. A newer show or hide cancels an older one's ending.
-function Window:pop()
+-- `firstOpen` is set when the window has just been made: the hub builds its
+-- tabs right after, and laying a big hub out can take one long frame. So the
+-- window takes its starting pose once the build is done, and moves once that
+-- frame has been drawn; a tween started earlier would be over before anyone
+-- saw it.
+function Window:pop(firstOpen)
 	if not self.root.Visible then
 		return
 	end
 	self.motionGeneration = (self.motionGeneration or 0) + 1
+	local generation = self.motionGeneration
 	local look = Styles.pick("Open", nil, self)
 	if Motion.reduced then
 		return
 	end
 	local timing = look.timing or "base"
-	if look.scale then
-		self.uiScale.Scale = self.scale * look.scale
-		Motion.tween(self.uiScale, timing, { Scale = self.scale })
+	local function start()
+		local rest = { position = self.root.Position, size = self.root.Size }
+		if look.scale then
+			self.uiScale.Scale = self.scale * look.scale
+		end
+		if look.offset then
+			self.root.Position = rest.position + UDim2.fromOffset(look.offset.X, look.offset.Y)
+		end
+		local unroll = look.unroll and not self.minimized
+		if unroll then
+			self.root.Size = UDim2.fromOffset(rest.size.X.Offset, self.topbarHeight)
+		end
+		local function move()
+			if look.scale then
+				Motion.tween(self.uiScale, timing, { Scale = self.scale })
+			end
+			if look.offset then
+				Motion.tween(self.root, timing, { Position = rest.position })
+			end
+			if unroll then
+				Motion.tween(self.root, "slow", { Size = rest.size })
+			end
+		end
+		local function settle()
+			self.uiScale.Scale = self.scale
+			self.root.Position, self.root.Size = rest.position, rest.size
+		end
+		return move, settle
 	end
-	if look.offset then
-		local rest = self.root.Position
-		self.root.Position = rest + UDim2.fromOffset(look.offset.X, look.offset.Y)
-		Motion.tween(self.root, timing, { Position = rest })
+	if not firstOpen then
+		local move = start()
+		move()
+		return
 	end
-	if look.unroll and not self.minimized then
-		local rest = self.root.Size
-		self.root.Size = UDim2.fromOffset(rest.X.Offset, self.topbarHeight)
-		Motion.tween(self.root, "slow", { Size = rest })
-	end
+	task.defer(function()
+		if generation ~= self.motionGeneration or self.scope.cleaned or not self.root.Visible then
+			return
+		end
+		local move, settle = start()
+		RunService.RenderStepped:Wait()
+		RunService.Heartbeat:Wait()
+		if self.scope.cleaned then
+			return
+		end
+		-- Hidden or shown again in the meantime: arrive without the motion.
+		if generation ~= self.motionGeneration then
+			settle()
+		else
+			move()
+		end
+	end)
 end
 
 -- The reverse of pop, then `done` once the window may be hidden.
@@ -759,7 +807,7 @@ function Window:buildTopbar()
 	Create.list(self.chipHolder, "Horizontal", 0)
 
 	local function action(icon, order, callback)
-		local button = Create.new("TextButton", { Name = icon, Size = UDim2.new(0, if self.library.touch then 44 else 40, 1, 0), LayoutOrder = order, Parent = actions })
+		local button = Create.new("TextButton", { Name = icon, Text = "", Size = UDim2.new(0, if self.library.touch then 44 else 40, 1, 0), LayoutOrder = order, Parent = actions })
 		local glyph = centred(Create.icon(icon, 16, "textMuted", button))
 		scope:connect(button.MouseEnter, function()
 			Theme.bind(glyph, "ImageColor3", "text")
@@ -870,7 +918,7 @@ function Window:buildDots(brand)
 	Create.list(group, "Horizontal", 8)
 	local glyphs = {}
 	local function dot(role, icon, order, callback)
-		local button = Create.new("TextButton", { Name = icon, Size = UDim2.fromOffset(size, size), LayoutOrder = order, Theme = { BackgroundColor3 = role }, Parent = group })
+		local button = Create.new("TextButton", { Name = icon, Text = "", Size = UDim2.fromOffset(size, size), LayoutOrder = order, Theme = { BackgroundColor3 = role }, Parent = group })
 		Create.corner(-1, button)
 		local glyph = centred(Create.icon(icon, size - 5, "background", button))
 		glyph.ImageTransparency = 1
@@ -970,6 +1018,7 @@ end
 function Window:buildGrip()
 	local grip = Create.new("TextButton", {
 		Name = "Resize",
+		Text = "",
 		Size = UDim2.fromOffset(18, 18),
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -2, 1, -2),
@@ -1150,7 +1199,7 @@ function Window:buildNav()
 	end
 
 	local order, group = 0, nil
-	for _, tab in self.tabs do
+	for _, tab in self:navOrder() do
 		if tab.Hidden then
 			tab.button = nil
 			continue
@@ -1222,6 +1271,33 @@ function Window:SetGroupCollapsed(name, collapsed)
 	self.collapsedGroups[name] = if collapsed then true else nil
 	self:buildNav()
 	self:savePreferences()
+end
+
+-- The tabs in the order the navigation lists them: as they were made, but
+-- kept together under their sidebar heading, and the update log last in its
+-- group. A hub that builds its tabs a frame apart gets its update log made
+-- at the first pause, early, and it still belongs at the end.
+function Window:navOrder()
+	local rank, made = {}, {}
+	for index, tab in self.tabs do
+		made[tab] = index
+		local key = tab.Group or ""
+		if rank[key] == nil and not tab.trailing then
+			rank[key] = index
+		end
+	end
+	local ordered = table.clone(self.tabs)
+	table.sort(ordered, function(a, b)
+		local first, second = rank[a.Group or ""] or math.huge, rank[b.Group or ""] or math.huge
+		if first ~= second then
+			return first < second
+		end
+		if (a.trailing == true) ~= (b.trailing == true) then
+			return b.trailing == true
+		end
+		return made[a] < made[b]
+	end)
+	return ordered
 end
 
 function Window:paintTabs()
@@ -1522,6 +1598,18 @@ function Window:Toggle()
 		self:Hide()
 	else
 		self:Show()
+	end
+end
+
+-- The menu key. When the hub minimises to a pill or the round chip, the key
+-- folds the window to that and back instead of hiding it, so the player
+-- always has something on screen to press.
+function Window:menuKey()
+	local folds = self:minimizeMode() ~= "Topbar" and self.options.Minimizable ~= false
+	if not folds or not self.Visible then
+		self:Toggle()
+	else
+		self:Minimize(not self.minimized)
 	end
 end
 

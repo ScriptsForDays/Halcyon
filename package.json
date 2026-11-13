@@ -1,6 +1,6 @@
 {
 	"name": "halcyon-ui",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"description": "A UI library for Roblox script hubs: themes, key system, configs, icon packs, PC and mobile layouts.",
 	"license": "MIT",
 	"private": true,

@@ -419,7 +419,7 @@ Each entry: what it is for, when not to use it, options with defaults, value and
   - Graph: Line, Area, Bars
   - Navigation: Sidebar, Rail, Top, Dock
   - Window: Solid, Glass, Gradient, Image
-  - Open: Pop, Zoom, Rise, Drop, Slide, Unroll, None
+  - Open: Rise, Pop, Zoom, Drop, Slide, Unroll, None
   - PageTransition: Rise, Slide, None
   - Controls: Default, Mac
   - Minimize: Topbar, Pill, Chip

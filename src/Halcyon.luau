@@ -145,6 +145,9 @@ function Halcyon:CreateWindow(options)
 	if options.Font then
 		Create.setFamily(options.Font)
 	end
+	-- Drawn before the font arrives, text first shows in a stand-in face and
+	-- then jumps to size; on later runs the font is cached and this is instant.
+	Create.waitForFont(2)
 	if options.IconPack then
 		Icons.setDefault(options.IconPack)
 	end
@@ -184,6 +187,7 @@ end
 -- Runs the key prompt without creating a window. Yields; returns the access
 -- table ({ Tier, Rank, Tiers, Key, Saved, Data }) or nil when closed.
 function Halcyon:Authenticate(options)
+	Create.waitForFont(2)
 	return KeySystem.prompt(library, options, { folder = folderFor(options), title = options.Title or "Halcyon" })
 end
 
@@ -293,5 +297,9 @@ function Halcyon:Unload()
 	library.scope = Scope.new()
 	library.popup = nil
 end
+
+-- Start fetching the font as the library loads, so it has usually arrived
+-- by the time the hub makes its window.
+Create.preload()
 
 return Halcyon

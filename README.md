@@ -56,7 +56,7 @@ Window:SettingsTab() -- themes, menu key, configs, unload
 Window:LoadAutoload() -- loads the config the player marked, if any
 ```
 
-`RightShift` shows and hides the window. On a phone, a round button takes its place.
+`RightShift` shows and hides the window, or folds it to its pill or chip when the hub minimises to one. On a phone, a round button takes its place.
 
 ## What is in it
 

@@ -50,7 +50,7 @@ The example hub's **Looks** tab shows every look side by side, each with the lin
 | `Header` | Bar, Tall, Wordmark, Sidebar | `HeaderStyle` |
 | `Navigation` | Sidebar, Rail, Top, Dock | `TabStyle` |
 | `Window` | Solid, Glass, Gradient, Image | `WindowStyle` |
-| `Open` | Pop, Zoom, Rise, Drop, Slide, Unroll, None | `OpenAnimation` |
+| `Open` | Rise, Pop, Zoom, Drop, Slide, Unroll, None | `OpenAnimation` |
 | `PageTransition` | Rise, Slide, None | `PageTransition` |
 | `Controls` | Default, Mac | `TopbarControls` |
 | `Minimize` | Topbar, Pill, Chip | `MinimizeStyle` |
