@@ -44,7 +44,6 @@ function ConfigSection.build(window, target, options)
 
 	section:Button({
 		Title = "Save",
-		Description = "Writes every saved setting to this config",
 		Icon = "save",
 		Callback = function()
 			local configName = chosen() or "default"
@@ -77,7 +76,7 @@ function ConfigSection.build(window, target, options)
 	})
 	section:Button({
 		Title = "Load on start",
-		Description = "Loaded by Window:LoadAutoload() the next time the script runs",
+		Description = "Loads it when the hub starts",
 		Icon = "pin",
 		Callback = function()
 			report(window, "Loads on start", "Autoload not set", window:SetAutoload(chosen()))
@@ -94,7 +93,7 @@ function ConfigSection.build(window, target, options)
 			end
 			window:Dialog({
 				Title = `Delete "{Env.safeName(configName) or configName}"?`,
-				Content = "The config file is removed from this device.",
+				Content = "This can't be undone.",
 				Buttons = {
 					{ Title = "Keep" },
 					{

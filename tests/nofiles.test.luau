@@ -25,7 +25,7 @@ Stub.check(Stub.byText(settings.page, "Config name") == nil, "config controls ar
 
 local code = tab:Code({ Code = "print(1)" })
 Stub.click(Stub.byName(code.Frame, "Copy"))
-Stub.equal(library.toasts.active[1].options.Title, "Copy unavailable", "a failed copy is reported")
+Stub.equal(library.toasts.active[1].options.Title, "Can't copy", "a failed copy is reported")
 
 local access
 task.spawn(function()

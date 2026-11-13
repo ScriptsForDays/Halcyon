@@ -267,7 +267,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.NoticePosition ~= false then
 		rows.NoticePosition = section:Dropdown({
-			Title = "Notices appear",
+			Title = "Notice position",
 			Values = POSITIONS,
 			Default = personal.NoticePosition or Notifications.Defaults.Position,
 			Callback = function(position)
@@ -278,7 +278,6 @@ function Personalise.section(window, tab, options)
 	if options.AccentGradient ~= false then
 		rows.AccentGradient = section:Toggle({
 			Title = "Gradient accent",
-			Description = "Accent fills run into a second colour",
 			Default = personal.AccentGradient == true,
 			Callback = function(on)
 				Personalise.set(window, "AccentGradient", on)
@@ -288,7 +287,6 @@ function Personalise.section(window, tab, options)
 	if options.SafeStatus ~= false then
 		rows.SafeStatus = section:Toggle({
 			Title = "Colour-blind friendly",
-			Description = "Status colours that stay apart for every kind of colour vision",
 			Default = personal.SafeStatus == true,
 			Callback = function(on)
 				Personalise.set(window, "SafeStatus", on)
@@ -317,7 +315,6 @@ function Personalise.builder(window, tab, options)
 	local picker
 	section:Dropdown({
 		Title = "Colour",
-		Description = "The part of the theme to change",
 		Values = Theme.Roles,
 		Default = role,
 		Callback = function(name)
@@ -335,7 +332,13 @@ function Personalise.builder(window, tab, options)
 		end,
 	})
 	local name = section:Input({ Title = "Name", Placeholder = "My theme", MaxLength = 32 })
-	local status = section:Label({ Title = "Changes show as you make them." })
+	-- Says how a save, copy or import went; hidden until one happens.
+	local status = section:Label({ Title = "", Visible = false })
+	local setStatus = status.SetTitle
+	function status.SetTitle(target, text)
+		setStatus(target, text)
+		target:SetVisible(text ~= "")
+	end
 	section:Buttons({
 		Buttons = {
 			{
@@ -363,7 +366,7 @@ function Personalise.builder(window, tab, options)
 				Callback = function()
 					local text = Personalise.exportTheme(Theme.current.Name)
 					local copied = text ~= nil and Env.copy(text)
-					status:SetTitle(if copied then "Copied. Paste it into Import to share." else "This executor cannot copy text.")
+					status:SetTitle(if copied then "Copied. Paste it into Import to share." else "This executor can't copy text.")
 				end,
 			},
 		},

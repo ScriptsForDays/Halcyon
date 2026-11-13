@@ -126,6 +126,10 @@ function Tooltip.attach(row, spec)
 
 	local function show(at)
 		hide()
+		-- The hub can turn every tip off with Tooltips = false.
+		if row.window and row.window.tooltipsOff then
+			return
+		end
 		local mine = generation
 		local frame
 		frame, overlay = build(library, spec, look)

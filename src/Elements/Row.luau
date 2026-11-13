@@ -13,6 +13,8 @@ local Tokens = require("../Core/Tokens")
 
 -- The narrowest the title lane may get before the controls wrap under it.
 local MIN_TITLE = 96
+-- How much more room a narrowed lock badge needs before it widens again.
+local LOCK_GIVE = 12
 
 local Row = {}
 
@@ -106,7 +108,7 @@ function Row.new(container, options, layout)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		LayoutOrder = container:nextOrder(),
 		BackgroundTransparency = if filled and not layout.bare then 0 else 1,
-		Theme = { BackgroundColor3 = "raised" },
+		Theme = { BackgroundColor3 = container.rowRole or "raised" },
 		Parent = container.frame,
 	})
 	Create.corner(8, frame)
@@ -203,7 +205,7 @@ function Row.new(container, options, layout)
 		ZIndex = 5,
 		Visible = false,
 		BackgroundTransparency = 0.45,
-		Theme = { BackgroundColor3 = if filled then "raised" else container.surface },
+		Theme = { BackgroundColor3 = if filled then container.rowRole or "raised" else container.surface },
 		Parent = frame,
 	})
 	Create.corner(8, veil)
@@ -242,14 +244,22 @@ function Row.new(container, options, layout)
 	local refresh
 	-- True while a locked row is too narrow for the badge's wording.
 	local narrowLock = false
+	-- The wording's width, kept from when it last showed: a hidden label
+	-- can report no width, which would flip the row back to wide.
+	local labelWidth = 0
 	local headRoom = if head then Create.new("UIPadding", { Parent = head }) else nil
 	local function makeRoom()
 		if not headRoom then
 			return
 		end
 		local scale = row.library.scale
-		local full = lockLabel.TextBounds.X + 13 + 6 + 20
-		local narrow = lock.Visible and (frame.AbsoluteSize.X / scale) - full - 24 < MIN_TITLE
+		if lockLabel.Visible and lockLabel.TextBounds.X > 0 then
+			labelWidth = lockLabel.TextBounds.X
+		end
+		local spare = (frame.AbsoluteSize.X / scale) - (labelWidth + 13 + 6 + 20) - 24
+		-- A little give at the line, so a row right at the limit settles
+		-- instead of switching back and forth.
+		local narrow = lock.Visible and spare < (if narrowLock then MIN_TITLE + LOCK_GIVE else MIN_TITLE)
 		if narrow ~= narrowLock then
 			narrowLock = narrow
 			lockLabel.Visible = not narrow

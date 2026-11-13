@@ -29,6 +29,8 @@ Styles.register("Section", "Glass", { fill = "card", fillTransparency = 0.35, st
 Styles.register("Section", "Accent", { fill = "card", stroke = "stroke", surface = "card", edge = "accent" })
 Styles.register("Section", "Inset", { fill = "background", stroke = "stroke", surface = "background" })
 Styles.register("Section", "Header", { fill = "card", stroke = "stroke", surface = "card", band = "raised" })
+-- Panel: a card whose rows each sit on their own darker inset.
+Styles.register("Section", "Panel", { fill = "card", stroke = "stroke", surface = "card", rows = "background" })
 
 local Section = {}
 Section.__index = Section
@@ -54,7 +56,8 @@ function Section.new(tab, options)
 		tier = options.Tier or (options.PaidOnly and true) or tab.tier,
 		lockText = options.LockText or tab.lockText,
 		lockHint = options.LockHint or tab.lockHint,
-		rowFill = flat,
+		rowFill = flat or look.rows ~= nil,
+		rowRole = look.rows,
 		surface = look.surface or "card",
 		side = if options.Side == "Right" then "Right" else "Left",
 		Title = options.Title,
@@ -179,9 +182,11 @@ function Section.new(tab, options)
 	end
 	if not flat then
 		local edge = if look.edge then 8 else 0
-		Create.padding(rows, 6 + edge, if options.Title and not look.band then 0 else 6, 6, 6)
+		-- Panel rows are cards of their own and need room around them.
+		local room = if look.rows then 10 else 6
+		Create.padding(rows, room + edge, if options.Title and not look.band then 0 else room, room, room)
 	end
-	Create.list(rows, "Vertical", if flat then Tokens.density.gap else 2)
+	Create.list(rows, "Vertical", if flat or look.rows then Tokens.density.gap else 2)
 	if options.Description then
 		-- A line under the title that explains the group; it folds with the rows.
 		self.description = Create.new("TextLabel", {
@@ -359,6 +364,20 @@ function Section:refresh()
 	if self.chevron then
 		Motion.tween(self.chevron, "fast", { Rotation = if open then 0 else -90 })
 	end
+	-- After a section unfolds past the bottom of the page, Roblox can leave its
+	-- own fill and outline undrawn (the rows still show) until its size
+	-- changes again. Growing it by a pixel for one frame makes it draw.
+	local root = self.root
+	if open and root and self.wasFolded then
+		local size = root.Size
+		root.Size = size + UDim2.fromOffset(0, 1)
+		task.delay(0, function()
+			if root.Parent then
+				root.Size = size
+			end
+		end)
+	end
+	self.wasFolded = not open
 end
 
 function Section:setSearching(searching)
@@ -405,11 +424,7 @@ function Section:buildSwitch(header, settings)
 		on = value == true
 		self.switchedOff = not on
 		draw("fast")
-		for _, entry in self.entries do
-			if entry.section == self then
-				entry.handle:SetBlocked(not on or self.window.disabledAll == true)
-			end
-		end
+		self:refreshBlocked()
 		handle.Changed:Fire(on)
 		Env.call(handle.Title, settings.Callback, on)
 	end
@@ -510,8 +525,84 @@ end
 
 -- Shows the section only while `source` (an element or its Flag) has the
 -- value `expected` (default true), or while `expected(value)` returns true.
+-- Two or three controls side by side on one line, each taking an equal
+-- share. Narrow, they stack. Columns defaults to 2. The group takes the
+-- same element methods as the section.
+function Section:Group(options)
+	options = options or {}
+	local columns = math.clamp(math.floor(tonumber(options.Columns) or 2), 2, 3)
+	local holder = Create.new("Frame", {
+		Name = "Group",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = self:nextOrder(),
+		Parent = self.frame,
+	})
+	local layout = Create.list(holder, "Horizontal", 8, { VerticalAlignment = Enum.VerticalAlignment.Top })
+	local group = {
+		library = self.library,
+		window = self.window,
+		tab = self.tab,
+		section = self.section,
+		scope = self.scope,
+		entries = self.entries,
+		tier = self.tier,
+		lockText = self.lockText,
+		lockHint = self.lockHint,
+		lockOverlay = self.lockOverlay,
+		rowFill = self.rowFill,
+		rowRole = self.rowRole,
+		surface = self.surface,
+		frame = holder,
+		order = 0,
+	}
+	function group.nextOrder(container)
+		container.order += 1
+		return container.order
+	end
+	Registry.install(group)
+	local stacked = false
+	local function fit()
+		local width = holder.AbsoluteSize.X / self.library.scale
+		stacked = width > 0 and width / columns < 190
+		layout.FillDirection = if stacked then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal
+		for _, child in holder:GetChildren() do
+			if child:IsA("GuiObject") then
+				child.Size = if stacked then UDim2.new(1, 0, 0, 0) else UDim2.new(1 / columns, -8 * (columns - 1) / columns, 0, 0)
+			end
+		end
+	end
+	self.scope:connect(holder:GetPropertyChangedSignal("AbsoluteSize"), fit)
+	self.scope:connect(holder.ChildAdded, function()
+		task.defer(fit)
+	end)
+	group.Frame = holder
+	return group
+end
+
 function Section:ShowWhen(source, expected)
 	Registry.follow(self, source, expected)
+end
+
+-- Greys the section's rows while `source` does not match; see ShowWhen.
+function Section:EnableWhen(source, expected)
+	Registry.enableWhen(self, source, expected)
+end
+
+-- Greys every row in the section, or frees them again. Rows the hub
+-- disabled one by one stay disabled either way.
+function Section:SetEnabled(enabled)
+	self.disabled = enabled == false
+	self:refreshBlocked()
+end
+
+function Section:refreshBlocked()
+	local blocked = Registry.blocked(self.window, self)
+	for _, entry in self.entries do
+		if entry.section == self and entry.handle.SetBlocked then
+			entry.handle:SetBlocked(blocked)
+		end
+	end
 end
 
 -- A count or word in a small pill beside the title; nil or false removes it.

@@ -73,6 +73,10 @@ end
 function Drag.move(scope, handle, target, options)
 	local start = Vector2.zero
 	Drag.track(scope, handle, function()
+		-- `enabled` lets the owner lock the position for a while.
+		if options.enabled and not options.enabled() then
+			return false
+		end
 		start = target.AbsolutePosition - target.Parent.AbsolutePosition + target.AbsoluteSize * target.AnchorPoint
 		return true
 	end, function(position, origin, moved)

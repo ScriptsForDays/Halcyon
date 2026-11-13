@@ -189,8 +189,8 @@ function UpdateLog.build(window, settings)
 	end
 	if settings.Search ~= false then
 		tools:Input({
-			Title = "Search updates",
-			Placeholder = "Search updates",
+			Title = "Search",
+			Placeholder = "A version or a word",
 			LeadingIcon = "search",
 			Clearable = true,
 			Live = true,

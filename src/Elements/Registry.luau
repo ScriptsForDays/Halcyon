@@ -4,7 +4,9 @@
 
 local Choices = require("./Choices")
 local Env = require("../Core/Env")
+local Menu = require("../Components/Menu")
 local Spotlight = require("../Components/Spotlight")
+local Stat = require("./Stat")
 local Tooltip = require("../Components/Tooltip")
 
 local MODULES = {
@@ -35,14 +37,46 @@ local MODULES = {
 	Space = require("./Space"),
 	Table = require("./Table"),
 	DatePicker = require("./DatePicker"),
+	List = require("./List"),
+	Tags = require("./Tags"),
+	PlayerList = require("./PlayerList"),
+	MenuButton = require("./MenuButton"),
+	Stat = Stat,
+	Stats = { new = Stat.group },
+	Graph = require("./Graph"),
+	Log = require("./Log"),
+	Banner = require("./Banner"),
+	Link = require("./Link"),
 }
-local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true }
+local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true, Stats = true }
 
-local Registry = { Kinds = {} }
+local Registry = { Kinds = {}, KindSet = {} }
 for kind in MODULES do
 	table.insert(Registry.Kinds, kind)
+	Registry.KindSet[kind] = true
 end
 table.sort(Registry.Kinds)
+
+-- ShowWhen and EnableWhen name what they follow: an element or its Flag on
+-- its own (waiting for true), or with the value to wait for, as
+-- { "Flag", value } or { Flag = "Flag", Value = value }.
+local function condition(setting)
+	if type(setting) == "table" and not setting.Get then
+		local value = setting.Value
+		if value == nil then
+			value = setting[2]
+		end
+		return setting.Flag or setting[1], value
+	end
+	return setting, nil
+end
+Registry.condition = condition
+
+-- Whether a row is greyed by something other than itself: the window's
+-- SetEnabled(false), or its section's switch or Enabled = false.
+function Registry.blocked(window, section)
+	return window.disabledAll == true or (section ~= nil and (section.switchedOff == true or section.disabled == true))
+end
 
 local function create(container, kind, options)
 	if type(options) == "string" then
@@ -98,7 +132,7 @@ local function create(container, kind, options)
 	end
 	-- A row made while its section's switch is off, or the window is
 	-- disabled, starts greyed like its neighbours.
-	if handle.SetBlocked and ((container.section and container.section.switchedOff) or window.disabledAll) then
+	if handle.SetBlocked and Registry.blocked(window, container.section) then
 		handle:SetBlocked(true)
 	end
 	-- A string or table is a hover tip; a slider's Tooltip = true/false is its value bubble.
@@ -116,41 +150,110 @@ local function create(container, kind, options)
 	function handle.ShowWhen(target, source, expected)
 		Registry.follow(target, source, expected)
 	end
+	function handle.EnableWhen(target, source, expected)
+		Registry.enableWhen(target, source, expected)
+	end
+	function handle.SetEnabled(target, enabled)
+		if target.SetDisabled then
+			target:SetDisabled(enabled == false)
+		end
+	end
+	-- Visible, Enabled, ShowWhen and EnableWhen: the same switches as the
+	-- methods, given when the row is made.
+	Registry.switches(handle, options)
+	-- Menu = { items } (or a function returning them) opens on right-click
+	-- or a long press on the row.
+	if (type(options.Menu) == "table" or type(options.Menu) == "function") and handle.Frame then
+		Menu.attach(handle.scope, window.library, handle.Frame, options.Menu)
+	end
 	if window.query ~= "" then
 		window:applySearch()
 	end
 	return handle
 end
 
--- Makes `target` (a row or section) visible only while `source` matches.
--- `source` is an element or its Flag; `expected` is a value (a multi
--- dropdown matches when it includes it) or a function of the value.
-function Registry.follow(target, source, expected)
+-- Runs `apply(matches)` now and whenever `source` changes. `source` is an
+-- element or its Flag; `expected` is a value (a multi dropdown matches when
+-- it includes it) or a function of the value. With `late`, a Flag that isn't
+-- made yet is looked up again once the hub's current build step finishes, so
+-- a row given ShowWhen when it is made may follow a control made below it.
+local function watch(target, source, expected, apply, name, late)
 	local window = target.window or target.ownerWindow
-	if type(source) == "string" then
-		source = window and window.Flags[source]
-	end
-	if type(source) ~= "table" or not source.Changed or not source.Get then
-		error("ShowWhen needs an element, or the Flag of one made before it", 3)
-	end
 	if expected == nil then
 		expected = true
 	end
-	local function check()
-		local value = source:Get()
-		local shown
-		if type(expected) == "function" then
-			local ok, result = pcall(expected, value)
-			shown = ok and result == true
-		elseif type(value) == "table" then
-			shown = table.find(value, expected) ~= nil
-		else
-			shown = value == expected
+	local function attach(element)
+		local function check()
+			local value = element:Get()
+			local matches
+			if type(expected) == "function" then
+				local ok, result = pcall(expected, value)
+				matches = ok and result == true
+			elseif type(value) == "table" then
+				matches = table.find(value, expected) ~= nil
+			else
+				matches = value == expected
+			end
+			apply(matches)
 		end
-		target:SetVisible(shown)
+		target.scope:connect(element.Changed, check)
+		check()
 	end
-	target.scope:connect(source.Changed, check)
-	check()
+	if type(source) == "string" then
+		local flag = source
+		source = window and window.Flags[flag]
+		if source == nil and window and late then
+			task.defer(function()
+				if target.scope.cleaned then
+					return
+				end
+				local late = window.Flags[flag]
+				if type(late) == "table" and late.Changed and late.Get then
+					attach(late)
+				else
+					warn(`[Halcyon] {name} names the Flag "{flag}", but no element has it.`)
+				end
+			end)
+			return
+		end
+	end
+	if type(source) ~= "table" or not source.Changed or not source.Get then
+		error(`{name} needs an element, or the Flag of one`, 4)
+	end
+	attach(source)
+end
+
+-- Makes `target` (a row, section or tab) visible only while `source` matches.
+function Registry.follow(target, source, expected, late)
+	watch(target, source, expected, function(shown)
+		target:SetVisible(shown)
+	end, "ShowWhen", late)
+end
+
+-- Greys `target` (a row or section) while `source` does not match.
+function Registry.enableWhen(target, source, expected, late)
+	watch(target, source, expected, function(enabled)
+		target:SetEnabled(enabled)
+	end, "EnableWhen", late)
+end
+
+-- Applies Visible, Enabled, ShowWhen and EnableWhen given when a row,
+-- section or tab is made.
+function Registry.switches(target, options)
+	if options.Visible == false and target.SetVisible then
+		target:SetVisible(false)
+	end
+	if (options.Enabled == false or options.Disabled == true) and target.SetEnabled then
+		target:SetEnabled(false)
+	end
+	if options.ShowWhen ~= nil then
+		local source, expected = condition(options.ShowWhen)
+		Registry.follow(target, source, expected, true)
+	end
+	if options.EnableWhen ~= nil then
+		local source, expected = condition(options.EnableWhen)
+		Registry.enableWhen(target, source, expected, true)
+	end
 end
 
 function Registry.install(container)

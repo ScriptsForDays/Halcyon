@@ -112,7 +112,7 @@ local compact = Halcyon:Notify({ Title = "Saved", Content = "Not shown", Style =
 Stub.check(Stub.byText(library.toasts.holder, "Not shown") == nil, "a Compact notice is one line")
 compact.Dismiss()
 local banner = Halcyon:Notify({ Title = "Update", Style = "Banner" })
-Stub.check(Stub.byName(library.toasts.holder, "Strip") ~= nil, "a Banner notice has a coloured strip")
+Stub.check(Stub.byName(library.toasts.holder, "Band") ~= nil, "a Banner notice has a tinted band")
 banner.Dismiss()
 local job = Halcyon:Notify({ Title = "Downloading", Content = "0 of 10", Style = "Progress" })
 Stub.advance(10)

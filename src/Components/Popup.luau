@@ -58,7 +58,10 @@ function Popup.toggle(library, anchor, options)
 
 	local function place()
 		local view, origin = overlay.gui.AbsoluteSize, overlay.gui.AbsolutePosition
-		local size = panel.AbsoluteSize
+		-- The width is fixed, so it is used as set rather than read back: a
+		-- panel that has not been laid out yet reports 0 and would open off
+		-- to the side for a frame. Only the height waits for layout.
+		local size = Vector2.new(width * library.scale, panel.AbsoluteSize.Y)
 		local corner, extent = anchor.AbsolutePosition - origin, anchor.AbsoluteSize
 		local x = corner.X + extent.X - size.X
 		local y = corner.Y + extent.Y + GAP

@@ -141,7 +141,7 @@ Stub.check(Stub.byText(dialog(), "Resets every hour") ~= nil, "the selected tier
 Stub.check(Stub.find(dialog(), function(instance)
 	return instance.Name == "Tag" and instance.Text == "Key required · 1h"
 end) ~= nil, "a tier card says what it takes and how long its key lasts")
-Stub.check(Stub.byText(dialog(), "Keys for Free last 1h. Your key is remembered on this device.") ~= nil, "the footer says how long a key lasts")
+Stub.check(Stub.byText(dialog(), "Keys for Free last 1h. Your key is saved on this device.") ~= nil, "the footer says how long a key lasts")
 Stub.click(Stub.byName(dialog(), "Close"))
 
 -- A tier that needs no key, and success callbacks.

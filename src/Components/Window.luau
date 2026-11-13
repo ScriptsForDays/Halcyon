@@ -13,6 +13,7 @@ local Dialog = require("./Dialog")
 local Drag = require("../Core/Drag")
 local Env = require("../Core/Env")
 local Hairline = require("../Core/Hairline")
+local Header = require("./Header")
 local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
@@ -21,13 +22,14 @@ local Panels = require("./Panels")
 local Personalise = require("./Personalise")
 local Popup = require("./Popup")
 local Profile = require("./Profile")
+local Registry = require("../Elements/Registry")
 local Signal = require("../Core/Signal")
 local Styles = require("../Core/Styles")
+local Switches = require("./Switches")
 local Tab = require("./Tab")
 local UpdateLog = require("./UpdateLog")
 local Theme = require("../Core/Theme")
 
-local TOPBAR = 48
 -- Below this window width the side navigation becomes a strip of tabs.
 local NARROW = 560
 -- Two columns of sections need at least this much page width.
@@ -127,6 +129,8 @@ local function centred(instance)
 end
 
 function Window.new(library, options, access)
+	-- A copy with the plainer switch names filled in; the hub's table is left alone.
+	options = Switches.normalize(options)
 	local self = setmetatable({}, Window)
 	self.library, self.options = library, options
 	self.scope = library.scope:child()
@@ -143,6 +147,9 @@ function Window.new(library, options, access)
 	-- The default look for each kind of control, from Styles and the older
 	-- single options; an element's own Style wins over it.
 	self.styles = Styles.defaults(options)
+	-- The header look decides the top bar's height (see Header.luau).
+	self.header = Styles.pick("Header", nil, self)
+	self.topbarHeight = self.header.height or 48
 	self.sectionStyle = options.SectionStyle
 	-- The value bubble over a slider's knob while it is dragged.
 	self.sliderTooltips = options.SliderTooltips ~= false
@@ -268,8 +275,8 @@ function Window.new(library, options, access)
 	self:buildTopbar()
 	self.body = Create.new("Frame", {
 		Name = "Body",
-		Position = UDim2.fromOffset(0, TOPBAR),
-		Size = UDim2.new(1, 0, 1, -TOPBAR),
+		Position = UDim2.fromOffset(0, self.topbarHeight),
+		Size = UDim2.new(1, 0, 1, -self.topbarHeight),
 		ClipsDescendants = true,
 		Parent = self.root,
 	})
@@ -353,6 +360,7 @@ function Window.new(library, options, access)
 	end))
 
 	if options.CommandPalette then
+		self.paletteBound = true
 		CommandPalette.bind(self)
 	end
 	Personalise.restore(self, saved.personal, false)
@@ -375,9 +383,22 @@ function Window.new(library, options, access)
 	if options.FocusRing ~= false then
 		self:buildFocusRing()
 	end
+	Switches.build(self)
 	self:layout()
 	self:pop()
 	return self
+end
+
+-- Turns one of the window's switches on or off while the hub runs:
+-- Window:Set("Search", false), Window:Set("Watermark", { Fields = {...} }).
+-- Returns false for a name it doesn't know.
+function Window:Set(name, value)
+	return Switches.set(self, name, value)
+end
+
+-- The current state of a switch, or nil for a name it doesn't know.
+function Window:Get(name)
+	return Switches.get(self, name)
 end
 
 -- An accent ring that marks the control a gamepad (or the keyboard's UI
@@ -448,7 +469,7 @@ function Window:AddUpdate(update)
 	elseif self.pendingUpdates then
 		table.insert(self.pendingUpdates, update)
 	else
-		warn("[Halcyon] AddUpdate needs UpdateLog = true on CreateWindow; the release was not added.")
+		warn("[Halcyon] AddUpdate needs UpdateLog = true on CreateWindow.")
 	end
 end
 
@@ -492,7 +513,7 @@ function Window:buildShadow()
 	local function follow()
 		shadow.Size = root.Size
 		shadow.Position = root.Position
-		shadow.Visible = root.Visible
+		shadow.Visible = root.Visible and not self.shadowOff
 		scale.Scale = self.uiScale.Scale
 	end
 	for _, property in { "Size", "Position", "Visible" } do
@@ -588,7 +609,7 @@ function Window:pop()
 	end
 	if look.unroll and not self.minimized then
 		local rest = self.root.Size
-		self.root.Size = UDim2.fromOffset(rest.X.Offset, TOPBAR)
+		self.root.Size = UDim2.fromOffset(rest.X.Offset, self.topbarHeight)
 		Motion.tween(self.root, "slow", { Size = rest })
 	end
 end
@@ -612,7 +633,7 @@ function Window:unpop(done)
 		Motion.tween(self.root, "fast", { Position = rest + UDim2.fromOffset(look.offset.X, look.offset.Y) })
 	end
 	if look.unroll then
-		Motion.tween(self.root, "fast", { Size = UDim2.fromOffset(self.root.Size.X.Offset, TOPBAR) })
+		Motion.tween(self.root, "fast", { Size = UDim2.fromOffset(self.root.Size.X.Offset, self.topbarHeight) })
 	end
 	task.delay(0.13, function()
 		if generation ~= self.motionGeneration or self.scope.cleaned then
@@ -627,41 +648,67 @@ end
 
 function Window:buildTopbar()
 	local scope = self.scope
-	local topbar = Create.new("Frame", { Name = "Topbar", Size = UDim2.new(1, 0, 0, TOPBAR), Parent = self.root })
+	local header = self.header
+	local topbar = Create.new("Frame", { Name = "Topbar", Size = UDim2.new(1, 0, 0, self.topbarHeight), ZIndex = 3, Parent = self.root })
+	self.topbar = topbar
 	self.topbarSeam = Hairline.new("X", "stroke", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Parent = topbar })
 
 	local brand = Create.new("Frame", { Name = "Brand", Size = UDim2.fromScale(1, 1), Parent = topbar })
+	self.brand = brand
 	local inset = Create.padding(brand, 16, 0)
-	Create.list(brand, "Horizontal", 10)
-	local picture = self.options.TopbarImage
-	if picture == true then
-		picture = self.Icon
+	Create.list(brand, "Horizontal", if header.image then 12 else 10)
+	local heading
+	if header.wordmark then
+		Header.wordmark(self, brand)
+		heading = brand
+	else
+		local picture = self.options.TopbarImage
+		if picture == true then
+			picture = self.Icon
+		end
+		if picture then
+			self:buildTopbarImage(brand, picture)
+		elseif self.Icon then
+			Create.icon(self.Icon, header.icon or 20, "accent", brand)
+		end
+		local titles = Create.new("Frame", { Name = "Titles", Size = UDim2.fromScale(0, 1), LayoutOrder = 1, Parent = brand }, {
+			Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
+		})
+		Create.list(titles, "Vertical", 0, { VerticalAlignment = Enum.VerticalAlignment.Center })
+		heading = Create.new("Frame", { Name = "Heading", Size = UDim2.new(1, 0, 0, (header.title or 14) + 4), ClipsDescendants = true, Parent = titles })
+		Create.list(heading, "Horizontal", 8)
+		-- A long title gives way to the version tag and ends in an ellipsis
+		-- rather than being cut off mid-letter.
+		self.titleLabel = Create.new("TextLabel", {
+			Name = "Title",
+			Size = UDim2.fromScale(0, 1),
+			AutomaticSize = Enum.AutomaticSize.X,
+			Text = self.Title,
+			TextSize = header.title or 14,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Weight = "bold",
+			Theme = { TextColor3 = "text" },
+			Parent = heading,
+		}, {
+			Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Shrink }),
+		})
+		self.subtitleLabel = Create.new("TextLabel", {
+			Name = "Subtitle",
+			Size = UDim2.new(1, 0, 0, (header.subtitle or 12) + 3),
+			Text = self.Subtitle or "",
+			TextSize = header.subtitle or 12,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			LayoutOrder = 1,
+			Visible = self.Subtitle ~= nil,
+			Theme = { TextColor3 = "textMuted" },
+			Parent = titles,
+		})
 	end
-	if picture then
-		self:buildTopbarImage(brand, picture)
-	elseif self.Icon then
-		Create.icon(self.Icon, 20, "accent", brand)
-	end
-	local titles = Create.new("Frame", { Name = "Titles", Size = UDim2.fromScale(0, 1), LayoutOrder = 1, Parent = brand }, {
-		Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
-	})
-	Create.list(titles, "Vertical", 0, { VerticalAlignment = Enum.VerticalAlignment.Center })
-	local heading = Create.new("Frame", { Name = "Heading", Size = UDim2.new(1, 0, 0, 18), ClipsDescendants = true, Parent = titles })
-	Create.list(heading, "Horizontal", 8)
-	self.titleLabel = Create.new("TextLabel", {
-		Name = "Title",
-		Size = UDim2.fromScale(0, 1),
-		AutomaticSize = Enum.AutomaticSize.X,
-		Text = self.Title,
-		Weight = "bold",
-		Theme = { TextColor3 = "text" },
-		Parent = heading,
-	})
 	-- The version tag beside the title: shown when the hub gives a Version
 	-- and has not set ShowVersion to false.
 	self.versionTag = Create.new("TextLabel", {
 		Name = "Version",
-		Size = UDim2.fromScale(0, 1),
+		Size = if header.wordmark then UDim2.fromOffset(0, 20) else UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
 		Text = tostring(self.options.Version or ""),
 		TextSize = 12,
@@ -674,17 +721,8 @@ function Window:buildTopbar()
 	})
 	Create.corner(5, self.versionTag)
 	Create.padding(self.versionTag, 6, 0)
-	self.subtitleLabel = Create.new("TextLabel", {
-		Name = "Subtitle",
-		Size = UDim2.new(1, 0, 0, 15),
-		Text = self.Subtitle or "",
-		TextSize = 12,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		LayoutOrder = 1,
-		Visible = self.Subtitle ~= nil,
-		Theme = { TextColor3 = "textMuted" },
-		Parent = titles,
-	})
+	-- Kept apart from the sidebar header's own labels, which come and go.
+	self.topbarTitle, self.topbarSubtitle = self.titleLabel, self.subtitleLabel
 
 	local actions = Create.new("Frame", {
 		Name = "Actions",
@@ -700,31 +738,16 @@ function Window:buildTopbar()
 		inset.PaddingRight = UDim.new(0, actions.AbsoluteSize.X / self.scale + 14)
 	end)
 
-	local search = Create.new("Frame", {
-		Name = "Search",
-		Size = UDim2.fromOffset(170, 30),
-		Theme = { BackgroundColor3 = "raised" },
-		Parent = actions,
-	})
-	Create.corner(8, search)
-	local glass = Create.icon("search", 14, "textMuted", search)
-	glass.AnchorPoint = Vector2.new(0, 0.5)
-	glass.Position = UDim2.new(0, 9, 0.5, 0)
-	local box = Create.new("TextBox", {
-		Name = "Query",
-		Position = UDim2.fromOffset(30, 0),
-		Size = UDim2.new(1, -36, 1, 0),
-		PlaceholderText = "Search",
-		TextSize = 13,
-		ClipsDescendants = true,
-		Theme = { TextColor3 = "text" },
-		Parent = search,
-	})
-	scope:connect(box:GetPropertyChangedSignal("Text"), function()
-		self:applySearch(box.Text)
-	end)
+	local search, box = Header.searchBox(self, scope, actions, UDim2.fromOffset(170, 30))
 	self.searchFrame, self.searchBox = search, box
+	self.topbarSearch, self.topbarBox = search, box
 	search.Visible = self.options.Search ~= false
+	scope:connect(box.Focused, function()
+		self:fitTopbarSearch()
+	end)
+	scope:connect(box.FocusLost, function()
+		self:fitTopbarSearch()
+	end)
 
 	self.chipHolder = Create.new("Frame", {
 		Name = "Profile",
@@ -755,33 +778,53 @@ function Window:buildTopbar()
 		end)
 	end
 	if Styles.pick("Controls", nil, self).dots then
-		self:buildDots(brand)
+		self.dots = self:buildDots(brand)
 	else
-		if self.options.Minimizable ~= false then
-			self.minimizeGlyph = action("minus", 2, function()
-				self:Minimize(not self.minimized)
-			end)
-		end
-		action("x", 3, function()
-			self:Hide()
+		-- Both are always made, so Window:Set can bring back one the hub hid.
+		self.minimizeGlyph = action("minus", 2, function()
+			self:Minimize(not self.minimized)
 		end)
+		self.minimizeButton = self.minimizeGlyph.Parent
+		self.minimizeButton.Visible = self.options.Minimizable ~= false
+		self.closeButton = action("x", 3, function()
+			self:Hide()
+		end).Parent
+		self.closeButton.Visible = self.options.Close ~= false
 	end
 
-	Drag.move(scope, topbar, self.root, {
+	Drag.move(scope, topbar, self.root, self:dragOptions())
+end
+
+-- How the top bar (or the sidebar's logo) drags the window: not while the
+-- hub has locked it, and snapped and saved where it is let go.
+function Window:dragOptions()
+	return {
+		enabled = function()
+			return not self.dragLocked
+		end,
 		onMoved = function()
 			local corner = self.root.AbsolutePosition - self.gui.AbsolutePosition
 			self.placed = self:snap(Vector2.new(math.round(corner.X), math.round(corner.Y)))
 			self:layout()
 			self:savePreferences()
 		end,
-	})
+	}
+end
+
+-- Where minimising goes. With the sidebar header there is no top bar to
+-- fold up to, so "Topbar" docks to the pill instead.
+function Window:minimizeMode()
+	if self.sidebarHeader and self.minimizeStyle == "Topbar" then
+		return "Pill"
+	end
+	return self.minimizeStyle
 end
 
 -- The hub's own picture before its title, in one of the TopbarImage looks.
 -- Any image source works: an icon name, an asset id, a URL or a file.
 function Window:buildTopbarImage(brand, source)
 	local look = Styles.pick("TopbarImage", self.options.TopbarImageStyle, self)
-	local size = look.size or 28
+	local size = self.header.image or look.size or 28
 	local holder = Create.new("Frame", { Name = "TopbarImage", Size = UDim2.fromOffset(size, size), Parent = brand })
 	local image = Create.new("ImageLabel", {
 		Name = "Image",
@@ -835,14 +878,15 @@ function Window:buildDots(brand)
 		scope:connect(button.Activated, callback)
 		return glyph
 	end
-	dot("danger", "x", 1, function()
+	self.closeButton = dot("danger", "x", 1, function()
 		self:Hide()
+	end).Parent
+	self.closeButton.Visible = self.options.Close ~= false
+	self.minimizeGlyph = dot("warning", "minus", 2, function()
+		self:Minimize(not self.minimized)
 	end)
-	if self.options.Minimizable ~= false then
-		self.minimizeGlyph = dot("warning", "minus", 2, function()
-			self:Minimize(not self.minimized)
-		end)
-	end
+	self.minimizeButton = self.minimizeGlyph.Parent
+	self.minimizeButton.Visible = self.options.Minimizable ~= false
 	-- The third dot switches between the hub's size and a larger one.
 	dot("success", "maximize-2", 3, function()
 		local large = Vector2.new(1100, 700)
@@ -864,6 +908,7 @@ function Window:buildDots(brand)
 			Motion.tween(glyph, "fast", { ImageTransparency = 1 })
 		end
 	end)
+	return group
 end
 
 -- With Snap on, a window dropped near a screen edge or the centre line
@@ -914,7 +959,7 @@ function Window:SetEnabled(enabled)
 	for _, tab in self.tabs do
 		for _, entry in tab.entries do
 			if entry.handle.SetBlocked then
-				entry.handle:SetBlocked(self.disabledAll or (entry.section and entry.section.switchedOff == true))
+				entry.handle:SetBlocked(Registry.blocked(self, entry.section))
 			end
 		end
 	end
@@ -959,14 +1004,14 @@ function Window:layout()
 	local view, scale = self.gui.AbsoluteSize, self.scale
 	local width = math.floor(math.max(math.min(self.size.X, (view.X - 16) / scale), 240))
 	local height = math.floor(math.max(math.min(self.size.Y, (view.Y - 16) / scale), 200))
-	local folded = self.minimized and self.minimizeStyle == "Topbar"
-	self.root.Size = UDim2.fromOffset(width, if folded then TOPBAR else height)
+	local folded = self.minimized and self:minimizeMode() == "Topbar"
+	self.root.Size = UDim2.fromOffset(width, if folded then self.topbarHeight else height)
 	self.body.Visible = not folded
 	-- Folded to its top bar, the window's bottom edge is the seam's line; the
 	-- seam would show past the rounded corners.
-	self.topbarSeam.Visible = not folded
+	self.topbarSeam.Visible = not folded and not self.sidebarHeader
 	if self.grip then
-		self.grip.Visible = not folded
+		self.grip.Visible = not folded and self.options.Resizable ~= false
 	end
 
 	local narrow = width < NARROW
@@ -978,7 +1023,13 @@ function Window:layout()
 		self.activeStyle = style
 		self:buildNav()
 	end
-	self.searchFrame.Size = UDim2.fromOffset(if narrow then 104 else 170, 30)
+	self.narrowTopbar = narrow
+	self:fitTopbarSearch()
+	-- The dock fills the bottom strip, so the grip sits above it instead of
+	-- over the last tab's label.
+	if self.grip then
+		self.grip.Position = UDim2.new(1, -2, 1, -2 - (if style == "Dock" then STRIPS.Dock else 0))
+	end
 
 	self.wide = width - (self:lane(style) or 0) >= COLUMNS
 	for _, tab in self.tabs do
@@ -994,6 +1045,18 @@ function Window:layout()
 		math.round(math.clamp(corner.Y, 0, math.max(view.Y - shown.Y, 0)))
 	)
 	self.root.Position = UDim2.fromOffset(corner.X + shown.X / 2, corner.Y + shown.Y / 2)
+end
+
+-- On a narrow window the top-bar search folds to its magnifier, so the
+-- title keeps its room. It opens while it has focus or holds a query.
+function Window:fitTopbarSearch()
+	local search, box = self.topbarSearch, self.topbarBox
+	local folded = self.narrowTopbar and not box:IsFocused() and box.Text == ""
+	search.Size = UDim2.fromOffset(if folded then 34 elseif self.narrowTopbar then 150 else 170, 30)
+	-- Folded, the box covers the whole button so a press anywhere on it focuses it.
+	box.Position = UDim2.fromOffset(if folded then 0 else 32, 0)
+	box.Size = if folded then UDim2.fromScale(1, 1) else UDim2.new(1, -38, 1, 0)
+	box.PlaceholderText = if folded then "" else "Search"
 end
 
 -- The width of a side navigation style, or nil for the strips. The hub's
@@ -1016,6 +1079,10 @@ function Window:buildNav()
 	self.navScope = scope
 	local style = self.activeStyle
 	local lane, strip = self:lane(style), STRIPS[style]
+	-- The sidebar header needs the full sidebar to carry the logo.
+	local sidebarHeader = self.header.sidebar == true and style == "Sidebar"
+	Header.apply(self, sidebarHeader)
+	local top = if sidebarHeader then Header.STRIP else 0
 
 	local host = Create.new("Frame", { Name = "Navigation", Parent = self.body })
 	scope:add(host)
@@ -1026,11 +1093,14 @@ function Window:buildNav()
 		host.Size = UDim2.new(0, lane, 1, 0)
 		seam.AnchorPoint = Vector2.new(1, 0)
 		seam.Position = UDim2.fromScale(1, 0)
-		self.pages.Position = UDim2.fromOffset(lane, 0)
-		self.pages.Size = UDim2.new(1, -lane, 1, 0)
+		self.pages.Position = UDim2.fromOffset(lane, top)
+		self.pages.Size = UDim2.new(1, -lane, 1, -top)
 
 		local column = Create.new("Frame", { Name = "Column", Size = UDim2.new(1, -1, 1, 0), Parent = host })
 		Create.list(column, "Vertical", 0)
+		if sidebarHeader then
+			Header.sidebarTop(self, scope, column)
+		end
 		list = Create.new("ScrollingFrame", { Name = "Tabs", Size = UDim2.fromScale(1, 0), ScrollBarThickness = 0, Parent = column }, {
 			Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
 		})
@@ -1081,6 +1151,10 @@ function Window:buildNav()
 
 	local order, group = 0, nil
 	for _, tab in self.tabs do
+		if tab.Hidden then
+			tab.button = nil
+			continue
+		end
 		if style == "Sidebar" and tab.Group and tab.Group ~= group then
 			order += 1
 			self:buildGroupHeading(list, scope, tab.Group, order)
@@ -1167,14 +1241,36 @@ function Window:Tab(options)
 	table.insert(self.tabs, tab)
 	tab:reflow(self.wide)
 	self:buildNav()
-	if not self.selected then
+	if not tab.Hidden and (not self.selected or self.selected.Hidden) then
 		self:SelectTab(tab)
+	end
+	-- ShowWhen given when the tab is made; Visible was read by Tab.new.
+	if options.ShowWhen ~= nil then
+		local source, expected = Registry.condition(options.ShowWhen)
+		Registry.follow(tab, source, expected, true)
 	end
 	return tab
 end
 
+-- A tab was shown or hidden: redraw the navigation, and leave a hidden tab
+-- for the first one still shown.
+function Window:tabShownChanged(tab)
+	self:buildNav()
+	if tab.Hidden and self.selected == tab then
+		for _, other in self.tabs do
+			if not other.Hidden then
+				self:SelectTab(other)
+				break
+			end
+		end
+	elseif not tab.Hidden and (not self.selected or self.selected.Hidden) then
+		self:SelectTab(tab)
+	end
+	self:applySearch()
+end
+
 function Window:SelectTab(tab)
-	if self.selected == tab then
+	if self.selected == tab or tab.Hidden then
 		return
 	end
 	Popup.close(self.library)
@@ -1202,7 +1298,7 @@ function Window:applySearch(query)
 	end
 	local first
 	for _, tab in self.tabs do
-		if tab:filter(self.query) > 0 and not first then
+		if tab:filter(self.query) > 0 and not first and not tab.Hidden then
 			first = tab
 		end
 	end
@@ -1380,11 +1476,12 @@ function Window:refreshVisibility()
 	for _, hook in self.visibilityHooks or {} do
 		task.defer(hook)
 	end
-	local docked = self.minimized and self.minimizeStyle ~= "Topbar"
+	local mode = self:minimizeMode()
+	local docked = self.minimized and mode ~= "Topbar"
 	self.root.Visible = self.Visible and not docked
-	self.pill.Visible = self.Visible and docked and self.minimizeStyle == "Pill"
+	self.pill.Visible = self.Visible and docked and mode == "Pill"
 	-- A phone has no menu key, so a hidden window always leaves a button to bring it back.
-	self.openButton.Visible = (self.Visible and docked and self.minimizeStyle == "Chip")
+	self.openButton.Visible = (self.Visible and docked and mode == "Chip")
 		or (not self.Visible and (self.library.touch or self.options.OpenButton == true))
 end
 
@@ -1436,6 +1533,7 @@ function Window:Minimize(minimized)
 	Popup.close(self.library)
 	self:layout()
 	self:refreshVisibility()
+	Switches.applyBlur(self)
 end
 
 -- "Topbar" folds the window to its top bar, "Pill" swaps it for a small
@@ -1518,8 +1616,10 @@ end
 
 function Window:SetTitle(title)
 	self.Title = title
-	self.titleLabel.Text = title
-	self.pillLabel.Text = title
+	-- The top bar's title and, with the sidebar header, the sidebar's logo text.
+	for _, label in { self.topbarTitle, self.titleLabel, self.pillLabel } do
+		label.Text = title
+	end
 end
 
 -- Sets the text of the version tag; nil or "" hides it.
@@ -1538,8 +1638,12 @@ end
 
 function Window:SetSubtitle(subtitle)
 	self.Subtitle = subtitle
-	self.subtitleLabel.Text = subtitle or ""
-	self.subtitleLabel.Visible = subtitle ~= nil and subtitle ~= ""
+	local shown = subtitle ~= nil and subtitle ~= ""
+	for _, label in { self.topbarSubtitle, self.subtitleLabel } do
+		label.Text = subtitle or ""
+		-- The Wordmark header shows the logo in place of the titles.
+		label.Visible = shown and not (label == self.topbarSubtitle and self.header.wordmark)
+	end
 end
 
 function Window:writePreferences()
@@ -1685,8 +1789,8 @@ function Window:RequestUnload()
 		return
 	end
 	self:Dialog({
-		Title = "Unload the script?",
-		Content = "The window closes and every feature it started stops. Run the script again to bring it back.",
+		Title = "Unload the hub?",
+		Content = "Everything it turned on stops. Run the script again to bring it back.",
 		Icon = "power",
 		Dismissible = true,
 		Buttons = {

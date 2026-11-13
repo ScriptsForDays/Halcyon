@@ -23,7 +23,7 @@ local Env = {
 	gethui = optional(gethui),
 	-- Older executors name it getsynasset.
 	getcustomasset = optional(getcustomasset) or optional(getsynasset),
-	NO_FILES = "This executor has no file functions, so nothing can be saved.",
+	NO_FILES = "This executor can't save files.",
 	NO_HTTP = "HTTP requests are not available here.",
 }
 

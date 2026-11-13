@@ -83,9 +83,9 @@ function Code.new(container, options)
 
 	scope:connect(copy.Activated, function()
 		if Env.copy(code) then
-			library.notify({ Title = "Copied", Content = "The code is on your clipboard.", Kind = "success", Duration = 2 })
+			library.notify({ Title = "Copied", Kind = "success", Duration = 2 })
 		else
-			library.notify({ Title = "Copy unavailable", Content = "This executor cannot write to the clipboard.", Kind = "warning" })
+			library.notify({ Title = "Can't copy", Content = "This executor has no clipboard.", Kind = "warning" })
 		end
 	end)
 

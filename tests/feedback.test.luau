@@ -34,7 +34,7 @@ local undone = false
 window:Notify({ Title = "Item sold", Style = "Snackbar", Actions = { { Title = "Undo", Callback = function()
 	undone = true
 end } } })
-Stub.click(Stub.byText(overlayFind("Holder"), "UNDO"))
+Stub.click(Stub.byText(overlayFind("Holder"), "Undo"))
 Stub.flush()
 Stub.check(undone, "a snackbar's word runs its action")
 local isle = window:Notify({ Title = "Connected", Style = "Island" })

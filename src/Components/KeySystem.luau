@@ -310,7 +310,8 @@ function KeySystem.prompt(library, options, context)
 		TextWrapped = true,
 		TextSize = 13,
 		LayoutOrder = 1,
-		Text = options.Note or "Choose how you want to unlock this script.",
+		Text = options.Note or "",
+		Visible = (options.Note or "") ~= "",
 		Theme = { TextColor3 = "textMuted" },
 		Parent = titles,
 	})
@@ -513,7 +514,7 @@ function KeySystem.prompt(library, options, context)
 		input.Visible = not tier.NoKey and keyed
 		field.Visible = input.Visible
 		local lasts = if tier.Duration and showExpiry and input.Visible then `Keys for {tier.Name} last {Env.duration(tier.Duration)}.` else nil
-		local kept = if options.SaveKey ~= false and input.Visible then "Your key is remembered on this device." else nil
+		local kept = if options.SaveKey ~= false and input.Visible then "Your key is saved on this device." else nil
 		footer.Text = if lasts and kept then `{lasts} {kept}` else lasts or kept or ""
 		footer.Visible = footer.Text ~= ""
 		getKey.Visible = not tier.NoKey and (tier.Link ~= nil or tier.GetLink ~= nil or (ad ~= nil and (ad.Link ~= nil or ad.GetLink ~= nil)))

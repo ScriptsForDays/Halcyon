@@ -167,4 +167,20 @@ function Create.icon(name, size, role, parent)
 	})
 end
 
+-- Sets a scrolling box's height from what it holds, up to `limit`, past
+-- which it scrolls. `source` is the frame inside the box or its list
+-- layout. AutomaticSize on the ScrollingFrame would look like the same
+-- thing, but Roblox then sizes the auto-sized frames around it as if their
+-- padding were missing, and a centred row pushes its title up out of place.
+function Create.fitHeight(box, source, limit, library, scope)
+	local layout = source.ClassName == "UIListLayout"
+	local function fit()
+		local measured = if layout then source.AbsoluteContentSize.Y else source.AbsoluteSize.Y
+		local height = math.ceil(measured / library.scale)
+		box.Size = UDim2.new(box.Size.X.Scale, box.Size.X.Offset, 0, math.min(height, limit))
+	end
+	scope:connect(source:GetPropertyChangedSignal(if layout then "AbsoluteContentSize" else "AbsoluteSize"), fit)
+	fit()
+end
+
 return Create

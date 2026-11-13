@@ -24,6 +24,7 @@ Styles.register("TabIndicator", "Underline", { marker = "under" })
 Styles.register("TabIndicator", "Dot", { marker = "dot", text = "text" })
 Styles.register("TabIndicator", "Glow", { fill = "raised", fillTransparency = 0, glow = true })
 Styles.register("TabIndicator", "Fill", { fill = "accent", fillTransparency = 0, text = "onAccent", icon = "onAccent" })
+Styles.register("TabIndicator", "Text", { text = "accent", icon = "accent" })
 
 local NOTICE_ICONS = { info = "info", success = "circle-check", warning = "triangle-alert", danger = "circle-x" }
 
@@ -51,6 +52,9 @@ function Tab.new(window, options)
 		sectionStyle = options.SectionStyle,
 		matches = 0,
 		wide = false,
+		-- Visible = false keeps the tab out of the navigation, search and the
+		-- command palette until SetVisible(true).
+		Hidden = options.Visible == false,
 	}, Tab)
 
 	local page = Create.new("ScrollingFrame", { Name = "Page", Size = UDim2.fromScale(1, 1), Visible = false, Parent = window.pages })
@@ -110,6 +114,22 @@ function Tab.new(window, options)
 	return self
 end
 
+-- Shows or hides the tab's button and page. A hidden tab's rows stay out of
+-- search and the command palette; if it was open, the first shown tab opens.
+function Tab:SetVisible(visible)
+	local hidden = visible == false
+	if self.Hidden == hidden then
+		return
+	end
+	self.Hidden = hidden
+	self.window:tabShownChanged(self)
+end
+
+-- Shows the tab only while `source` matches; see Section:ShowWhen.
+function Tab:ShowWhen(source, expected)
+	Registry.follow(self, source, expected)
+end
+
 function Tab:nextOrder()
 	self.order += 1
 	return self.order
@@ -120,6 +140,10 @@ function Tab:Section(options)
 	table.insert(self.sections, section)
 	self.last = section
 	self:reflow(self.wide)
+	-- Visible, Enabled, ShowWhen and EnableWhen, given when it is made.
+	if type(options) == "table" then
+		Registry.switches(section, options)
+	end
 	return section
 end
 
@@ -372,6 +396,12 @@ function Tab:buildButton(style, parent, scope, order)
 		if style == "Sidebar" then
 			pill.AnchorPoint = Vector2.new(1, 0.5)
 			pill.Position = UDim2.new(1, if self.tier then -30 else -10, 0.5, 0)
+		elseif dot and style ~= "Top" and icon then
+			-- Just off the icon's top-right corner, clear of its outline and of
+			-- the label under it in the dock.
+			pill.Parent = icon
+			pill.AnchorPoint = Vector2.new(0, 1)
+			pill.Position = UDim2.new(1, -2, 0, 2)
 		elseif dot and style ~= "Top" then
 			pill.AnchorPoint = Vector2.new(0.5, 0.5)
 			pill.Position = UDim2.new(0.5, 10, 0, 10)

@@ -180,7 +180,7 @@ function Panels.about(window, tab, options)
 			Callback = function()
 				local copied = Env.copy(tostring(link.Url))
 				window:Notify({
-					Title = if copied then "Link copied" else "Copy not supported",
+					Title = if copied then "Link copied" else "Can't copy",
 					Content = if copied then "Paste it into your browser." else tostring(link.Url),
 					Kind = if copied then "success" else "info",
 					Style = "Compact",

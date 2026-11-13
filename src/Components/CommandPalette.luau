@@ -17,10 +17,13 @@ local CommandPalette = {}
 local function catalogue(window)
 	local items = {}
 	for _, tab in window.tabs do
+		if tab.Hidden then
+			continue
+		end
 		table.insert(items, { kind = "tab", tab = tab, title = tab.Title, path = "Tab", icon = tab.Icon or "layout-grid" })
 		for _, entry in tab.entries do
 			local handle = entry.handle
-			if not handle.Hidden and handle.Title and handle.Title ~= "" then
+			if not handle.Hidden and not (entry.section and entry.section.Hidden) and handle.Title and handle.Title ~= "" then
 				local section = entry.section and entry.section.Title
 				table.insert(items, {
 					kind = "row",
@@ -285,7 +288,7 @@ end
 function CommandPalette.bind(window)
 	local key = window.options.PaletteKey or Enum.KeyCode.K
 	window.scope:connect(UserInputService.InputBegan, function(input, processed)
-		if processed or input.KeyCode ~= key or window.library.listeningForKey then
+		if processed or input.KeyCode ~= key or window.library.listeningForKey or window.paletteOff then
 			return
 		end
 		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then

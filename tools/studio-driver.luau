@@ -30,7 +30,7 @@ local function run(command)
 	elseif name == "scale" then
 		Window:SetScale(tonumber(argument))
 	elseif name == "notify" then
-		Window:Notify({ Title = "Timer notice", Content = "Counts down before it leaves.", Kind = "warning", Style = "Timer", Duration = 60 })
+		Window:Notify({ Title = "Timer notice", Content = "Head to the arena.", Kind = "warning", Style = "Timer", Duration = 60 })
 		Window:Notify({ Title = "Saved", Style = "Compact", Kind = "success", Duration = 60 })
 		Window:Notify({ Title = "Update ready", Content = "Version 1.1 is out.", Kind = "info", Style = "Banner", Duration = 60 })
 		local job = Window:Notify({ Title = "Downloading assets", Content = "6 of 10", Style = "Progress" })
@@ -51,19 +51,19 @@ local function run(command)
 		-- look:Preset=Glass,WindowStyle=Glass rebuilds the example in that look.
 		local chosen = {}
 		for key, value in string.gmatch(argument, "(%w+)=(%w+)") do
-			chosen[key] = value
+			chosen[key] = if value == "false" then false else value
 		end
 		start(chosen)
 	elseif name == "notices" then
 		table.insert(shown, Window:Notify({ Title = "Connected", Style = "Island", Kind = "success", Duration = 60 }))
-		table.insert(shown, Window:Notify({ Title = "Config saved", Content = "Your settings were written to disk.", Style = "Accent", Kind = "success", Duration = 60 }))
-		table.insert(shown, Window:Notify({ Title = "Level 10 reached", Content = "Shows how this look sits on screen.", Style = "Achievement", Kind = "success", Duration = 60 }))
+		table.insert(shown, Window:Notify({ Title = "Config saved", Content = "Saved as Main.", Style = "Accent", Kind = "success", Duration = 60 }))
+		table.insert(shown, Window:Notify({ Title = "Level 10 reached", Content = "The Arena is open to you.", Style = "Achievement", Kind = "success", Duration = 60 }))
 		table.insert(shown, Window:Notify({ Title = "Item sold", Style = "Snackbar", Duration = 60, Actions = { { Title = "Undo" } } }))
 	elseif name == "notice" then
 		-- notice:Glass shows one notice in that style with sample text.
 		local job = Window:Notify({
 			Title = argument .. " notice",
-			Content = "Your settings were written to disk.",
+			Content = "Saved as Main.",
 			Style = argument,
 			Kind = "success",
 			Duration = 60,
@@ -78,6 +78,10 @@ local function run(command)
 			job.Dismiss()
 		end
 		table.clear(shown)
+	elseif name == "switch" then
+		-- switch:Search=false turns one of the window's switches.
+		local key, value = string.match(argument, "^(%w+)=(.*)$")
+		Window:Set(key, if value == "true" then true elseif value == "false" then false else tonumber(value) or value)
 	elseif name == "palette" then
 		Window:OpenPalette()
 	elseif name == "set" then

@@ -20,12 +20,15 @@ local Icons = require("./Core/Icons")
 local KeySystem = require("./Components/KeySystem")
 local Motion = require("./Core/Motion")
 local Notifications = require("./Components/Notifications")
+local QuickBar = require("./Components/QuickBar")
+local Sheet = require("./Components/Sheet")
 local Palettes = require("./Themes/Palettes")
 local Presets = require("./Themes/Presets")
 local Scope = require("./Core/Scope")
 local SettingsTab = require("./Components/SettingsTab")
 local Signal = require("./Core/Signal")
 local Styles = require("./Core/Styles")
+local Switches = require("./Components/Switches")
 local Theme = require("./Core/Theme")
 local Tokens = require("./Core/Tokens")
 local Window = require("./Components/Window")
@@ -65,6 +68,7 @@ local Halcyon = {
 		Icons = Icons,
 		KeySystem = KeySystem,
 		Motion = Motion,
+		Notifications = Notifications,
 		Personalise = require("./Components/Personalise"),
 		Scope = Scope,
 		Signal = Signal,
@@ -83,6 +87,16 @@ end
 -- or section.
 function Window:ConfigSection(target, options)
 	return ConfigSection.build(self, target, options)
+end
+
+-- A panel that slides over the page from the right; see Sheet.luau.
+function Window:Sheet(options)
+	return Sheet.new(self, options)
+end
+
+-- A floating bar of chosen toggles and buttons; see QuickBar.luau.
+function Window:QuickBar(options)
+	return QuickBar.new(self, options)
 end
 
 function Window:Watermark(options)
@@ -246,6 +260,11 @@ end
 
 function Halcyon:GetPresets()
 	return Presets.names()
+end
+
+-- Every switch name that CreateWindow, Window:Set and Window:Get accept.
+function Halcyon:GetSwitches()
+	return Switches.names()
 end
 
 -- Registers a preset: a table of window options (Radius, Density, Styles,

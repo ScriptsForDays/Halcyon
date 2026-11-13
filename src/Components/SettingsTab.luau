@@ -55,7 +55,6 @@ function SettingsTab.build(window, options)
 		if wants("Accent") then
 			look:ColorPicker({
 				Title = "Accent colour",
-				Description = "Laid over whichever theme is active",
 				Default = Theme.color("accent"),
 				Callback = function(color)
 					window:SetAccent(color)
@@ -64,8 +63,7 @@ function SettingsTab.build(window, options)
 		end
 		if wants("Navigation") then
 			look:Dropdown({
-				Title = "Navigation",
-				Description = "Narrow screens always use the tab strip",
+				Title = "Tab layout",
 				Values = STYLES,
 				Default = window.tabStyle,
 				Callback = function(style)
@@ -97,7 +95,6 @@ function SettingsTab.build(window, options)
 		if wants("ReduceMotion") then
 			look:Toggle({
 				Title = "Reduce motion",
-				Description = "Changes apply at once, without animation",
 				Default = Motion.reduced,
 				Callback = function(reduced)
 					window:SetReducedMotion(reduced)
@@ -111,8 +108,7 @@ function SettingsTab.build(window, options)
 		local menu = tab:Section({ Title = "Menu", Icon = "keyboard", Side = "Right" })
 		if wants("MenuKey") then
 			menu:Keybind({
-				Title = "Menu key",
-				Description = "Shows and hides this window",
+				Title = "Toggle key",
 				Default = window.toggleKey,
 				ChangedCallback = function(key)
 					window:SetToggleKey(key)
@@ -122,7 +118,6 @@ function SettingsTab.build(window, options)
 		if wants("Minimize") then
 			menu:Dropdown({
 				Title = "Minimise to",
-				Description = "What the minimise button leaves on screen",
 				Values = { "Topbar", "Pill", "Chip" },
 				Default = window.minimizeStyle,
 				Callback = function(style)
@@ -133,7 +128,7 @@ function SettingsTab.build(window, options)
 		if anonymous then
 			menu:Toggle({
 				Title = "Anonymous mode",
-				Description = "Hides your name and avatar in this window",
+				Description = "Hides your name and picture",
 				Default = window.profile.Anonymous,
 				Callback = function(hidden)
 					if hidden ~= window.profile.Anonymous then
