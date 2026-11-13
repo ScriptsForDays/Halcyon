@@ -35,7 +35,7 @@ local Halcyon = loadLibrary()
 
 -- Releases for the Updates tab, newest first. The dashboard's banner opens
 -- the newest one as a What's new card.
-local UPDATES = {
+local UPDATES: { { [string]: any } } = {
 	{
 		Version = "2.2.0",
 		Date = "13 Nov 2026",
@@ -93,18 +93,18 @@ local function clockText(seconds)
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
 
--- What each notice look says when the Looks tab shows it: title, content, kind.
+-- What each notice look says when the Looks tab shows it.
 local NOTICE_SAMPLES = {
-	Default = { "Auto farm on", "Collecting in the Forest.", "success" },
-	Timer = { "Boss spawns soon", "Head to the arena.", "warning" },
-	Compact = { "Saved", nil, "success" },
-	Banner = { "Server restarts in 5 minutes", "Finish your run first.", "warning" },
-	Progress = { "Loading map data", "Reading 12 areas", "info" },
-	Accent = { "Trade request", "Kite wants to trade.", "info" },
-	Glass = { "Daily reward ready", "Claim it in the shop.", "success" },
-	Achievement = { "Level 10 reached", "The Arena is open to you.", "success" },
-	Snackbar = { "Config deleted", nil, "info" },
-	Island = { "Connected", "Joined a new server.", "success" },
+	Default = { Title = "Auto farm on", Content = "Collecting in the Forest.", Kind = "success" },
+	Timer = { Title = "Boss spawns soon", Content = "Head to the arena.", Kind = "warning" },
+	Compact = { Title = "Saved", Kind = "success" },
+	Banner = { Title = "Server restarts in 5 minutes", Content = "Finish your run first.", Kind = "warning" },
+	Progress = { Title = "Loading map data", Content = "Reading 12 areas", Kind = "info" },
+	Accent = { Title = "Trade request", Content = "Kite wants to trade.", Kind = "info" },
+	Glass = { Title = "Daily reward ready", Content = "Claim it in the shop.", Kind = "success" },
+	Achievement = { Title = "Level 10 reached", Content = "The Arena is open to you.", Kind = "success" },
+	Snackbar = { Title = "Config deleted", Kind = "info" },
+	Island = { Title = "Connected", Content = "Joined a new server.", Kind = "success" },
 }
 
 -- The hub is built by `start` so the Looks tab can rebuild it in another
@@ -148,7 +148,7 @@ local function buildDashboard(hub)
 
 	local Activity = Dashboard:Section({ Title = "Activity", Icon = "terminal", Side = "Right" })
 	local log = Activity:Log({ Title = "Events", Height = 150, MaxLines = 100 })
-	function hub.note(text, level)
+	function hub.note(text: string, level: string?)
 		log:Add(text, level)
 	end
 
@@ -440,6 +440,9 @@ local function buildComponents(hub)
 	})
 	Choices:Segmented({ Title = "Segmented", Values = { "Low", "Medium", "High" }, Default = "Medium", Callback = show("Segmented") })
 
+	if not hub.pause() then
+		return
+	end
 	local Lists = Components:Section({ Title = "Lists", Icon = "list", Badge = "New" })
 	Lists:List({ Title = "Route", Values = { "Forest", "Mines", "Docks", "Volcano" }, Default = "Mines", Callback = show("Route") })
 	Lists:List({
@@ -719,6 +722,9 @@ local function buildLooks(hub, look)
 	SliderLooks:Slider({ Title = "Percent", Description = 'Percent = true, Display = "Text"', Min = 0, Max = 200, Default = 120, Percent = true, Display = "Text" })
 	SliderLooks:Slider({ Title = "Fraction", Description = 'Prefix = "$", Display = "Fraction"', Min = 0, Max = 50, Default = 20, Prefix = "$", Display = "Fraction" })
 
+	if not hub.pause() then
+		return
+	end
 	local ButtonLooks = Looks:Section({ Title = "Buttons", Icon = "mouse-pointer-2" })
 	for _, name in Halcyon:GetStyles("Button") do
 		ButtonLooks:Button({ Title = name, Description = if name == "Row" then opt("Button", name) else nil, Variant = name })
@@ -772,17 +778,20 @@ local function buildLooks(hub, look)
 	})
 	Pickers:Rating({ Title = "Rating", Default = 4 })
 
+	if not hub.pause() then
+		return
+	end
 	local NoticeLooks = Looks:Section({ Title = "Notices", Icon = "bell", Badge = #Halcyon:GetStyles("Notification") })
 	for _, name in Halcyon:GetStyles("Notification") do
-		local sample = NOTICE_SAMPLES[name] or { name .. " notice", nil, "info" }
+		local sample = NOTICE_SAMPLES[name] or { Title = name .. " notice", Kind = "info" }
 		NoticeLooks:Button({
 			Title = name,
 			Description = 'Style = "' .. name .. '"',
 			Callback = function()
 				local notice = Window:Notify({
-					Title = sample[1],
-					Content = sample[2],
-					Kind = sample[3],
+					Title = sample.Title,
+					Content = sample.Content,
+					Kind = sample.Kind,
 					Style = name,
 					Duration = 5,
 					Actions = if name == "Snackbar" then { { Title = "Undo" } } else nil,
@@ -857,6 +866,9 @@ local function buildLooks(hub, look)
 		end,
 	})
 
+	if not hub.pause() then
+		return
+	end
 	local Boxed = Looks:Section({ Title = "Tabs in a section", Icon = "layers", Tabs = { "Aim", "Visuals", "Idle" }, Side = "Right" })
 	Boxed:Toggle({ Title = "Silent aim" })
 	Boxed:Slider({ Title = "Field of view", Min = 10, Max = 180, Default = 90 })
@@ -937,43 +949,76 @@ function start(look)
 		player = player,
 		camera = Workspace.CurrentCamera,
 		connections = {},
-		note = function() end,
+		note = function(_text: string, _level: string?) end,
 	}
 	-- What the example changed, so unload can put it back.
 	hub.original = { fieldOfView = hub.camera.FieldOfView }
+	-- Lets a big tab finish over a few frames; false once the hub is gone.
+	function hub.pause()
+		task.wait()
+		return not hub.closed
+	end
 	function hub.humanoid()
 		local character = player.Character
 		return character and character:FindFirstChildOfClass("Humanoid")
 	end
 
-	local Dashboard = buildDashboard(hub)
-	buildPlayer(hub)
-	buildCamera(hub)
-	buildComponents(hub)
-	buildLayouts(hub)
-	buildLooks(hub, look)
-
-	local Saves = Window:Tab({ Title = "Configs", Icon = "save", Group = "Library" })
-	Window:ConfigSection(Saves)
-	local Settings = Window:SettingsTab({ Group = "Library", ScaleControl = "Slider", Personalise = true, ThemeBuilder = true })
-	Settings:About({
-		Description = "An example hub built with Halcyon.",
-		Credits = { { Name = "Halcyon", Role = "UI library" } },
-		Links = { { Title = "Source", Url = REPOSITORY } },
-	})
-	Dashboard:SetBadge("New")
-
+	-- Unloading puts back whatever the tabs built so far had changed.
 	Window.OnUnload:Connect(function()
+		hub.closed = true
 		for _, connection in hub.connections do
 			connection:Disconnect()
 		end
-		hub.stopSpectating()
-		hub.movement.enabled, hub.movement.infiniteJump = false, false
-		hub.applyWalkSpeed()
+		if hub.stopSpectating then
+			hub.stopSpectating()
+		end
+		if hub.movement then
+			hub.movement.enabled, hub.movement.infiniteJump = false, false
+			hub.applyWalkSpeed()
+		end
 		hub.camera.FieldOfView = hub.original.fieldOfView
 	end)
 
-	hub.note(`Loaded on the {Window:GetTier()} tier`, "success")
+	local Dashboard = buildDashboard(hub)
+	Dashboard:SetBadge("New")
+
+	-- The first tab draws straight away and the rest follow a frame apart,
+	-- so opening the hub never stalls on one long frame. A rebuild or an
+	-- unload in the meantime stops the rest.
+	local window = hub.window
+	local steps = {
+		function()
+			buildPlayer(hub)
+			buildCamera(hub)
+		end,
+		function()
+			buildComponents(hub)
+		end,
+		function()
+			buildLayouts(hub)
+		end,
+		function()
+			buildLooks(hub, look)
+		end,
+		function()
+			window:ConfigSection(window:Tab({ Title = "Configs", Icon = "save", Group = "Library" }))
+			local Settings = window:SettingsTab({ Group = "Library", ScaleControl = "Slider", Personalise = true, ThemeBuilder = true })
+			Settings:About({
+				Description = "An example hub built with Halcyon.",
+				Credits = { { Name = "Halcyon", Role = "UI library" } },
+				Links = { { Title = "Source", Url = REPOSITORY } },
+			})
+		end,
+	}
+	for _, step in steps do
+		task.wait()
+		if hub.closed then
+			return
+		end
+		step()
+	end
+
+	hub.note(`Loaded on the {window:GetTier()} tier`, "success")
 	Window:LoadAutoload()
 end
 
