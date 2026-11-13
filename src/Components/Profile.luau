@@ -224,13 +224,13 @@ function Profile.card(window, scope, parent)
 	-- Profile = { Discord = "https://discord.gg/..." } adds a round invite
 	-- button beside the tier; separate from the key prompt's.
 	if discord then
-		DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(copied, link)
+		DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(how, link)
 			window:Notify({
-				Title = if copied then "Discord invite copied" else "Discord invite",
-				Content = if copied then "Paste it into your browser to join." else link,
-				Kind = if copied then "success" else "info",
+				Title = if how == "opened" then "Opened in Discord" elseif how == "copied" then "Discord invite copied" else "Discord invite",
+				Content = if how == "opened" then "Accept the invite in the Discord app." elseif how == "copied" then "Paste it into your browser to join." else link,
+				Kind = if how then "success" else "info",
 				Style = "Compact",
-				Duration = if copied then 3 else 8,
+				Duration = if how then 3 else 8,
 			})
 		end)
 	end

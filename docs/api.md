@@ -285,7 +285,7 @@ URLs are downloaded once to `Halcyon/assets/` and shown through `getcustomasset`
 
 ## Discord buttons
 
-`KeySystem = { Discord = "https://discord.gg/yourcode" }` puts a round invite button under the key prompt. `Profile = { Discord = "https://discord.gg/yourcode" }` puts one on the profile card. Each is separate and off unless given; `false` leaves it out. Pressing it copies the invite and tells the player. The button shows the Discord logo; pass `{ Link, Icon, Label }` instead of a string to use your own mark or change the prompt's label.
+`KeySystem = { Discord = "https://discord.gg/yourcode" }` puts a round invite button under the key prompt. `Profile = { Discord = "https://discord.gg/yourcode" }` puts one on the profile card. Each is separate and off unless given; `false` leaves it out. Pressing the button, or the words beside it on the key prompt, opens the invite in the player's Discord app when the executor has `request` and Discord is running. Otherwise it copies the invite, and the player is told which happened. The button shows the Discord logo; pass `{ Link, Icon, Label }` instead of a string to use your own mark or change the prompt's label.
 
 ## Update log
 

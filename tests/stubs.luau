@@ -868,6 +868,12 @@ end
 
 function Methods:Cancel() end
 
+local guids = 0
+function Methods:GenerateGUID()
+	guids += 1
+	return string.format("00000000-0000-4000-8000-%012d", guids)
+end
+
 function Methods:JSONEncode(value)
 	return jsonEncode(value)
 end

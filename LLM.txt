@@ -366,7 +366,7 @@ KeySystem = {
 	Title = "My Hub access", Note = "Where to get a key", Icon = "key-round",
 	SaveKey = true, MaxAttempts = 5, Cooldown = 30, DefaultTier = "Free",
 	ShowExpiry = true, ButtonEffect = "Sweep",
-	Discord = "https://discord.gg/yourcode", -- round invite button under the prompt; false/nil leaves it out
+	Discord = "https://discord.gg/yourcode", -- invite button and label under the prompt; opens Discord or copies the link; false/nil leaves it out
 	OnSuccess = function(access) end, OnFail = function(message) end,
 	Tiers = { -- lowest to highest
 		{ NoKey = true }, -- "Keyless": continue with no key, listed first

@@ -479,26 +479,18 @@ function KeySystem.prompt(library, options, context)
 	if discord then
 		local line = Create.new("Frame", { Name = "Community", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = 9, Parent = card })
 		Create.list(line, "Horizontal", 10, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
-		DiscordButton.new(scope, line, { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1 }, function(copied, link)
-			if copied then
+		local settings = { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1, Label = discord.Label or "Join the Discord" }
+		DiscordButton.new(scope, line, settings, function(how, link)
+			if how == "opened" then
+				setStatus("Opened the invite in Discord.", "success")
+			elseif how == "copied" then
 				setStatus("Discord invite copied. Paste it into your browser.", "success")
 			else
 				linkBox.Text = link
 				linkBox.Visible = true
-				setStatus("Copy the invite from the box above.", "info")
+				setStatus("Copy the invite from the box below.", "info")
 			end
 		end)
-		Create.new("TextLabel", {
-			Name = "Label",
-			Size = UDim2.fromScale(0, 1),
-			AutomaticSize = Enum.AutomaticSize.X,
-			Text = discord.Label or "Join the Discord",
-			TextSize = 13,
-			Weight = "medium",
-			LayoutOrder = 2,
-			Theme = { TextColor3 = "textMuted" },
-			Parent = line,
-		})
 	end
 
 	local function refresh()

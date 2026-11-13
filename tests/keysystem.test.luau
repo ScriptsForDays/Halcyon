@@ -192,6 +192,45 @@ Stub.click(invite)
 Stub.flush()
 Stub.equal(Stub.clipboard, "https://discord.gg/example", "pressing it copies the invite")
 Stub.check(Stub.byText(dialog(), "Discord invite copied. Paste it into your browser.") ~= nil, "and the prompt says so")
+-- The words beside the button are part of it.
+Stub.clipboard = nil
+Stub.click(Stub.byText(dialog(), "Join the Discord"))
+Stub.flush()
+Stub.equal(Stub.clipboard, "https://discord.gg/example", "pressing the label copies the invite too")
+-- With a Discord client listening, the invite opens there and nothing is copied.
+local asked = {}
+Stub.request = function(options)
+	table.insert(asked, options)
+	if options.Url == "http://127.0.0.1:6464/rpc?v=1" then
+		return { StatusCode = 200, Body = "{}" }
+	end
+	return { StatusCode = 0, Body = "" }
+end
+Stub.clipboard = nil
+Stub.click(invite)
+Stub.flush()
+Stub.equal(#asked, 2, "it tries Discord's ports in order and stops at the first that answers")
+Stub.equal(asked[2].Method, "POST", "the invite goes to Discord as a POST")
+Stub.equal(asked[2].Headers.Origin, "https://discord.com", "with the origin Discord expects")
+Stub.check(string.find(asked[2].Body, '"code":"example"', 1, true) ~= nil and string.find(asked[2].Body, "INVITE_BROWSER", 1, true) ~= nil, "naming the invite code")
+Stub.equal(Stub.clipboard, nil, "an opened invite is not copied as well")
+Stub.check(Stub.byText(dialog(), "Opened the invite in Discord.") ~= nil, "and the prompt says it opened")
+-- Discord answering with an error, such as a dead invite: copy instead.
+Stub.request = function()
+	return { StatusCode = 200, Body = '{"cmd":"INVITE_BROWSER","evt":"ERROR","data":{"code":4011}}' }
+end
+Stub.clipboard = nil
+Stub.click(invite)
+Stub.flush()
+Stub.equal(Stub.clipboard, "https://discord.gg/example", "an invite Discord refuses is copied instead")
+-- No client answering: back to copying.
+Stub.request = function()
+	return { StatusCode = 0, Body = "" }
+end
+Stub.click(invite)
+Stub.flush()
+Stub.equal(Stub.clipboard, "https://discord.gg/example", "with Discord closed it copies the invite instead")
+Stub.request = nil
 Stub.byName(dialog(), "Key").Text = "abc"
 Stub.byName(dialog(), "Key").FocusLost:Fire(true)
 task.spawn(function()
