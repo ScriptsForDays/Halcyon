@@ -1,10 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Notices: the countdown is now a rounded rail inside the card instead of a line on its bottom edge. Banner notices count down on their top strip, Progress notices show only their own bar, and the Accent stripe sits inside the card's outline. The stack keeps 16 px from the screen edge.
+- The Discord button's label on the key prompt can be pressed too.
+- A folded Accent section no longer shows a stub of its stripe, which showed on older releases in the update log.
+- Button rows size each button to its words and wrap onto a second line instead of clipping long labels.
+
 ## 2.1.0
 
 - Images from a URL or a workspace file anywhere the UI takes an image, loaded through `getcustomasset` and cached. `Halcyon:Image` for your own use.
 - `TopbarImage` puts a picture before the window title in six shapes: Circle, Rounded, Square, Squircle, Ring and Badge.
-- Discord invite buttons for the key prompt (`KeySystem.Discord`) and the profile card (`Profile.Discord`), each separate and off unless given.
+- Discord invite buttons for the key prompt (`KeySystem.Discord`) and the profile card (`Profile.Discord`), each separate and off unless given. A press opens the invite in the Discord app when it's running and copies the link when it isn't.
 - `UpdateLog`: a tab of releases with kind tags, search, filters, an unseen badge and an optional What's new popup. `Window:AddUpdate` adds releases later.
 
 ## 2.0.0

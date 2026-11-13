@@ -4,6 +4,8 @@ A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gi
 
 ![The Halcyon example hub](assets/hero.jpg)
 
+Docs and a tour of every look: https://scriptsfordays.github.io/Halcyon-Docs/ (the site has [its own repo](https://github.com/ScriptsForDays/Halcyon-Docs), so this one stays all Luau).
+
 ## Try it
 
 Run the example in your executor. It opens a hub that uses every control:
@@ -70,7 +72,7 @@ Window:LoadAutoload() -- loads the config the player marked, if any
 | **Search** | One box that filters every tab, matches tab names and marks the matching words |
 | **Access** | Gamepad and keyboard focus ring, 44 px touch targets, larger text, reduced motion |
 
-![Controls: checkbox, multi dropdown, notifications](assets/controls.jpg)
+![The Components tab with a multi dropdown open](assets/controls.jpg)
 
 ## Turning things on and off
 
@@ -117,8 +119,8 @@ The example's **Looks** tab lists every look with the line that turns it on, and
 
 | | |
 |---|---|
-| ![Toggle and slider looks](assets/looks-controls.jpg) | ![Dropdown, chips and tiles](assets/looks-choices.jpg) |
-| ![Glass preset with Mac controls](assets/looks-glass.jpg) | ![Notice looks and a spotlight](assets/looks-notices.jpg) |
+| ![Toggle and slider looks](assets/looks-controls.jpg) | ![Dropdown looks and the panels list](assets/looks-choices.jpg) |
+| ![Glass preset with Mac controls](assets/looks-glass.jpg) | ![Island, Accent, Achievement and Snackbar notices](assets/looks-notices.jpg) |
 | ![Command palette](assets/looks-palette.jpg) | ![Personalise section](assets/looks-personalise.jpg) |
 | ![What's new card](assets/looks-changelog.jpg) | ![Loading screen](assets/looks-loading.jpg) |
 | ![Empty state](assets/looks-empty.jpg) | ![Lock screen](assets/looks-lock.jpg) |
@@ -152,7 +154,7 @@ Tab:Section({ Title = "Raids", PaidOnly = true, LockHint = "Buy a key in our Dis
 
 ![The key prompt](assets/key-system.jpg)
 
-![A locked section and a locked row](assets/locked.jpg)
+![A paid section locked for a Free key](assets/locked.jpg)
 
 A key with a `Duration` shows a countdown on the profile card; `ShowExpiry = false` in the `KeySystem` table hides it.
 
@@ -197,7 +199,7 @@ Below 560 px of window width the sidebar becomes a strip of tabs, two columns fo
 
 ## Details
 
-![A slider tooltip and locked rows](assets/details.jpg)
+![A slider showing its value while it is dragged](assets/details.jpg)
 
 - Running your hub twice replaces the first window instead of stacking a second.
 - The window draws in the executor's hidden GUI container (`gethui`) at a DisplayOrder near the top of the range, so the game's own screens never cover it.

@@ -548,13 +548,16 @@ end
 return Dialog
 end
 modules["Components/DiscordButton"] = function()
+local HttpService = game:GetService("HttpService")
 local Create = import("Core/Create")
 local Env = import("Core/Env")
 local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
+local Theme = import("Core/Theme")
 local BLURPLE = Color3.fromRGB(88, 101, 242)
 local BLURPLE_HOVER = Color3.fromRGB(116, 127, 247)
 local LOGO = "rbxthumb://type=Asset&id=132364423955781&w=150&h=150"
+local FIRST_PORT, LAST_PORT = 6463, 6472
 local DiscordButton = {}
 function DiscordButton.settings(value)
 if type(value) == "string" and value ~= "" then
@@ -564,13 +567,45 @@ return value
 end
 return nil
 end
+function DiscordButton.code(link)
+if type(link) ~= "string" then
+return nil
+end
+return string.match(link, "discord%.gg/([%w%-]+)")
+or string.match(link, "discord%.com/invite/([%w%-]+)")
+or string.match(link, "discordapp%.com/invite/([%w%-]+)")
+or string.match(link, "^([%w%-]+)$")
+end
+function DiscordButton.open(link)
+local code = DiscordButton.code(link)
+if code and Env.request then
+local body = HttpService:JSONEncode({
+cmd = "INVITE_BROWSER",
+args = { code = code },
+nonce = HttpService:GenerateGUID(false),
+})
+for port = FIRST_PORT, LAST_PORT do
+local ok, reply = Env.http({
+Url = `http://127.0.0.1:{port}/rpc?v=1`,
+Method = "POST",
+Headers = { ["Content-Type"] = "application/json", Origin = "https://discord.com" },
+Body = body,
+})
+if ok and not string.find(tostring(reply), '"evt":"ERROR"', 1, true) then
+return "opened"
+end
+end
+end
+return if Env.copy(link) then "copied" else false
+end
 function DiscordButton.new(scope, parent, settings, report)
 local size = settings.Size or 32
+local order = settings.LayoutOrder or 10
 local button = Create.new("ImageButton", {
 Name = "Discord",
 Size = UDim2.fromOffset(size, size),
 BackgroundColor3 = BLURPLE,
-LayoutOrder = settings.LayoutOrder or 10,
+LayoutOrder = order,
 Parent = parent,
 })
 Create.corner(-1, button)
@@ -583,6 +618,20 @@ ImageColor3 = Color3.new(1, 1, 1),
 Parent = button,
 })
 Icons.apply(glyph, settings.Icon or LOGO)
+local label
+if settings.Label then
+label = Create.new("TextButton", {
+Name = "Label",
+Size = UDim2.fromOffset(0, size),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = settings.Label,
+TextSize = 13,
+Weight = "medium",
+LayoutOrder = order + 1,
+Theme = { TextColor3 = "textMuted" },
+Parent = parent,
+})
+end
 local scale = Create.new("UIScale", { Parent = button })
 local markScale = Create.new("UIScale", { Parent = glyph })
 local hovered = false
@@ -591,23 +640,37 @@ Motion.tween(button, "fast", { BackgroundColor3 = if hovered then BLURPLE_HOVER 
 Motion.tween(markScale, "spring", { Scale = if hovered then 1.12 else 1 })
 Motion.tween(glyph, "spring", { Rotation = if hovered then -8 else 0 })
 Motion.tween(scale, "spring", { Scale = if hovered then 1.06 else 1 })
+if label then
+Theme.bind(label, "TextColor3", if hovered then "text" else "textMuted")
 end
-scope:connect(button.MouseEnter, function()
+end
+local busy = false
+local function press()
+if busy then
+return
+end
+busy = true
+task.spawn(function()
+local how = DiscordButton.open(settings.Link)
+busy = false
+report(how, settings.Link)
+end)
+end
+for _, target in { button, label } do
+scope:connect(target.MouseEnter, function()
 hovered = true
 settle()
 end)
-scope:connect(button.MouseLeave, function()
+scope:connect(target.MouseLeave, function()
 hovered = false
 settle()
 end)
-scope:connect(button.MouseButton1Down, function()
+scope:connect(target.MouseButton1Down, function()
 Motion.tween(scale, "fast", { Scale = 0.92 })
 end)
-scope:connect(button.MouseButton1Up, settle)
-scope:connect(button.Activated, function()
-local copied = Env.copy(settings.Link)
-report(copied, settings.Link)
-end)
+scope:connect(target.MouseButton1Up, settle)
+scope:connect(target.Activated, press)
+end
 return button
 end
 return DiscordButton
@@ -1211,26 +1274,18 @@ local discord = DiscordButton.settings(options.Discord)
 if discord then
 local line = Create.new("Frame", { Name = "Community", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = 9, Parent = card })
 Create.list(line, "Horizontal", 10, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
-DiscordButton.new(scope, line, { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1 }, function(copied, link)
-if copied then
+local settings = { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1, Label = discord.Label or "Join the Discord" }
+DiscordButton.new(scope, line, settings, function(how, link)
+if how == "opened" then
+setStatus("Opened the invite in Discord.", "success")
+elseif how == "copied" then
 setStatus("Discord invite copied. Paste it into your browser.", "success")
 else
 linkBox.Text = link
 linkBox.Visible = true
-setStatus("Copy the invite from the box above.", "info")
+setStatus("Copy the invite from the box below.", "info")
 end
 end)
-Create.new("TextLabel", {
-Name = "Label",
-Size = UDim2.fromScale(0, 1),
-AutomaticSize = Enum.AutomaticSize.X,
-Text = discord.Label or "Join the Discord",
-TextSize = 13,
-Weight = "medium",
-LayoutOrder = 2,
-Theme = { TextColor3 = "textMuted" },
-Parent = line,
-})
 end
 local function refresh()
 local tier = tiers[selected]
@@ -1437,8 +1492,8 @@ local x = if string.find(position, "Left", 1, true) then 0 elseif string.find(po
 local inset = GuiService:GetGuiInset().Y + 8
 state.side = x * 2 - 1
 holder.AnchorPoint = Vector2.new(x, if top then 0 else 1)
-holder.Position = UDim2.new(x, -12 * state.side, if top then 0 else 1, if top then inset else -12)
-holder.Size = if narrow then UDim2.new(1, -24, 1, -inset - 8) else UDim2.new(0, WIDTH, 1, -inset - 20)
+holder.Position = UDim2.new(x, -16 * state.side, if top then 0 else 1, if top then inset else -16)
+holder.Size = if narrow then UDim2.new(1, -24, 1, -inset - 8) else UDim2.new(0, WIDTH, 1, -inset - 24)
 layout.VerticalAlignment = if top then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom
 end
 library.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
@@ -1497,31 +1552,38 @@ end
 if style == "Accent" then
 local stripe = Create.new("Frame", {
 Name = "Edge",
-Size = UDim2.new(0, 3, 1, -16),
-Position = UDim2.fromOffset(0, 8),
+Size = UDim2.new(0, 3, 1, -20),
+Position = UDim2.fromOffset(7, 10),
 ZIndex = 2,
 Theme = { BackgroundColor3 = kind.role },
 Parent = card,
 })
 Create.corner(-1, stripe)
+toast.stripe = stripe
 end
 if style == "Banner" then
 local strip = Create.new("Frame", {
 Name = "Strip",
 Size = UDim2.new(1, -24, 0, 3),
-Position = UDim2.fromOffset(12, 0),
+Position = UDim2.fromOffset(12, 10),
 ZIndex = 2,
-Theme = { BackgroundColor3 = kind.role },
+Theme = { BackgroundColor3 = "raised" },
 Parent = card,
 })
 Create.corner(-1, strip)
+toast.strip = Create.new("Frame", {
+Name = "Fill",
+Size = UDim2.fromScale(1, 1),
+ZIndex = 2,
+Theme = { BackgroundColor3 = kind.role },
+Parent = strip,
+})
+Create.corner(-1, toast.strip)
 end
 local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = card })
-if compact then
-Create.padding(body, 14, 9)
-else
-Create.padding(body, 12, if style == "Banner" then 15 else 12, 12, 12)
-end
+local pad = if compact
+then Create.padding(body, 14, 9)
+else Create.padding(body, if style == "Accent" then 18 else 12, if style == "Banner" then 23 else 12, 12, 12)
 if isle then
 body.Size = UDim2.fromOffset(0, 0)
 body.AutomaticSize = Enum.AutomaticSize.XY
@@ -1679,16 +1741,31 @@ left -= 1
 end
 end))
 end
-if toast.progress and style ~= "Timer" and not compact and not snack and not Motion.reduced then
-local bar = Create.new("Frame", {
+if toast.progress and style == "Banner" and not Motion.reduced then
+TweenService:Create(toast.strip, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(0, 1) }):Play()
+elseif toast.progress and style ~= "Timer" and style ~= "Progress" and not compact and not snack and not Motion.reduced then
+pad.PaddingBottom = UDim.new(0, 20)
+if toast.stripe then
+toast.stripe.Size = UDim2.new(0, 3, 1, -32)
+end
+local track = Create.new("Frame", {
 Name = "Countdown",
-Size = UDim2.new(1, -20, 0, 2),
+Size = UDim2.new(1, -24, 0, 3),
 AnchorPoint = Vector2.new(0, 1),
-Position = UDim2.new(0, 10, 1, -1),
-Theme = { BackgroundColor3 = kind.role },
+Position = UDim2.new(0, 12, 1, -9),
+BackgroundTransparency = if snack or isle then 0.85 else 0,
+Theme = { BackgroundColor3 = "raised" },
 Parent = card,
 })
-TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 0, 2) }):Play()
+Create.corner(-1, track)
+local bar = Create.new("Frame", {
+Name = "Fill",
+Size = UDim2.fromScale(1, 1),
+Theme = { BackgroundColor3 = kind.role },
+Parent = track,
+})
+Create.corner(-1, bar)
+TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(0, 1) }):Play()
 end
 scope:add(task.delay(duration, toast.Dismiss))
 end
@@ -2682,13 +2759,13 @@ Parent = badge,
 end
 local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
 if discord then
-DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(copied, link)
+DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(how, link)
 window:Notify({
-Title = if copied then "Discord invite copied" else "Discord invite",
-Content = if copied then "Paste it into your browser to join." else link,
-Kind = if copied then "success" else "info",
+Title = if how == "opened" then "Opened in Discord" elseif how == "copied" then "Discord invite copied" else "Discord invite",
+Content = if how == "opened" then "Accept the invite in the Discord app." elseif how == "copied" then "Paste it into your browser to join." else link,
+Kind = if how then "success" else "info",
 Style = "Compact",
-Duration = if copied then 3 else 8,
+Duration = if how then 3 else 8,
 })
 end)
 end
@@ -2863,6 +2940,7 @@ Theme = { BackgroundColor3 = look.edge },
 Parent = body,
 })
 Create.corner(-1, stripe)
+self.edge = stripe
 end
 local rows = Create.new(if options.MaxHeight then "ScrollingFrame" else "Frame", {
 Name = "Rows",
@@ -3018,6 +3096,9 @@ end
 function Section:refresh()
 local open = self.searching or not self.collapsed
 self.rows.Visible = open
+if self.edge then
+self.edge.Visible = open
+end
 if self.pages then
 for name, page in self.pages do
 page.frame.Visible = self.searching or name == self.page
@@ -7912,11 +7993,12 @@ local row = Row.new(container, options, { bare = options.Title == nil })
 local handle, scope = row.handle, row.scope
 local holder = Create.new("Frame", {
 Name = "Buttons",
-Size = UDim2.new(1, 0, 0, 36),
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
 LayoutOrder = 3,
 Parent = row.content,
 })
-Create.list(holder, "Horizontal", 8, { Wraps = false })
+Create.list(holder, "Horizontal", 8, { Wraps = true })
 handle.Buttons = {}
 for index, spec in options.Buttons or {} do
 local look = Styles.get("Button", spec.Variant or spec.Style)
@@ -7925,12 +8007,12 @@ look = Styles.get("Button", if index == 1 then "Filled" else "Outline")
 end
 local button = Create.new("TextButton", {
 Name = "Button",
-Size = UDim2.fromScale(0, 1),
+Size = UDim2.fromOffset(0, 36),
 LayoutOrder = index,
 BackgroundTransparency = look.fillTransparency or 0,
 Theme = { BackgroundColor3 = look.fill },
 Parent = holder,
-}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Grow }) })
 Create.corner(8, button)
 if look.stroke then
 Create.stroke(look.stroke, button)
@@ -7959,6 +8041,11 @@ LayoutOrder = 1,
 Theme = { TextColor3 = look.text },
 Parent = inner,
 })
+local function fit()
+button.Size = UDim2.fromOffset(inner.AbsoluteSize.X + 28, 36)
+end
+scope:connect(inner:GetPropertyChangedSignal("AbsoluteSize"), fit)
+fit()
 local function paint(hovered)
 local role = if hovered then look.hover else look.fill
 Theme.bind(button, "BackgroundColor3", role, true)

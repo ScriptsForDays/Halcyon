@@ -2,3 +2,7 @@
 *.jpg binary
 *.png binary
 *.rbxmx text eol=lf
+
+# Build and test scripts run under Node; the library itself is Luau.
+tools/*.mjs linguist-detectable=false
+dist/* linguist-generated
