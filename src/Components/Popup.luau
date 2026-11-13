@@ -12,7 +12,7 @@ local MARGIN, GAP = 8, 6
 
 local Popup = {}
 
-local function contains(instance, position)
+local function contains(instance: GuiObject, position: Vector3): boolean
 	local origin, size = instance.AbsolutePosition, instance.AbsoluteSize
 	return position.X >= origin.X and position.X <= origin.X + size.X and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end

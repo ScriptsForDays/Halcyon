@@ -221,6 +221,7 @@ end
 function Section:buildLock()
 	local overlay = Create.new("TextButton", {
 		Name = "LockOverlay",
+		Text = "",
 		Size = UDim2.fromScale(1, 0),
 		ZIndex = 6,
 		BackgroundTransparency = 0.06,
@@ -275,6 +276,7 @@ function Section:buildLock()
 	Create.list(text, "Vertical", 1)
 	local title = Create.new("TextLabel", {
 		Name = "Reason",
+		Text = "",
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextWrapped = true,
@@ -284,6 +286,7 @@ function Section:buildLock()
 	})
 	local hint = Create.new("TextLabel", {
 		Name = "Hint",
+		Text = "",
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextWrapped = true,
@@ -398,6 +401,7 @@ function Section:buildSwitch(header, settings)
 	local on = settings.Default ~= false
 	local track = Create.new("TextButton", {
 		Name = "Switch",
+		Text = "",
 		Size = UDim2.fromOffset(30, 16),
 		LayoutOrder = 3,
 		Theme = { BackgroundColor3 = "stroke" },

@@ -1876,11 +1876,11 @@ button = glyph.Parent
 button.Name = "Notices"
 local badge = Create.new("TextLabel", {
 Name = "Unread",
-Size = UDim2.fromOffset(0, 14),
+Size = UDim2.fromOffset(0, 16),
 AutomaticSize = Enum.AutomaticSize.X,
 AnchorPoint = Vector2.new(0, 1),
 Position = UDim2.new(0.5, 5, 0.5, -4),
-TextSize = 10,
+TextSize = 12,
 TextXAlignment = Enum.TextXAlignment.Center,
 Weight = "bold",
 ZIndex = 3,
@@ -1898,8 +1898,8 @@ window.noticeBadge = refresh
 window.scope:connect(log.Added, function()
 refresh()
 if not Motion.reduced and badge.Visible then
-badge.Size = UDim2.fromOffset(0, 10)
-Motion.tween(badge, "spring", { Size = UDim2.fromOffset(0, 14) })
+badge.Size = UDim2.fromOffset(0, 12)
+Motion.tween(badge, "spring", { Size = UDim2.fromOffset(0, 16) })
 end
 end)
 refresh()
@@ -3234,7 +3234,7 @@ local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
 local MARGIN, GAP = 8, 6
 local Popup = {}
-local function contains(instance, position)
+local function contains(instance: GuiObject, position: Vector3): boolean
 local origin, size = instance.AbsolutePosition, instance.AbsoluteSize
 return position.X >= origin.X and position.X <= origin.X + size.X and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
@@ -3846,6 +3846,7 @@ end
 function Section:buildLock()
 local overlay = Create.new("TextButton", {
 Name = "LockOverlay",
+Text = "",
 Size = UDim2.fromScale(1, 0),
 ZIndex = 6,
 BackgroundTransparency = 0.06,
@@ -3897,6 +3898,7 @@ Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
 Create.list(text, "Vertical", 1)
 local title = Create.new("TextLabel", {
 Name = "Reason",
+Text = "",
 Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 TextWrapped = true,
@@ -3906,6 +3908,7 @@ Parent = text,
 })
 local hint = Create.new("TextLabel", {
 Name = "Hint",
+Text = "",
 Size = UDim2.new(1, 0, 0, 0),
 AutomaticSize = Enum.AutomaticSize.Y,
 TextWrapped = true,
@@ -3999,6 +4002,7 @@ function Section:buildSwitch(header, settings)
 local on = settings.Default ~= false
 local track = Create.new("TextButton", {
 Name = "Switch",
+Text = "",
 Size = UDim2.fromOffset(30, 16),
 LayoutOrder = 3,
 Theme = { BackgroundColor3 = "stroke" },
@@ -7618,7 +7622,7 @@ Create.family = font
 table.clear(Create.fonts)
 return true
 end
-function Create.new(className, properties, children)
+function Create.new(className: string, properties: { [string]: any }, children: { Instance }?): any
 local instance = Instance.new(className)
 local themed = properties.Theme
 local filled = properties.BackgroundColor3 ~= nil or (themed ~= nil and themed.BackgroundColor3 ~= nil)

@@ -169,13 +169,13 @@ function NoticeCenter.build(window)
 	button.Name = "Notices"
 	local badge = Create.new("TextLabel", {
 		Name = "Unread",
-		Size = UDim2.fromOffset(0, 14),
+		Size = UDim2.fromOffset(0, 16),
 		AutomaticSize = Enum.AutomaticSize.X,
 		-- Its bottom-left corner sits on the bell's top-right corner, where the
 		-- bell has no ink, so the count never covers the icon.
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0.5, 5, 0.5, -4),
-		TextSize = 10,
+		TextSize = 12,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		Weight = "bold",
 		ZIndex = 3,
@@ -184,7 +184,7 @@ function NoticeCenter.build(window)
 		Parent = button,
 	})
 	Create.corner(-1, badge)
-	-- One digit plus this padding is a 14 px circle; more digits grow it into
+	-- One digit plus this padding is about a 16 px circle; more digits grow it into
 	-- a pill. A minimum-size constraint would be applied before the padding
 	-- and leave a single digit in a wide bubble.
 	Create.padding(badge, 5, 0)
@@ -196,8 +196,8 @@ function NoticeCenter.build(window)
 	window.scope:connect(log.Added, function()
 		refresh()
 		if not Motion.reduced and badge.Visible then
-			badge.Size = UDim2.fromOffset(0, 10)
-			Motion.tween(badge, "spring", { Size = UDim2.fromOffset(0, 14) })
+			badge.Size = UDim2.fromOffset(0, 12)
+			Motion.tween(badge, "spring", { Size = UDim2.fromOffset(0, 16) })
 		end
 	end)
 	refresh()

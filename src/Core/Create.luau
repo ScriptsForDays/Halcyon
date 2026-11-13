@@ -50,7 +50,7 @@ function Create.setFamily(font)
 	return true
 end
 
-function Create.new(className, properties, children)
+function Create.new(className: string, properties: { [string]: any }, children: { Instance }?): any
 	local instance = Instance.new(className)
 	local themed = properties.Theme
 	local filled = properties.BackgroundColor3 ~= nil or (themed ~= nil and themed.BackgroundColor3 ~= nil)
