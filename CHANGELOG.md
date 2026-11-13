@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 2.2.0
 
+- Every built-in part turns on or off with `true` or `false` on `CreateWindow`, and `Window:Set` and `Window:Get` flip and read them live. New switches: `Close`, `Drag`, `Tooltips`, `Animations`, `Blur`, `Watermark`, `KeybindList`, `SettingsTab` and `NotificationCenter`. `Minimize` and `Resize` are the plain names for `Minimizable` and `Resizable`, which still work. `Halcyon:GetSwitches()` lists them.
+- Tabs, sections and rows take `Visible`, `Disabled`, `ShowWhen` and `EnableWhen` when they are made.
+- Header styles: `HeaderStyle = "Tall"`, `"Wordmark"` or `"Sidebar"` (a big logo above the sidebar), with a `Logo` option. `Icon = false` and `TopbarImage = false` leave those pictures out.
+- New elements: List, Tags, PlayerList, MenuButton, Stat and Stats, Graph, Log, Banner and Link. Any row takes a right-click `Menu`. `Section:Group` puts two or three controls on one line, `Window:Sheet` slides a panel over the page, and `Window:QuickBar` keeps chosen toggles on screen while the window is hidden.
+- Notices: the Accent colour runs down the card's whole edge, hovering pauses the countdown, a sideways drag dismisses, a pill counts the ones waiting, and `NotificationCenter = true` keeps a history behind a bell. Glass, Island, Snackbar, Banner, Progress and Timer were redrawn.
+- A `Panel` section look and a `Text` tab marker.
+- Shorter labels and descriptions in the settings tab, config section, theme builder and dialogs.
+- On a narrow window the top-bar search folds to its magnifier, and a long title ends in an ellipsis instead of being cut off.
+- Popups place themselves from their set width, so a dropdown never opens off to the side for a frame.
 - Notices: the countdown is now a rounded rail inside the card instead of a line on its bottom edge. Banner notices count down on their top strip, Progress notices show only their own bar, and the Accent stripe sits inside the card's outline. The stack keeps 16 px from the screen edge.
 - The Discord button's label on the key prompt can be pressed too.
 - A folded Accent section no longer shows a stub of its stripe, which showed on older releases in the update log.
