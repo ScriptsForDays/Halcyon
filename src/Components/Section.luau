@@ -165,6 +165,7 @@ function Section.new(tab, options)
 			Parent = body,
 		})
 		Create.corner(-1, stripe)
+		self.edge = stripe
 	end
 	local rows = Create.new(if options.MaxHeight then "ScrollingFrame" else "Frame", {
 		Name = "Rows",
@@ -341,6 +342,10 @@ end
 function Section:refresh()
 	local open = self.searching or not self.collapsed
 	self.rows.Visible = open
+	if self.edge then
+		-- A folded section keeps a few pixels of body, which would leave a stub of stripe.
+		self.edge.Visible = open
+	end
 	if self.pages then
 		-- A search shows every inner tab's matches at once.
 		for name, page in self.pages do

@@ -559,6 +559,18 @@ local sticky = Halcyon:Notify({ Title = "Stays", Duration = 0, Progress = false 
 Stub.advance(30)
 Stub.check(#library.toasts.active == 1 and Stub.byName(library.toasts.holder, "Countdown") == nil, "Duration = 0 stays until dismissed and has no bar")
 sticky.Dismiss()
+Stub.advance(1)
+local job = Halcyon:Notify({ Title = "Downloading", Style = "Progress", Duration = 10 })
+Stub.check(Stub.byName(library.toasts.holder, "Countdown") == nil, "a progress notice shows its own bar and no countdown")
+job.Dismiss()
+Stub.advance(1)
+local banner = Halcyon:Notify({ Title = "Update", Style = "Banner", Duration = 10 })
+Stub.check(
+	Stub.byName(library.toasts.holder, "Countdown") == nil and Stub.byName(library.toasts.holder, "Strip") ~= nil,
+	"a banner counts down on its top strip instead of a second bar"
+)
+banner.Dismiss()
+Stub.advance(1)
 Halcyon:SetNotificationDefaults({ Duration = 4, Position = "BottomRight", MaxVisible = 4 })
 local answered = false
 local dialog = window:Dialog({

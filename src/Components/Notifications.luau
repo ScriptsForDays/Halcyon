@@ -104,8 +104,8 @@ local function toastStack(library)
 		local inset = GuiService:GetGuiInset().Y + 8
 		state.side = x * 2 - 1
 		holder.AnchorPoint = Vector2.new(x, if top then 0 else 1)
-		holder.Position = UDim2.new(x, -12 * state.side, if top then 0 else 1, if top then inset else -12)
-		holder.Size = if narrow then UDim2.new(1, -24, 1, -inset - 8) else UDim2.new(0, WIDTH, 1, -inset - 20)
+		holder.Position = UDim2.new(x, -16 * state.side, if top then 0 else 1, if top then inset else -16)
+		holder.Size = if narrow then UDim2.new(1, -24, 1, -inset - 8) else UDim2.new(0, WIDTH, 1, -inset - 24)
 		layout.VerticalAlignment = if top then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom
 	end
 	library.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
@@ -165,35 +165,44 @@ local function show(library, state, toast)
 		Create.new("UISizeConstraint", { MaxSize = Vector2.new(360, math.huge), Parent = card })
 	end
 	if style == "Accent" then
+		-- Inside the card's edge, not on it, so the stroke stays one clean line.
 		local stripe = Create.new("Frame", {
 			Name = "Edge",
-			Size = UDim2.new(0, 3, 1, -16),
-			Position = UDim2.fromOffset(0, 8),
+			Size = UDim2.new(0, 3, 1, -20),
+			Position = UDim2.fromOffset(7, 10),
 			ZIndex = 2,
 			Theme = { BackgroundColor3 = kind.role },
 			Parent = card,
 		})
 		Create.corner(-1, stripe)
+		toast.stripe = stripe
 	end
 	if style == "Banner" then
-		-- Inset from the card's rounded corners, so its ends never poke past them.
+		-- A rail across the top, inside the padding. On a timed notice it doubles
+		-- as the countdown, so a banner never carries two bars.
 		local strip = Create.new("Frame", {
 			Name = "Strip",
 			Size = UDim2.new(1, -24, 0, 3),
-			Position = UDim2.fromOffset(12, 0),
+			Position = UDim2.fromOffset(12, 10),
 			ZIndex = 2,
-			Theme = { BackgroundColor3 = kind.role },
+			Theme = { BackgroundColor3 = "raised" },
 			Parent = card,
 		})
 		Create.corner(-1, strip)
+		toast.strip = Create.new("Frame", {
+			Name = "Fill",
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 2,
+			Theme = { BackgroundColor3 = kind.role },
+			Parent = strip,
+		})
+		Create.corner(-1, toast.strip)
 	end
 
 	local body = Create.new("Frame", { Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = card })
-	if compact then
-		Create.padding(body, 14, 9)
-	else
-		Create.padding(body, 12, if style == "Banner" then 15 else 12, 12, 12)
-	end
+	local pad = if compact
+		then Create.padding(body, 14, 9)
+		else Create.padding(body, if style == "Accent" then 18 else 12, if style == "Banner" then 23 else 12, 12, 12)
 	if isle then
 		body.Size = UDim2.fromOffset(0, 0)
 		body.AutomaticSize = Enum.AutomaticSize.XY
@@ -363,17 +372,33 @@ local function show(library, state, toast)
 			end))
 		end
 		-- The bar empties over the notice's lifetime, so the time left is visible.
-		if toast.progress and style ~= "Timer" and not compact and not snack and not Motion.reduced then
-			local bar = Create.new("Frame", {
+		if toast.progress and style == "Banner" and not Motion.reduced then
+			TweenService:Create(toast.strip, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(0, 1) }):Play()
+		elseif toast.progress and style ~= "Timer" and style ~= "Progress" and not compact and not snack and not Motion.reduced then
+			-- A rounded rail inside the card's padding, so it never touches the edge or the stroke.
+			pad.PaddingBottom = UDim.new(0, 20)
+			if toast.stripe then
+				-- Stop the side stripe above the rail instead of crossing it.
+				toast.stripe.Size = UDim2.new(0, 3, 1, -32)
+			end
+			local track = Create.new("Frame", {
 				Name = "Countdown",
-				-- Inset by the card's corner radius so the bar's ends stay inside the rounding.
-				Size = UDim2.new(1, -20, 0, 2),
+				Size = UDim2.new(1, -24, 0, 3),
 				AnchorPoint = Vector2.new(0, 1),
-				Position = UDim2.new(0, 10, 1, -1),
-				Theme = { BackgroundColor3 = kind.role },
+				Position = UDim2.new(0, 12, 1, -9),
+				BackgroundTransparency = if snack or isle then 0.85 else 0,
+				Theme = { BackgroundColor3 = "raised" },
 				Parent = card,
 			})
-			TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 0, 2) }):Play()
+			Create.corner(-1, track)
+			local bar = Create.new("Frame", {
+				Name = "Fill",
+				Size = UDim2.fromScale(1, 1),
+				Theme = { BackgroundColor3 = kind.role },
+				Parent = track,
+			})
+			Create.corner(-1, bar)
+			TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(0, 1) }):Play()
 		end
 		scope:add(task.delay(duration, toast.Dismiss))
 	end

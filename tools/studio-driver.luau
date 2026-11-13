@@ -3,6 +3,8 @@
 -- setting the "Command" attribute on ReplicatedStorage, since a script
 -- cannot press real buttons. It is not part of the library or the example.
 
+local shown = {}
+
 local function run(command)
 	local name, argument = string.match(command, "^(%a+):(.*)$")
 	if name == "tab" then
@@ -53,10 +55,29 @@ local function run(command)
 		end
 		start(chosen)
 	elseif name == "notices" then
-		Window:Notify({ Title = "Connected", Style = "Island", Kind = "success", Duration = 60 })
-		Window:Notify({ Title = "Config saved", Content = "Your settings were written to disk.", Style = "Accent", Kind = "success", Duration = 60 })
-		Window:Notify({ Title = "Level 10 reached", Content = "Shows how this look sits on screen.", Style = "Achievement", Kind = "success", Duration = 60 })
-		Window:Notify({ Title = "Item sold", Style = "Snackbar", Duration = 60, Actions = { { Title = "Undo" } } })
+		table.insert(shown, Window:Notify({ Title = "Connected", Style = "Island", Kind = "success", Duration = 60 }))
+		table.insert(shown, Window:Notify({ Title = "Config saved", Content = "Your settings were written to disk.", Style = "Accent", Kind = "success", Duration = 60 }))
+		table.insert(shown, Window:Notify({ Title = "Level 10 reached", Content = "Shows how this look sits on screen.", Style = "Achievement", Kind = "success", Duration = 60 }))
+		table.insert(shown, Window:Notify({ Title = "Item sold", Style = "Snackbar", Duration = 60, Actions = { { Title = "Undo" } } }))
+	elseif name == "notice" then
+		-- notice:Glass shows one notice in that style with sample text.
+		local job = Window:Notify({
+			Title = argument .. " notice",
+			Content = "Your settings were written to disk.",
+			Style = argument,
+			Kind = "success",
+			Duration = 60,
+			Actions = if argument == "Snackbar" then { { Title = "Undo" } } else nil,
+		})
+		table.insert(shown, job)
+		if argument == "Progress" then
+			job.SetProgress(0.6)
+		end
+	elseif name == "clear" then
+		for _, job in shown do
+			job.Dismiss()
+		end
+		table.clear(shown)
 	elseif name == "palette" then
 		Window:OpenPalette()
 	elseif name == "set" then

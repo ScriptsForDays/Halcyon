@@ -74,6 +74,12 @@ for _, look in { "Glass", "Accent", "Inset", "Header", "Warm" } do
 end
 local accent = tab:Section({ Title = "Edge", Style = "Accent" })
 Stub.check(Stub.byName(accent.body, "Edge") ~= nil, "an accent section has its stripe")
+accent:SetCollapsed(true)
+Stub.check(not Stub.byName(accent.body, "Edge").Visible, "a folded accent section hides its stripe")
+accent:SetCollapsed(false)
+Stub.check(Stub.byName(accent.body, "Edge").Visible, "an opened accent section shows its stripe again")
+local folded = tab:Section({ Title = "Folded", Style = "Accent", Collapsed = true })
+Stub.check(not Stub.byName(folded.body, "Edge").Visible, "an accent section that starts folded has no stripe stub")
 local banded = tab:Section({ Title = "Band", Style = "Header" })
 banded:SetCollapsed(true)
 Stub.check(not banded.bandFill.Visible, "a folded header band rounds its lower corners")

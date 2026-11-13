@@ -9,7 +9,8 @@ local Theme = require("../Core/Theme")
 local Buttons = {}
 
 -- Several buttons side by side in one row, sharing its width: Save / Load,
--- Accept / Decline. Options: Buttons = { { Title, Icon, Variant, Callback } },
+-- Accept / Decline. Each is at least as wide as its words, so when they
+-- can't all fit the row wraps onto a second line instead of clipping. Options: Buttons = { { Title, Icon, Variant, Callback } },
 -- Title (optional, shown above them). Each Variant is a Button look; the
 -- "Row" look falls back to Outline.
 function Buttons.new(container, options)
@@ -17,11 +18,12 @@ function Buttons.new(container, options)
 	local handle, scope = row.handle, row.scope
 	local holder = Create.new("Frame", {
 		Name = "Buttons",
-		Size = UDim2.new(1, 0, 0, 36),
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		LayoutOrder = 3,
 		Parent = row.content,
 	})
-	Create.list(holder, "Horizontal", 8, { Wraps = false })
+	Create.list(holder, "Horizontal", 8, { Wraps = true })
 	handle.Buttons = {}
 
 	for index, spec in options.Buttons or {} do
@@ -31,12 +33,12 @@ function Buttons.new(container, options)
 		end
 		local button = Create.new("TextButton", {
 			Name = "Button",
-			Size = UDim2.fromScale(0, 1),
+			Size = UDim2.fromOffset(0, 36),
 			LayoutOrder = index,
 			BackgroundTransparency = look.fillTransparency or 0,
 			Theme = { BackgroundColor3 = look.fill },
 			Parent = holder,
-		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Grow }) })
 		Create.corner(8, button)
 		if look.stroke then
 			Create.stroke(look.stroke, button)
@@ -65,6 +67,13 @@ function Buttons.new(container, options)
 			Theme = { TextColor3 = look.text },
 			Parent = inner,
 		})
+		-- The button's base width is its content plus padding; Grow then
+		-- shares out whatever room the line has left.
+		local function fit()
+			button.Size = UDim2.fromOffset(inner.AbsoluteSize.X + 28, 36)
+		end
+		scope:connect(inner:GetPropertyChangedSignal("AbsoluteSize"), fit)
+		fit()
 		local function paint(hovered)
 			local role = if hovered then look.hover else look.fill
 			Theme.bind(button, "BackgroundColor3", role, true)
