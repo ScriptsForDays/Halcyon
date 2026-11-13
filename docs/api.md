@@ -4,8 +4,11 @@ Everything below is called with a table of options. An option marked *(default �
 
 - [Library](#library)
 - [Window](#window)
+- [Switches](#switches)
+- [Header styles](#header-styles)
 - [Tabs and sections](#tabs-and-sections)
 - [Elements](#elements)
+- [Sheets and the quick bar](#sheets-and-the-quick-bar)
 - [Notifications and dialogs](#notifications-and-dialogs)
 - [Configs](#configs)
 - [Settings tab and overlays](#settings-tab-and-overlays)
@@ -29,6 +32,7 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 | `Halcyon:AddIconPack(name, icons)` / `:SetIconPack(name)` | Custom icon packs; the default pack |
 | `Halcyon:SetFont(font)` | A font family string, `Font` or `Enum.Font`, for everything created afterwards |
 | `Halcyon:GetExecutor()` | The executor's name and version |
+| `Halcyon:GetStyles(kind)`, `:GetPresets()`, `:GetSwitches()` | The names of a kind's looks, of the presets, and of every window switch |
 | `Halcyon:Unload()` | Unloads every window |
 | `Halcyon.Version`, `Halcyon.ThemeChanged` | The version string; a signal fired with the new theme's name |
 
@@ -38,7 +42,7 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 
 | Option | Meaning |
 |---|---|
-| `Title`, `Subtitle`, `Icon` | Shown in the top bar |
+| `Title`, `Subtitle`, `Icon` | Shown in the top bar. `Icon = false` shows no icon |
 | `Version` | Text for the version tag beside the title, such as `"v1.2.0"`. `ShowVersion = false` hides the tag |
 | `Folder` | Where configs and settings save: `Halcyon/<Folder>/`. *(default: the Title)* Also identifies the hub, so running it twice replaces the first window |
 | `Theme` | A theme name, or a palette table to register and use |
@@ -71,8 +75,9 @@ local Halcyon = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scrip
 | `AccentGradient`, `SafeStatusColors` | A second accent colour for fills; colour-blind-friendly status colours |
 | `SidebarWidth`, `SidebarToggle`, `Snap` | Sidebar width, a button that folds it, snapping to screen edges |
 | `CommandPalette`, `PaletteKey` | Ctrl+K search over every tab and setting, and its key |
+| `HeaderStyle`, `Logo` | Where the title and logo go, and the logo itself. See [Header styles](#header-styles) |
 
-Switches, all on unless set to `false`: `ConfirmUnload` (the Unload button asks first), `LockShimmer` (the light across locked rows), `ShowVersion`, `Shadow`, `Search`, `Resizable`, `Minimizable`, `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `SavePreferences`, `FocusRing`. `OpenButton = true` shows the round open button on desktop too when the window is hidden.
+The parts that turn on and off are listed under [Switches](#switches).
 
 ### Profile
 
@@ -96,6 +101,7 @@ Profile = {
 
 | Call | Does |
 |---|---|
+| `Window:Set(name, value)`, `:Get(name)` | Turns a switch on or off while the hub runs, and reads it. See [Switches](#switches) |
 | `Window:Tab(options)` | Adds a tab |
 | `Window:SelectTab(tab)` | Opens a tab |
 | `Window:SettingsTab(options)` | Adds the ready-made Settings tab |
@@ -133,8 +139,58 @@ Profile = {
 | `Window:About(tab, options)` | Credits and links the player can copy (`Description`, `Credits`, `Discord`, `Links`) |
 | `Window:AddUpdate(release)` | Adds a release to the update log |
 | `Window:Lock(options)`, `:Unlock()` | Covers the window with a message (`Title`, `Text`, `Icon`, `Button`) |
+| `Window:Sheet(options)`, `:QuickBar(options)` | A side panel and a floating bar. See [Sheets and the quick bar](#sheets-and-the-quick-bar) |
 
 Fields: `Window.Flags` (handles by flag), `Window.ConfigChanged` (fires `action, name` after a save, load, delete or autoload), `Window.OnUnload`, `Window.TabChanged`, `Window.KeybindsChanged` (signals with `:Connect`), `Window.Visible`.
+
+## Switches
+
+Each built-in part is one option on `CreateWindow`. Leave it out for the default, set it to `false` to leave the part out, or `true` to add it; the ones marked *table* also take their settings in place of `true`. `Window:Set(name, value)` changes a switch while the hub runs, `Window:Get(name)` reads it, and `Halcyon:GetSwitches()` lists every name they take.
+
+| Switch | Default | What it controls |
+|---|---|---|
+| `Search` | on | The search box |
+| `Profile` | on | The profile card; *table* (see [Profile](#profile)) |
+| `ShowVersion` | on | The version tag beside the title |
+| `Minimize` | on | The minimise button. The old name `Minimizable` still works |
+| `Close` | on | The close button |
+| `Resize` | on | The resize grip. The old name `Resizable` still works |
+| `Drag` | on | Dragging the window by its top bar, or by the logo in the `Sidebar` header |
+| `Shadow` | on | The soft shadow under the window |
+| `Tooltips` | on | Hover tips on rows |
+| `Animations` | on | Motion. Off is the same as `SetReducedMotion(true)` |
+| `Blur` | off | A blur over the game while the window is open; a number sets its size *(default 12)* |
+| `CommandPalette` | off | Ctrl+K search over every tab and setting |
+| `NotificationCenter` | off | A bell in the top bar. Its badge counts notices since the player last looked; pressing it lists them with a Clear all button |
+| `Watermark` | off | The watermark; *table* (see [Settings tab and overlays](#settings-tab-and-overlays)) |
+| `KeybindList` | off | The keybind list; *table* |
+| `SettingsTab` | off | The ready-made settings tab; *table* of the same options as `Window:SettingsTab` |
+| `Snap` | off | Snapping the window to screen edges |
+| `OpenButton` | off | The round open button on desktop while the window is hidden. Touch screens always show it |
+
+Read once, when the window is made: `Icon`, `TopbarImage` and `Logo` (`false` leaves the picture out), `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `ConfirmUnload` (the Unload button asks first), `LockShimmer` (the light across locked rows), `FocusRing` and `SavePreferences`. All of these are on unless set to `false`.
+
+Tabs, sections and elements take their own switches when they are made:
+
+| Option | Does |
+|---|---|
+| `Visible = false` | Makes it hidden; `SetVisible(true)` shows it later |
+| `Disabled = true` | Greys it and ignores input; `SetEnabled(true)` or `SetDisabled(false)` turns it back on |
+| `ShowWhen = "Flag"` or `{ "Flag", value }` | Shown only while that flag holds `value` *(default `true`)*. `value` may be a function of the flag's value |
+| `EnableWhen = "Flag"` or `{ "Flag", value }` | The same, but greyed instead of hidden |
+
+The flag may belong to an element made later in the script. The same calls work afterwards as methods: `handle:ShowWhen(source, value)` and `handle:EnableWhen(source, value)`, where `source` is a handle or a flag name.
+
+## Header styles
+
+| `HeaderStyle` | Layout |
+|---|---|
+| `"Bar"` *(default)* | The top bar: icon or picture, title, subtitle and version tag |
+| `"Tall"` | A taller top bar with a larger picture beside the title and subtitle |
+| `"Wordmark"` | A wide logo image in place of the title words |
+| `"Sidebar"` | A big logo at the top of the sidebar, search under it, and no top bar. Minimise and close sit small in the page's top-right corner, and minimising folds to a pill |
+
+`Logo` takes any image source (asset id, URL, workspace file or icon name), or a table `{ Image, Text, Icon, Height, Width }`. With no image it draws `Text` (or the window's `Title`) as a large wordmark beside the `Icon`, so it works in Studio and without `getcustomasset`. `Logo = false` draws no logo. When the window is too narrow for a sidebar, or the tab style is a rail or a strip, the `Sidebar` style puts the logo back in a top bar.
 
 ## Tabs and sections
 
@@ -146,6 +202,7 @@ local Section = Tab:Section({ Title = "Aim", Icon = "target", Side = "Right" })
 | Tab option | Meaning |
 |---|---|
 | `Title`, `Icon` | Shown on the tab button |
+| `Visible`, `ShowWhen` | Hide the tab, or show it only while a flag holds a value. See [Switches](#switches) |
 | `Group` | A heading above this tab in the sidebar; tabs that share it sit together and fold together |
 | `SectionStyle` | The default style for this tab's sections |
 | `Description` | A heading with this line at the top of the page |
@@ -154,7 +211,8 @@ local Section = Tab:Section({ Title = "Aim", Icon = "target", Side = "Right" })
 | Section option | Meaning |
 |---|---|
 | `Title`, `Icon` | The header. Without a Title there is no header |
-| `Style` | `"Card"`, `"Outlined"`, `"Flat"`, `"Glass"`, `"Accent"`, `"Inset"` or `"Header"` |
+| `Style` | `"Card"`, `"Outlined"`, `"Flat"`, `"Glass"`, `"Accent"`, `"Inset"`, `"Header"` or `"Panel"` (each row on its own inset card) |
+| `Visible`, `Disabled`, `ShowWhen`, `EnableWhen` | See [Switches](#switches) |
 | `Description`, `Badge`, `IconColor` | A line under the title, a count or word beside it, the icon's colour (a role name or `Color3`) |
 | `Tabs` | Names of tabs inside the box: `box:Tab("Visuals"):Toggle({...})`; elements added to the section go to the first |
 | `Switch` | `{ Default, Flag, Callback }`: a switch in the header that greys the rows while off |
@@ -163,7 +221,15 @@ local Section = Tab:Section({ Title = "Aim", Icon = "target", Side = "Right" })
 | `Collapsible` *(default true)*, `Collapsed` | Folding by pressing the header |
 | `Tier`, `PaidOnly`, `LockText`, `LockHint` | Lock the section: one overlay with an icon, the wording and a hint covers its rows |
 
-`Tab:Select()`, `Tab:SetTitle(text)`, `Tab:SetBadge(value)` (a number, a short word, `true` for a dot, `nil` to clear), `Tab:Notice({ Title, Content, Kind, Dismissible })` (a callout at the top of the page), `Tab:EmptyState({ Icon, Title, Text, Kind = "error", Button })`, `Tab:About(options)`. `Section:SetTitle(text)`, `:SetBadge(value)`, `:SetCollapsed(bool)`, `:SetVisible(bool)`, `:SelectTab(name)`, `:ShowWhen(source, value)`, `:Destroy()`.
+`Tab:Select()`, `Tab:SetTitle(text)`, `Tab:SetBadge(value)` (a number, a short word, `true` for a dot, `nil` to clear), `Tab:SetVisible(bool)`, `Tab:ShowWhen(source, value)`, `Tab:Notice({ Title, Content, Kind, Dismissible })` (a callout at the top of the page), `Tab:EmptyState({ Icon, Title, Text, Kind = "error", Button })`, `Tab:About(options)`. `Section:SetTitle(text)`, `:SetBadge(value)`, `:SetCollapsed(bool)`, `:SetVisible(bool)`, `:SetEnabled(bool)`, `:SelectTab(name)`, `:ShowWhen(source, value)`, `:EnableWhen(source, value)`, `:Destroy()`.
+
+`Section:Group({ Columns = 2 })` returns a holder that takes the same element calls as the section and puts two or three controls side by side on one line. On a narrow page they stack.
+
+```lua
+local pair = Section:Group({ Columns = 2 })
+pair:Toggle({ Title = "Auto farm", Flag = "AutoFarm" })
+pair:Toggle({ Title = "Auto sell", Flag = "AutoSell" })
+```
 
 Elements can be added to a tab directly; they go into an untitled flat section.
 
@@ -171,9 +237,9 @@ Elements can be added to a tab directly; they go into an untitled flat section.
 
 Every element is created on a tab or section and returns a handle.
 
-**Options every element takes:** `Title` (required, except Divider, Code and Image), `Description`, `Icon` (a leading icon), `Flag` (saves the value in configs), `Callback`, `Tier` (a tier name), `PaidOnly`, `LockText`, `Badge` (`"New"`, `"Beta"`, `"Risky"`, `"Paid"`, any text, or `{ Text, Color }`), `Info` (a longer explanation behind an info icon), `Requires` (executor functions the row needs; without them it is locked with their names), `Style` (a look; see [styles.md](styles.md)), `Tooltip` (hover text, or `{ Title, Text, Key, Style }`), `Spotlight` (`{ Title, Text, Id }`: a one-time pointer at a new feature).
+**Options every element takes:** `Title` (required, except Divider, Code, Image, Buttons, Space, Table and Stats), `Description`, `Icon` (a leading icon), `Flag` (saves the value in configs), `Callback`, `Tier` (a tier name), `PaidOnly`, `LockText`, `Badge` (`"New"`, `"Beta"`, `"Risky"`, `"Paid"`, any text, or `{ Text, Color }`), `Info` (a longer explanation behind an info icon), `Requires` (executor functions the row needs; without them it is locked with their names), `Style` (a look; see [styles.md](styles.md)), `Tooltip` (hover text, or `{ Title, Text, Key, Style }`), `Spotlight` (`{ Title, Text, Id }`: a one-time pointer at a new feature), `Menu` (a list of `{ Title, Icon, Callback, Danger, Disabled }` or `{ Divider = true }`, opened by a right-click or a long press on the row), and the switches `Visible`, `Disabled`, `ShowWhen` and `EnableWhen`.
 
-**Every handle has:** `Get()`, `Set(value)`, `Changed` (a signal), `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `ShowWhen(source, value)` (visible only while another element, or its Flag, has that value; `value` may be a function), `Spotlight(options)`, `Destroy()`, `Frame`, `Kind`, `Flag`.
+**Every handle has:** `Get()`, `Set(value)`, `Changed` (a signal), `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetEnabled(bool)`, `SetVisible(bool)`, `Lock(text, icon)`, `Unlock()`, `IsLocked()`, `ShowWhen(source, value)` (visible only while another element, or its Flag, has that value; `value` may be a function), `EnableWhen(source, value)` (the same, greyed instead of hidden), `Spotlight(options)`, `Destroy()`, `Frame`, `Kind`, `Flag`.
 
 **When a Callback runs:** on every `Set`, even to the same value, which is what makes loading a config start what it restores. Not on creation, with one exception: a Toggle with `Default = true` runs its Callback once, deferred, because a switch drawn on must mean the feature is on. A Slider's `Default` is only shown.
 
@@ -206,6 +272,16 @@ Every element is created on a tab or section and returns a handle.
 | `Divider` | `Title` | none |
 | `Code` | `Title`, `Code`; has a copy button | string |
 | `Image` | `Image`, `Height`, `Crop` | none |
+| `MenuButton` | `Text` (the button's word, *default* `"Actions"`), `Icon`, `Items` (as for `Menu`), `Width` | none |
+| `Link` | `Url`, `Icon`. Roblox cannot open a browser, so a press copies the address; without a clipboard the address shows in a box to select | the address |
+| `List` | `Values` (plain values or `{ Text, Value, Icon, Description }`), `Default`, `Multi`, `Search`, `Reorder` (drag the items into order), `Height` *(default 200, then it scrolls)* | one value; a list with `Multi`; every value in order with `Reorder` |
+| `Tags` | `Default` (a list), `Placeholder`, `Suggestions`, `Max`, `AllowDuplicates`. Enter adds what was typed; the × on a chip removes it | a list of words |
+| `PlayerList` | `Actions` (`{ Title, Icon, Callback(player) }` buttons on every row), `Search` *(default true)*, `ShowSelf`, `Selectable`, `Height` *(default 240)*. Follows players joining and leaving | the picked player's name with `Selectable` |
+| `Stat` | `Value`, `Unit`, `Change` (a leading `+` is green and `-` red, unless `Kind` is `"good"`, `"bad"` or `"neutral"`), `Icon`, `Style` (`"Card"` or `"Plain"`); `SetUnit(text)`, `SetChange(text, kind)` | the value |
+| `Stats` | `Items` (`{ Title, Value, Unit, Change, Kind, Icon, Key }`), `Columns` *(default 3)*. As many tiles to a line as fit; `Set(key, value)`, `Get(key)`, `Items[key]` | none |
+| `Graph` | `Values`, `Max` (how many it keeps, *default 40*), `Min` and `Ceiling` (a fixed range; otherwise it fits the values), `Height` *(default 80)*, `Suffix` or `Format` (for the newest value beside the title), `Role` (the colour), `Style` (`"Line"`, `"Area"` or `"Bars"`); `Push(value)`, `Clear()` | the values |
+| `Log` | `Height` *(default 180)*, `MaxLines` *(default 200)*, `Timestamps` *(default true)*, `EmptyText`; `Add(text, level)`, `Info(text)`, `Success(text)`, `Warn(text)`, `Error(text)`, `Clear()`. Has level filters and copy and clear buttons; follows new lines while scrolled to the bottom | every line as text |
+| `Banner` | `Text`, `Image` (any image source; without one it sits on a tint of the accent), `Height` *(default 132)*, `Button = { Title, Callback }`; `SetText(text)`, `SetImage(source)` | none |
 
 ### Notes
 
@@ -216,6 +292,27 @@ Every element is created on a tab or section and returns a handle.
 - **Keybind.** Press the chip, then a key. Escape cancels, Backspace clears. A key typed into a text box is ignored.
 - **ColorPicker.** `Set` takes a `Color3` or a hex string. The Callback runs when a drag ends, not on every move.
 - **Narrow rows.** In a two-column page or on a phone, a slider's track, a dropdown, an input and a segmented control move under their title at full width, so a title is never squeezed.
+- **Row menus.** `Menu` items run their `Callback` and close the menu. A `Danger` item is drawn in red; a `Disabled` one is greyed and ignores presses.
+
+## Sheets and the quick bar
+
+```lua
+local options = Window:Sheet({ Title = "Auto farm", Width = 340 })
+options:Slider({ Title = "Radius", Min = 10, Max = 200, Flag = "FarmRadius" })
+options:Toggle({ Title = "Skip bosses", Flag = "SkipBosses" })
+Section:Button({ Title = "Farm options", Callback = function()
+	options:Open()
+end })
+```
+
+A sheet slides over the page from the window's right edge and holds a feature's extra options without leaving the tab. It takes element calls like a section (they go to its first section) and `Sheet:Section(options)` for more. `Open()`, `Close()`, `IsOpen`, `SetTitle(text)` and `Destroy()`; a press on the dimmed page behind it closes it.
+
+```lua
+local bar = Window:QuickBar({ Items = { "AutoFarm", "Fly", { Title = "Stop all", Icon = "octagon-x", Callback = stopAll } } })
+bar:Add("InfiniteJump")
+```
+
+The quick bar is a small floating bar of the hub's most used switches and buttons. It stays on screen when the window is hidden, so a phone player can flip a feature without opening the hub, and it is dragged by its grip. An item is a toggle's flag or handle (the bar shows its state and a press flips it) or `{ Title, Icon, Callback }` for a button. `SetVisible(bool)` and `Destroy()`.
 
 ## Notifications and dialogs
 
@@ -242,18 +339,20 @@ job.Done("Downloaded") -- fills the bar, turns green, leaves after a moment
 
 | Style | Looks like |
 |---|---|
-| `Default` | A card with a countdown bar along the bottom |
-| `Timer` | The seconds left, counting down in the corner |
+| `Default` | A card with the icon in a tinted square and a countdown rail |
+| `Timer` | The seconds left in a small pill |
 | `Compact` | One line in a pill: icon and title |
-| `Banner` | A coloured strip across the top |
-| `Progress` | A bar the hub fills; stays until `Done` |
-| `Accent` | A card with a coloured edge and the icon on a tinted disc |
-| `Glass` | A see-through card |
+| `Banner` | A tinted band across the top, with the countdown on it |
+| `Progress` | A bar the hub fills; stays until `Done`. `Indeterminate = true` runs it before there is an amount |
+| `Accent` | A card whose colour runs down its whole left edge, following the rounded corners |
+| `Glass` | A frosted, see-through card |
 | `Achievement` | A large icon disc, for a reward or milestone |
-| `Snackbar` | A dark one-line bar; its first action shows as a word, such as Undo |
-| `Island` | A pill at the top centre, apart from the stack |
+| `Snackbar` | A dark one-line bar with its first action in the accent colour |
+| `Island` | A dark capsule at the top centre, apart from the stack, in light themes too |
 
-Every notice returns a handle with `Dismiss`, `SetTitle`, `SetContent`, `SetProgress` and `Done`.
+Every notice returns a handle with `Dismiss`, `SetTitle`, `SetContent`, `SetProgress` and `Done` (also called `Complete`). `Close = false` hides a notice's ×, which otherwise shows on hover, and always on touch screens.
+
+Hovering a notice pauses its countdown, and dragging it sideways dismisses it. When more than `MaxVisible` are waiting, a pill says how many more there are. With `NotificationCenter = true` the window keeps the last 50 behind a bell in the top bar.
 
 `Position` is one of `TopLeft`, `TopCenter`, `TopRight`, `BottomLeft`, `BottomCenter`, `BottomRight`. On a narrow screen notices always sit across the top. Notify on results the player cannot see (saved, failed, loaded), not on every toggle.
 
@@ -339,4 +438,4 @@ mark:SetVisible(false)
 binds:Destroy()
 ```
 
-A watermark field may also be any text or a function returning text. Both overlays can be dragged. `Style` picks a look: Card, Pill, Accent or Minimal for the watermark; Card, Glass or Minimal for the keybind list.
+A watermark field may also be any text or a function returning text. Both overlays can be dragged. `Style` picks a look: Card, Pill, Accent or Minimal for the watermark; Card, Glass or Minimal for the keybind list. `Watermark = true` and `KeybindList = true` on `CreateWindow` make the same overlays; a table there is passed as their options.

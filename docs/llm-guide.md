@@ -32,10 +32,18 @@ Only then pick controls. A hub with six features needs six or so rows plus setti
 | A key the player picks | Keybind, or a Toggle's `Keybind` add-on | The add-on keeps the key beside the feature it controls |
 | A colour | ColorPicker, or a Toggle's `Color` add-on | Same reason |
 | Read-only state | Status, Progress, Countdown, Label | Nothing to press, so don't make it look pressable |
+| Read-only figures (FPS, coins per hour) | Stat, or Stats for several | Big numbers read at a glance; labels in a row don't |
+| A number's recent history | Graph | A trend is the point; one number hides it |
+| What the hub did, line by line | Log | Notices vanish; a log can be scrolled, filtered and copied |
 | Read-only rows of data | Table | Labels in a loop can't sort or align |
+| Picks the player should see without opening anything, or an order | List (`Reorder` for priorities) | A Dropdown hides the choices; toggles per item waste rows |
+| Words the player types and keeps (a whitelist) | Tags | An Input holds one value; Tags hold a list |
+| Something to do to a player | PlayerList with `Actions` | Picking a name in a Dropdown and then pressing a button is two steps |
+| A few actions on one thing | MenuButton, or a row's `Menu` | Five buttons for one config crowd the section |
+| An address to open elsewhere | Link | Roblox can't open browsers; Link copies and says so |
 | Help and explanations | `Info` on the row, Accordion, Paragraph | Keep long text out of row descriptions |
 
-A row description is one short line about what the feature does or a caveat ("Applied again after every respawn"). If you need a paragraph, use `Info` or an Accordion.
+A row description is one short line about what the feature does or a caveat ("Kept after respawning"). If you need a paragraph, use `Info` or an Accordion. Don't write descriptions that explain the control itself ("Turn this on to enable flying"); the title and the switch already say it.
 
 ## 3. Organise tabs and sections
 
@@ -47,6 +55,8 @@ A row description is one short line about what the feature does or a caveat ("Ap
 - **Two columns:** use `Side = "Right"` when two sections are peers on the same tab. Don't use it to balance heights artificially; on phones everything stacks in creation order anyway, so put the more important section first.
 - **Order rows by frequency of use:** the main switch first, its tuning after it. Pair a feature's tuning with `ShowWhen` so options appear only when they apply (a Speed slider shown only while Fly is on). This keeps the page short without hiding anything permanently.
 - **Lock rather than remove.** If a feature needs a paid key or an executor function, keep the row and lock it (`PaidOnly`, `Tier`, `Requires`). Players then know it exists and why they can't use it.
+- **Short pairs share a line.** `Section:Group({ Columns = 2 })` fits two short toggles side by side (Auto farm / Auto sell). Keep sliders, lists and long titles on their own lines.
+- **A feature with many settings** can keep its main switch on the tab and its tuning in a `Window:Sheet`, opened by a button beside it, so the page stays short.
 
 ## 4. Decide what to save
 
@@ -96,7 +106,11 @@ Unless the developer asks for it, leave out:
 - `UpdateLog`, `Changelog` and `Loading`, unless the hub has releases or a real setup phase to show;
 - `CommandPalette` and `Snap`, unless the hub is large (Ctrl+K pays off at around 30+ rows);
 - Personalise and the theme builder, which are optional extras in Settings;
-- Watermark and KeybindList, which are overlays some players dislike. Offer them as Settings toggles rather than forcing them on.
+- Watermark and KeybindList, which are overlays some players dislike. Offer them as Settings toggles rather than forcing them on;
+- `NotificationCenter` and `Blur`, unless the hub sends notices worth reading later or the developer wants the blur;
+- a QuickBar, unless the hub targets phones and has two or three features players flip constantly.
+
+To remove a built-in part the developer doesn't want, set its switch to `false` (`Search = false`, `Close = false`) rather than hiding instances.
 
 ## 10. Examples of over-building, and the fix
 

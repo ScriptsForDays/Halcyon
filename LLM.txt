@@ -49,7 +49,7 @@ Window:LoadAutoload()
 ## Rules
 
 1. Every constructor takes ONE table: `Section:Toggle({ Title = "Fly" })`. `Label("text")` is the only string shortcut (also valid for Tab).
-2. `Title` is required on every element except Divider, Code, Image, Buttons, Table and Space.
+2. `Title` is required on every element except Divider, Code, Image, Buttons, Table, Space and Stats.
 3. A `Flag` must be unique in the window; a duplicate raises an error. Flag only what should be saved.
 4. `Set(value)` always runs the Callback, even for the same value. Creating an element never does, except a Toggle with `Default = true`, whose Callback runs once, deferred, after the hub finishes building.
 5. A Slider's `Default` is only displayed. Apply the starting value to the game yourself if needed.
@@ -63,6 +63,7 @@ Window:LoadAutoload()
 13. A client-side key prompt is not security. Never describe it as protecting the script.
 14. Do not set looks element by element across a hub. Leave defaults, or use one `Preset` / one window `Styles` table.
 15. Use only features listed here. If the user asks for something Halcyon lacks, say so instead of inventing an option.
+16. To leave a built-in part out, set its switch to `false` on CreateWindow (see "Switches"). Do not hide library instances by hand.
 
 ## Library (Halcyon)
 
@@ -82,6 +83,7 @@ Window:LoadAutoload()
 | `Halcyon:GetStyles(kind?)` | look names of a kind; with no kind, the kinds |
 | `Halcyon:AddStyle(kind, name, spec, base?)` | `ok, message`; a custom look |
 | `Halcyon:GetPresets()`, `:AddPreset(name, options)` | presets |
+| `Halcyon:GetSwitches()` | every switch name Window:Set accepts |
 | `Halcyon:GetExecutor()` | name, version |
 | `Halcyon:Unload()` | removes every window |
 | `Halcyon.Version`, `Halcyon.ThemeChanged` | version string, signal(name) |
@@ -91,16 +93,18 @@ Window:LoadAutoload()
 All optional. Defaults in brackets.
 
 **Identity**
-- `Title` ["Halcyon"], `Subtitle`, `Icon` (any image source), `Version` (tag beside the title, e.g. "v1.2.0"), `ShowVersion` [true]
+- `Title` ["Halcyon"], `Subtitle`, `Icon` (any image source; false for none), `Version` (tag beside the title, e.g. "v1.2.0"), `ShowVersion` [true]
 - `Folder` [Title]: save folder and hub identity. Keep it stable across releases.
-- `TopbarImage`: a picture before the title (image source, or `true` for `Icon`); `TopbarImageStyle`: "Circle" | "Rounded" | "Square" | "Squircle" | "Ring" | "Badge" ["Circle"]
+- `TopbarImage`: a picture before the title (image source, or `true` for `Icon`; false for none); `TopbarImageStyle`: "Circle" | "Rounded" | "Square" | "Squircle" | "Ring" | "Badge" ["Circle"]
+- `HeaderStyle`: "Bar" | "Tall" | "Wordmark" | "Sidebar" ["Bar"]. Sidebar: big logo above the sidebar, search under it, no top bar.
+- `Logo`: image source, or `{ Image, Text, Icon, Height, Width }`, or false. Without an image it draws `Text` (or Title) as a wordmark.
 
 **Layout**
 - `Size` [Vector2.new(740, 500)], always fitted to the screen; `Scale` 0.75-1.25 [1]
 - `TabStyle`: "Sidebar" | "Rail" | "Top" | "Dock" ["Sidebar"]; narrow windows use "Top"
 - `SidebarWidth` 150-280 [196]; `SidebarToggle` [false]: a top-bar button folding the sidebar to the rail
 - `CollapsedGroups`: sidebar groups that start folded; `CollapsibleGroups` [true]
-- `MinimizeStyle`: "Topbar" | "Pill" | "Chip" ["Topbar"]; `Minimizable` [true]; `Resizable` [true, mouse only]; `Snap` [false]
+- `MinimizeStyle`: "Topbar" | "Pill" | "Chip" ["Topbar"]; `Minimize` [true] (old name Minimizable); `Resize` [true, mouse only] (old name Resizable); `Close` [true]; `Drag` [true]; `Snap` [false]
 - `ToggleKey` [Enum.KeyCode.RightShift]; `OpenButton` [false; always on for touch]
 
 **Looks** (see "Looks and presets")
@@ -113,6 +117,8 @@ All optional. Defaults in brackets.
 
 **Behaviour**
 - `Search` [true]; `CommandPalette` [false] (Ctrl+K), `PaletteKey` [K]
+- `Tooltips` [true]; `Animations` [true]; `Blur` [false; true or a size]; `NotificationCenter` [false]: a bell with past notices
+- `Watermark`, `KeybindList`, `SettingsTab` [false]: true, or the same table their Window methods take
 - `ConfirmUnload` [true]; `SavePreferences` [true]; `DisplayOrder` [2147483000]
 - `Notifications = { Duration, Position, Progress, MaxVisible, Style, Sound }`
 
@@ -124,6 +130,15 @@ All optional. Defaults in brackets.
 - `Profile`: false, or table (see Profile)
 - `UpdateLog`: true, or table (see Update log)
 
+## Switches
+
+Every built-in part is an option: false leaves it out, true adds it, a table passes settings where noted. `Window:Set(name, value)` changes one while the hub runs; `Window:Get(name)` reads it.
+
+Live switches: Search, Profile, ShowVersion, Minimize (Minimizable), Close, Resize (Resizable), Drag, Shadow, Tooltips, Animations, Blur, CommandPalette, Snap, OpenButton, Watermark, KeybindList, NotificationCenter, SettingsTab.
+Read once at creation: Icon, TopbarImage, Logo, CollapsibleGroups, SliderTooltips, ToggleOutline, ConfirmUnload, LockShimmer, FocusRing, SavePreferences.
+
+Tabs, sections and elements take, when made: `Visible = false`, `Disabled = true`, `ShowWhen = "Flag"` or `{ "Flag", value }` (shown while that flag holds value [true]; value may be a function), `EnableWhen` (the same, greyed instead of hidden). The flag may belong to an element made later.
+
 ## Window
 
 **Methods**
@@ -134,6 +149,8 @@ All optional. Defaults in brackets.
 - Profile: `SetAnonymous(bool)`, `SetProfile(table)`
 - Access: `GetTier()`, `HasTier(name)`, `IsPaid()`, `SetTier(name)`, `GetKeyExpiry()`, `SetLockText(text, paidText)`, `SetLockHint(hint, paidHint)`, `Require(names)` -> missing executor functions
 - Feedback: `Notify(options)`, `Dialog(options)`, `Loading(options)`, `Changelog(options)`, `AddUpdate(release)`, `Watermark(options)`, `KeybindList(options)`
+- Switches: `Set(name, value)`, `Get(name)`
+- Panels: `Sheet({ Title, Width = 340 })` (slides over the page; takes element calls; `Open()`, `Close()`, `IsOpen`), `QuickBar({ Items = { "Flag", toggleHandle, { Title, Icon, Callback } } })` (floating bar that stays while the window is hidden; `Add(item)`, `SetVisible`, `Destroy`)
 - Configs: `SaveConfig(name)`, `LoadConfig(name)`, `DeleteConfig(name)`, `ConfigExists(name)`, `ListConfigs()`, `SetAutoload(name)`, `GetAutoload()`, `LoadAutoload()` (all return `ok, message` where relevant)
 - Ending: `RequestUnload()` (asks first unless ConfirmUnload = false), `Unload()`
 
@@ -141,24 +158,25 @@ All optional. Defaults in brackets.
 
 ## Tab
 
-`Window:Tab({ Title, Icon, Group, Description, SectionStyle, Tier, PaidOnly, LockText, LockHint })`
+`Window:Tab({ Title, Icon, Group, Description, SectionStyle, Tier, PaidOnly, LockText, LockHint, Visible, ShowWhen })`
 
 - `Description` adds a page heading with that line under it.
-- Methods: `Section(options)`, `Select()`, `SetTitle(text)`, `SetBadge(value)` (number, short word, true for a dot, nil to clear), `Notice({ Title, Content, Kind, Dismissible })` (callout at the top of the page) -> `{ SetContent, Destroy }`, `EmptyState({ Icon, Title, Text, Kind = "error", Button = { Title, Callback } })` -> `{ SetText, Destroy }`, `About(options)`.
+- Methods: `Section(options)`, `Select()`, `SetTitle(text)`, `SetVisible(bool)`, `ShowWhen(source, value)`, `SetBadge(value)` (number, short word, true for a dot, nil to clear), `Notice({ Title, Content, Kind, Dismissible })` (callout at the top of the page) -> `{ SetContent, Destroy }`, `EmptyState({ Icon, Title, Text, Kind = "error", Button = { Title, Callback } })` -> `{ SetText, Destroy }`, `About(options)`.
 - Every element method also exists on a tab; those rows go into an untitled flat section.
 
 ## Section
 
-`Tab:Section({ Title, Icon, IconColor, Description, Badge, Style, Side, Collapsible, Collapsed, Tabs, Switch, MaxHeight, Tier, PaidOnly, LockText, LockHint })`
+`Tab:Section({ Title, Icon, IconColor, Description, Badge, Style, Side, Collapsible, Collapsed, Tabs, Switch, MaxHeight, Tier, PaidOnly, LockText, LockHint, Visible, Disabled, ShowWhen, EnableWhen })`
 
-- `Style`: Card (default), Outlined, Flat, Glass, Accent, Inset, Header.
+- `Style`: Card (default), Outlined, Flat, Glass, Accent, Inset, Header, Panel (each row on its own inset card).
 - `Side`: "Left" (default) | "Right".
 - `Collapsible` [true]: the title folds it. `Collapsed` starts folded.
 - `Tabs = { "Aim", "Visuals" }`: tabs inside the box. `section:Tab("Visuals"):Toggle({...})`; elements added to the section itself go to the first. `SelectTab(name)`.
 - `Switch = { Default, Flag, Callback }`: a switch in the header; off greys every row in the section.
 - `MaxHeight = 240`: rows scroll past that height.
 - `Tier` / `PaidOnly`: one overlay covers the section with `LockText` and `LockHint`.
-- Methods: `SetTitle`, `SetBadge`, `SetCollapsed(bool)`, `SetVisible(bool)`, `ShowWhen(source, value)`, `Destroy()`, and every element method.
+- `Group({ Columns = 2 })`: a holder taking element calls that puts 2-3 controls on one line; they stack when narrow. Use for short pairs (Auto farm / Auto sell), not for sliders or lists.
+- Methods: `SetTitle`, `SetBadge`, `SetCollapsed(bool)`, `SetVisible(bool)`, `SetEnabled(bool)`, `ShowWhen(source, value)`, `EnableWhen(source, value)`, `Group(options)`, `Destroy()`, and every element method.
 
 ## Every element
 
@@ -172,12 +190,15 @@ All optional. Defaults in brackets.
 - `Spotlight = { Title, Text, Id }`: a one-time pointer at a new feature, remembered once dismissed
 - `Requires = { "hookfunction", ... }`: locks the row naming the executor functions that are missing
 - `Style`: the element's look
+- `Menu = { { Title, Icon, Callback, Danger, Disabled }, { Divider = true } }`: actions on right-click or long press of the row
+- `Visible`, `Disabled`, `ShowWhen`, `EnableWhen`: see Switches
 
 **Shared handle**
 - `Get()`, `Set(value)`, `Changed:Connect(fn)`
-- `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetVisible(bool)`
+- `SetTitle(text)`, `SetDescription(text)`, `SetDisabled(bool)`, `SetEnabled(bool)`, `SetVisible(bool)`
 - `Lock(text, icon)`, `Unlock()`, `IsLocked()`
 - `ShowWhen(elementOrFlag, valueOrFunction)`: visible only while another element has that value (a multi-select matches when it includes it; a function receives the value)
+- `EnableWhen(elementOrFlag, valueOrFunction)`: the same, greyed instead of hidden
 - `Spotlight(options)`, `Destroy()`
 - Fields: `Frame`, `Kind`, `Flag`, `Title`
 
@@ -327,6 +348,56 @@ Each entry: what it is for, when not to use it, options with defaults, value and
 - `Code({ Title, Code })`: a code block with a copy button; `Set(code)`.
 - `Image({ Image, Height = 140, Crop })`: any image source.
 
+### MenuButton
+- For: a short list of actions on one thing (a config: Rename, Duplicate, Delete).
+- Not for: a choice that stays picked (Dropdown).
+- Options: `Text` ["Actions"], `Icon`, `Items = { { Title, Icon, Callback, Danger, Disabled }, { Divider = true } }`, `Width`.
+- Value: none. Each item's Callback runs and the menu closes.
+
+### Link
+- For: an address the player should open elsewhere (Discord invite, website, key page).
+- Options: `Url`, `Icon` (before the title). The line under the title shows the site.
+- Value: the address. A press copies it (Roblox cannot open a browser); without a clipboard the address shows in a box to select.
+
+### List
+- For: picks shown in place (a route, ores to mine) or an order the player drags (target priority).
+- Not for: long lists in a tight section (Dropdown).
+- Options: `Values` (plain values or `{ Text, Value, Icon, Description }`), `Default`, `Multi`, `Search`, `Reorder`, `Height` [200, then it scrolls].
+- Value: the picked value; with Multi a list in Values order; with Reorder every value in its current order.
+
+### Tags
+- For: free-typed words kept as chips (a whitelist of names, words to watch for).
+- Options: `Default` (list), `Placeholder`, `Suggestions` (offered while typing), `Max`, `AllowDuplicates` [false, case-insensitive].
+- Value: a list of strings. Enter adds; the × on a chip removes. At Max the entry box hides.
+
+### PlayerList
+- For: acting on players in the server (Spectate, Teleport to, Whitelist).
+- Options: `Actions = { { Title, Icon, Callback(player) } }`, `Search` [true], `ShowSelf` [false], `Selectable` [false], `Height` [240].
+- Value: with Selectable, the picked player's Name. Rows follow joins and leaves.
+- Mistakes: assuming the local player is listed (ShowSelf); doing server-owned things from an action.
+
+### Stat and Stats
+- For: figures the player reads at a glance (FPS, ping, coins per hour, session time).
+- `Stat({ Title, Value, Unit, Change, Kind, Icon, Style = "Card" | "Plain" })`: `Set(value)`, `SetUnit(text)`, `SetChange(text, kind)`. A Change starting with + is green and - red unless Kind is "good", "bad" or "neutral".
+- `Stats({ Items = { { Title, Value, Unit, Change, Kind, Icon, Key } }, Columns = 3 })`: a grid, as many to a line as fit; `Set(key, value)`, `Get(key)`, `Items[key]`.
+- Mistakes: updating every frame (once a second is plenty).
+
+### Graph
+- For: a short history of a number (frame rate, ping, coins per minute).
+- Options: `Values`, `Max` [40 kept], `Min`, `Ceiling` (fixed range; otherwise it fits the values), `Height` [80], `Suffix` or `Format` (newest value beside the title), `Role` ["accent"], `Style` = "Line" | "Area" | "Bars".
+- Value: the list of values. `Push(value)` adds one; `Set(list)`; `Clear()`.
+
+### Log
+- For: lines the hub writes as it works (what it bought, what failed).
+- Options: `Height` [180], `MaxLines` [200], `Timestamps` [true], `EmptyText`.
+- Methods: `Add(text, level)` with level "info" | "success" | "warn" | "error", `Info`, `Success`, `Warn`, `Error`, `Clear()`. Value: every line as text. Has level filters, copy and clear buttons.
+- Mistakes: logging every frame or every toggle.
+
+### Banner
+- For: an announcement or a game's art at the top of a tab.
+- Options: `Title`, `Text`, `Image` (any image source; without one it sits on an accent tint), `Height` [132], `Button = { Title, Callback }`. Narrow, the button drops under the words.
+- Methods: `SetText`, `SetImage`.
+
 ## Looks and presets
 
 - Pick a look: element `Style`; window `Styles = { Toggle = "Slim" }`; or `Preset`.
@@ -341,8 +412,11 @@ Each entry: what it is for, when not to use it, options with defaults, value and
   - Dropdown: Box, Minimal, Chips, Inline
   - Keybind: Chip, Keycap, Brackets
   - Label: Plain, Info, Success, Warning, Danger, Note
-  - Section: Card, Outlined, Flat, Glass, Accent, Inset, Header
-  - TabIndicator: Bar, Pill, Underline, Dot, Glow, Fill
+  - Section: Card, Outlined, Flat, Glass, Accent, Inset, Header, Panel
+  - TabIndicator: Bar, Pill, Underline, Dot, Glow, Fill, Text
+  - Header: Bar, Tall, Wordmark, Sidebar
+  - Stat: Card, Plain
+  - Graph: Line, Area, Bars
   - Navigation: Sidebar, Rail, Top, Dock
   - Window: Solid, Glass, Gradient, Image
   - Open: Pop, Zoom, Rise, Drop, Slide, Unroll, None
@@ -400,11 +474,14 @@ local notice = Window:Notify({
 	Title = "Config saved", Content = "…",
 	Kind = "info" | "success" | "warning" | "danger",
 	Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress" | "Accent" | "Glass" | "Achievement" | "Snackbar" | "Island",
-	Icon = "save", Duration = 4, Progress = true, Sound = false,
+	Icon = "save", Duration = 4, Progress = true, Sound = false, Close = true, Indeterminate = false,
 	Actions = { { Title = "Undo", Callback = fn } },
 })
--- notice.Dismiss(), SetTitle(t), SetContent(t), SetProgress(0..1), Done(title, kind)
+-- notice.Dismiss(), SetTitle(t), SetContent(t), SetProgress(0..1), Done(title, kind) (also Complete)
 ```
+
+- Hovering pauses the countdown; a sideways drag dismisses; the × shows on hover (always on touch); `Close = false` removes it. Past `MaxVisible`, a pill counts the waiting ones.
+- `NotificationCenter = true` keeps the last 50 behind a bell in the top bar.
 
 - `Duration = 0` stays until tapped. A Progress notice stays until `Done`.
 - Positions: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight (narrow screens use the top). Island always sits at the top centre.
@@ -456,7 +533,7 @@ Images over 5 MB are refused. Without getcustomasset (Studio, some executors) an
 - Themes: Midnight (default), Onyx, Rose, Aqua, Ember, Forest, Amethyst, Crimson, Glacier, Daylight, OLED, Contrast, Sunset, Ocean, Aurora, Latte.
 - Roles: background, surface, card, raised, hover, stroke, text, textMuted, accent, accentHover, onAccent, focus, success, warning, danger, info.
 - `Halcyon:AddTheme({ Name = "Mine", Base = "Midnight", accent = Color3.fromRGB(80, 220, 160) })`: roles left out come from Base. Refused when text would be unreadable.
-- Icon packs: lucide (default, a core set built in), solar, geist, craft, gravity, sfsymbols (downloaded on first use). Use "pack:name".
+- Icon packs: lucide (default, a core set built in), solar, geist, craft, gravity, sfsymbols (downloaded on first use). Use "pack:name". Names come from each set's site: https://lucide.dev/icons/, https://icones.js.org/collection/solar (name-style, e.g. home-bold), https://vercel.com/geist/icons, https://gravity-ui.com/icons, Craft Icons on Figma (name-style, e.g. rocket-stroke), SF Symbols in camelCase (houseAndFlagFill).
 - Built-in Lucide names that draw offline: x, check, chevron-down, chevron-right, chevron-up, chevron-left, search, settings, minus, plus, copy, lock, lock-open, key, key-round, crown, user, users, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, bell, palette, keyboard, house, sword, swords, shield, zap, star, heart, target, crosshair, map, map-pin, compass, rocket, flame, gem, coins, gift, trophy, gamepad-2, move, menu, refresh-cw, download, upload, save, trash-2, folder, file, file-text, code, terminal, link, globe, clock, calendar, sun, moon, monitor, smartphone, cpu, wifi, activity, sliders-horizontal, list, layout-grid, layers, box, package, wrench, hammer, bug, sparkles, bot, ghost, skull, footprints, wind, droplet, leaf, mountain, car, plane, shopping-cart, tag, ticket, badge-check, wallet, camera, image, video, music, volume-2, mic, message-circle, send, mail, hash, pipette, power, log-out, play, pause, timer, gauge, fingerprint, scan, radar, pin, bookmark, flag, funnel, arrow-right, arrow-left, arrow-up, arrow-down, person-standing, hand, shield-check, paintbrush, panel-left, maximize-2, minimize-2, grip-vertical, ellipsis, external-link, circle, circle-user-round, square, toggle-left, text-cursor-input, mouse-pointer-2, type, at-sign, credit-card, droplet.
 - Other Lucide names download on first use and stay blank if that fails.
 

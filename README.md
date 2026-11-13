@@ -1,8 +1,8 @@
 # Halcyon
 
-A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gives you a window with tabs, sections and 27 controls, a named look for every one of them, presets, a key system with tiers, saved configs, sixteen themes the player can extend, six icon packs, and a layout that reflows from a desktop monitor down to a phone.
+A UI library for Roblox script hubs. One file, loaded with `loadstring`, that gives you a window with tabs, sections and 37 controls, a named look for every one of them, presets, a key system with tiers, saved configs, sixteen themes the player can extend, six icon packs, and a layout that reflows from a desktop monitor down to a phone. Every built-in part turns on or off with `true` or `false`.
 
-![The Halcyon example hub](assets/hero.jpg)
+![The Halcyon example hub on its Dashboard tab](assets/hero.jpg)
 
 Docs and a tour of every look: https://scriptsfordays.github.io/Halcyon-Docs/ (the site has [its own repo](https://github.com/ScriptsForDays/Halcyon-Docs), so this one stays all Luau).
 
@@ -15,6 +15,8 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/ScriptsForDays/Halcyo
 ```
 
 The example opens on its key prompt. **Keyless** needs no key; the demo keys are `HALCYON-FREE` and `HALCYON-PAID`.
+
+No executor to hand? The same example runs in your browser at https://scriptsfordays.github.io/Halcyon-Docs/play.html. It runs the real library code in a Luau runtime and draws it with HTML, so spacing and fonts can differ a little from Roblox.
 
 ## Use it
 
@@ -61,10 +63,12 @@ Window:LoadAutoload() -- loads the config the player marked, if any
 | | |
 |---|---|
 | **Looks** | Every control has named looks: 10 toggles, 7 sliders, 8 buttons with 7 effects, 4 inputs, 4 dropdowns, 7 sections, 6 tab markers, 4 window surfaces, 7 open animations, 10 notices. Pick per element, per window, or with a preset (Classic, Minimal, Glass, Neon, Compact) |
-| **Controls** | Button (hold to confirm, press twice, loading and done states), Buttons in a row, Toggle, Slider (prefix, percent, ticks, range), Dropdown (icons, descriptions, headings, player lists, chips, inline), Radio, Checklist, Chips, Tiles, Input (password, multi-line, counter, clear), Keybind (mode picker), ColorPicker (palette, recent, copy), DatePicker, Segmented, Stepper, Rating, Progress, Status, Countdown, Table, Accordion, Paragraph, callout Labels, Divider, Code, Image, Space |
-| **Layout** | Four navigation styles, tabs inside sections, a header switch per section, sections that scroll past a height, `ShowWhen` dependencies, page headers and notices, one or two columns, collapsible sections and sidebar groups, three ways to minimise, edge snapping |
+| **Controls** | Button (hold to confirm, press twice, loading and done states), Buttons in a row, MenuButton, Toggle, Slider (prefix, percent, ticks, range), Dropdown (icons, descriptions, headings, player lists, chips, inline), List (pick, multi-pick, search, drag to reorder), Tags, Radio, Checklist, Chips, Tiles, Input (password, multi-line, counter, clear), Keybind (mode picker), ColorPicker (palette, recent, copy), DatePicker, Segmented, Stepper, Rating, Progress, Status, Countdown, Table, Accordion, Paragraph, callout Labels, Divider, Code, Image, Space, Link |
+| **Dashboards** | Stat tiles and grids, live line, area and bar graphs, a log panel with level filters, a player list with your own row buttons, image banners |
+| **Layout** | Four navigation styles, four header styles (one puts a big logo above the sidebar), tabs inside sections, a header switch per section, two or three controls on one line, side sheets, sections that scroll past a height, page headers and notices, one or two columns, collapsible sections and sidebar groups, three ways to minimise, edge snapping |
+| **Switches** | Every built-in part on or off with `true` or `false`, live with `Window:Set`; any tab, section or row hidden, greyed or tied to another control with `Visible`, `Disabled`, `ShowWhen` and `EnableWhen` |
 | **Key system** | Tiers such as Free and Paid, or your own; listed keys, your own validator or your own server; ad-service confirmation for free keys; saved keys with an expiry countdown; rows and whole sections locked to a tier or to paid keys |
-| **Feedback** | Ten notice looks with buttons and an optional chime, hover tips on any row, one-time spotlights on new features, dialogs with countdown buttons, a Ctrl+K command palette, a watermark and keybind list in several looks |
+| **Feedback** | Ten notice looks with buttons and an optional chime; notices pause while hovered, swipe away, and keep a history behind a bell. Hover tips on any row, right-click menus on any row, one-time spotlights on new features, dialogs with countdown buttons, a Ctrl+K command palette, a watermark, a keybind list and a floating quick bar |
 | **For hub code** | A real-progress loading screen, a What's new card shown once per version, an About section, empty and error states, a lock screen, row badges and info tips, `Requires`, tab badges, a config section, a two-step unload |
 | **Saving** | Configs for every flagged control, autoload, and the player's own interface choices |
 | **Personalisation** | Players pick font, text size, corners, spacing, window transparency, notice position, a gradient accent and colour-blind-friendly status colours, and build, save and share their own themes |
@@ -74,30 +78,82 @@ Window:LoadAutoload() -- loads the config the player marked, if any
 
 ![The Components tab with a multi dropdown open](assets/controls.jpg)
 
-## Turning things on and off
+## Every switch
 
-Most features are one option. Leave it out for the default, or set it to `false`:
+Each built-in part is one option. Leave it out for the default, set it to `false` to leave the part out, or `true` to add it. Some take a table of settings in place of `true`.
+
+```lua
+local Window = Halcyon:CreateWindow({
+	Title = "My Hub",
+	Search = false,
+	Close = false,
+	NotificationCenter = true,
+	Watermark = true,
+	KeybindList = { Style = "Glass" },
+	SettingsTab = { Group = "Hub" },
+})
+
+Window:Set("Search", true) -- flip a switch while the hub runs
+print(Window:Get("Shadow")) --> true
+```
+
+| Switch | Default | What it controls |
+|---|---|---|
+| `Search` | on | The search box |
+| `Profile` | on | The profile card. A table sets its options |
+| `ShowVersion` | on | The version tag beside the title |
+| `Minimize` | on | The minimise button. `Minimizable` still works |
+| `Close` | on | The close button |
+| `Resize` | on | The resize grip. `Resizable` still works |
+| `Drag` | on | Dragging the window by its top bar |
+| `Shadow` | on | The soft shadow under the window |
+| `Tooltips` | on | Hover tips on rows |
+| `Animations` | on | Motion. Off is the same as reduced motion |
+| `Blur` | off | Blurs the game behind the open window. A number sets how much |
+| `CommandPalette` | off | Ctrl+K search over every tab and setting |
+| `NotificationCenter` | off | A bell in the top bar with an unread count and the notices so far |
+| `Watermark` | off | A small bar with the title, executor and time. A table picks the fields |
+| `KeybindList` | off | A list of bound keys and which are active |
+| `SettingsTab` | off | The ready-made settings tab |
+| `Snap` | off | Snapping the window to screen edges |
+| `OpenButton` | off | A round button to reopen the hidden window on desktop. Phones always get it |
+
+These are read when the window is made: `Icon`, `TopbarImage` and `Logo` (`false` leaves the picture out), `CollapsibleGroups`, `SliderTooltips`, `ToggleOutline`, `ConfirmUnload`, `LockShimmer`, `FocusRing` and `SavePreferences`. `Halcyon:GetSwitches()` lists every name `Window:Set` takes.
+
+Tabs, sections and rows have switches of their own:
+
+```lua
+Tab:Toggle({ Title = "Silent aim", Visible = false }) -- made, but hidden
+Tab:Slider({ Title = "Radius", Disabled = true }) -- greyed out
+Tab:Slider({ Title = "Fly speed", ShowWhen = "Fly" }) -- shown while the Fly toggle is on
+Tab:Dropdown({ Title = "Target", EnableWhen = { "Mode", "Manual" } }) -- usable while Mode is "Manual"
+Window:Tab({ Title = "Admin", ShowWhen = "AdminMode" })
+```
+
+`Window:SettingsTab({ Accent = false, Scale = false, Unload = false })` leaves rows out of the settings tab. The full list of options is in [docs/api.md](docs/api.md).
+
+## Headers and logos
+
+`HeaderStyle` decides where the title and logo go:
+
+| HeaderStyle | Layout |
+|---|---|
+| `Bar` (default) | The top bar: icon or picture, title, subtitle and version tag |
+| `Tall` | A taller top bar with a larger picture beside the title |
+| `Wordmark` | A wide logo image in place of the title words |
+| `Sidebar` | A big logo at the top of the sidebar with search under it, and no top bar. The logo drags the window |
 
 ```lua
 Halcyon:CreateWindow({
-	Title = "My Hub",
-	ShowVersion = false, -- no version tag beside the title
-	Shadow = false, -- no soft shadow under the window
-	ButtonEffect = "None", -- or "Sweep" (default), "Ripple", "Lift", "Glow"
-	Search = false, -- no search box
-	Profile = false, -- no profile card
-	Resizable = false, -- no resize grip
-	Minimizable = false, -- no minimise button
-	CollapsibleGroups = false, -- sidebar group headings do not fold
-	SliderTooltips = false, -- no value bubble while dragging a slider
-	ToggleOutline = false, -- no outline around a toggle on hover
-	SavePreferences = false, -- do not remember the player's interface choices
+	Title = "Butter",
+	HeaderStyle = "Sidebar",
+	Logo = "rbxassetid://1234567", -- any image source, or { Image, Text, Icon, Height }
 })
-
-Window:SettingsTab({ Accent = false, Scale = false, Unload = false }) -- leave rows out of the Settings tab
 ```
 
-The full list is in [docs/api.md](docs/api.md).
+Without an image, `Logo` draws the title as a large wordmark, so it works in Studio and on executors without `getcustomasset`. `Logo = false`, `Icon = false` and `TopbarImage = false` leave each picture out. On a narrow window the `Sidebar` style moves the logo back into a top bar. The example's **Looks** tab can rebuild the hub in each style.
+
+![The Sidebar header style, with the logo above the tabs](assets/headers.jpg)
 
 ## Looks and presets
 
@@ -119,7 +175,7 @@ The example's **Looks** tab lists every look with the line that turns it on, and
 
 | | |
 |---|---|
-| ![Toggle and slider looks](assets/looks-controls.jpg) | ![Dropdown looks and the panels list](assets/looks-choices.jpg) |
+| ![Toggle and slider looks](assets/looks-controls.jpg) | ![Dropdown looks, tabs inside a section and a header switch](assets/looks-choices.jpg) |
 | ![Glass preset with Mac controls](assets/looks-glass.jpg) | ![Island, Accent, Achievement and Snackbar notices](assets/looks-notices.jpg) |
 | ![Command palette](assets/looks-palette.jpg) | ![Personalise section](assets/looks-personalise.jpg) |
 | ![What's new card](assets/looks-changelog.jpg) | ![Loading screen](assets/looks-loading.jpg) |
@@ -183,15 +239,26 @@ Any `Icon` takes a Lucide name. Prefix a pack to use another set:
 ```lua
 Icon = "rocket" -- Lucide
 Icon = "solar:rocket-bold" -- Solar
-Icon = "geist:arrow-up" -- Geist; also craft:, gravity:, sfsymbols:
+Icon = "geist:arrow-up" -- Geist
 Icon = 123456789 -- your own asset id
 ```
 
-143 Lucide icons ship inside the library and draw at once. The full packs load on first use and are cached on disk. More in [docs/icons.md](docs/icons.md).
+Each set's own site is the place to find names:
+
+| Pack | Prefix | Browse it at |
+|---|---|---|
+| Lucide | none, or `lucide:` | [lucide.dev/icons](https://lucide.dev/icons/) |
+| Solar | `solar:` | [icones.js.org/collection/solar](https://icones.js.org/collection/solar). Add the style to the name: `home-bold`, `home-linear` |
+| Geist | `geist:` | [vercel.com/geist/icons](https://vercel.com/geist/icons) |
+| Gravity UI | `gravity:` | [gravity-ui.com/icons](https://gravity-ui.com/icons) |
+| Craft | `craft:` | [Craft Icons on Figma](https://www.figma.com/community/file/1415718327120418204). Add the style to the name: `rocket-stroke` |
+| SF Symbols | `sfsymbols:` | [Apple's SF Symbols app](https://developer.apple.com/sf-symbols/). Names are camelCase: `house.and.flag.fill` is `houseAndFlagFill` |
+
+The Roblox uploads of every pack come from [Footagesus/Icons](https://github.com/Footagesus/Icons), which lists the exact names in each one. 143 Lucide icons ship inside the library and draw at once; the rest of Lucide and the other packs load on first use and are cached on disk. More in [docs/icons.md](docs/icons.md).
 
 ## Phones and small screens
 
-Below 560 px of window width the sidebar becomes a strip of tabs, two columns fold into one, and wide controls drop under their titles. Touch targets grow to 40 px or more, and text never goes below 12 px. Nothing is hover-only.
+Below 560 px of window width the sidebar becomes a strip of tabs, two columns fold into one, wide controls drop under their titles, and the top-bar search folds into its magnifier until pressed. Touch targets grow to 40 px or more, and text never goes below 12 px. Nothing is hover-only: row menus open on a long press as well as a right-click.
 
 <img src="assets/mobile.jpg" alt="Halcyon at phone width" width="360">
 

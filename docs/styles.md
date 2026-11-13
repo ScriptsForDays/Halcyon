@@ -45,8 +45,9 @@ The example hub's **Looks** tab shows every look side by side, each with the lin
 | `Dropdown` | Box, Minimal, Chips, Inline | `Styles.Dropdown` |
 | `Keybind` | Chip, Keycap, Brackets | `Styles.Keybind` |
 | `Label` | Plain, Info, Success, Warning, Danger, Note | each label's `Style` |
-| `Section` | Card, Outlined, Flat, Glass, Accent, Inset, Header | `SectionStyle` |
-| `TabIndicator` | Bar, Pill, Underline, Dot, Glow, Fill | `TabIndicator` |
+| `Section` | Card, Outlined, Flat, Glass, Accent, Inset, Header, Panel | `SectionStyle` |
+| `TabIndicator` | Bar, Pill, Underline, Dot, Glow, Fill, Text | `TabIndicator` |
+| `Header` | Bar, Tall, Wordmark, Sidebar | `HeaderStyle` |
 | `Navigation` | Sidebar, Rail, Top, Dock | `TabStyle` |
 | `Window` | Solid, Glass, Gradient, Image | `WindowStyle` |
 | `Open` | Pop, Zoom, Rise, Drop, Slide, Unroll, None | `OpenAnimation` |
@@ -59,6 +60,10 @@ The example hub's **Looks** tab shows every look side by side, each with the lin
 | `UpdateLog` | Timeline, Cards, Compact | `UpdateLog.Style` |
 | `Watermark` | Card, Pill, Accent, Minimal | the watermark's `Style` |
 | `KeybindList` | Card, Glass, Minimal | the list's `Style` |
+| `Stat` | Card, Plain | `Styles.Stat` |
+| `Graph` | Line, Area, Bars | `Styles.Graph` |
+
+`Panel` puts each of a section's rows on its own inset card. The `Text` tab marker colours the open tab's words and icon with no fill behind them. The header looks are described in [api.md](api.md#header-styles).
 
 ### Your own looks
 

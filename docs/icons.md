@@ -13,12 +13,12 @@ Anything that takes an `Icon` accepts:
 
 | Prefix | Set | Names |
 |---|---|---|
-| `lucide:` (default) | [Lucide](https://lucide.dev/icons) | `house`, `chevron-down`, `circle-alert` |
-| `solar:` | [Solar](https://icon-sets.iconify.design/solar/) | name plus style: `home-bold`, `home-linear`, `home-bold-duotone` |
+| `lucide:` (default) | [Lucide](https://lucide.dev/icons/) | `house`, `chevron-down`, `circle-alert` |
+| `solar:` | [Solar](https://icones.js.org/collection/solar) | name plus style: `home-bold`, `home-linear`, `home-bold-duotone` |
 | `geist:` | [Geist](https://vercel.com/geist/icons) | `accessibility`, `arrow-up` |
-| `craft:` | Craft | name plus style: `rocket-stroke` |
+| `craft:` | [Craft Icons](https://www.figma.com/community/file/1415718327120418204) | name plus style: `rocket-stroke` |
 | `gravity:` | [Gravity UI](https://gravity-ui.com/icons) | `alarm`, `alarm-fill` |
-| `sfsymbols:` | SF Symbols | camelCase: `house`, `houseAndFlagFill` |
+| `sfsymbols:` | [SF Symbols](https://developer.apple.com/sf-symbols/) | camelCase: `house`, `houseAndFlagFill` |
 
 The Roblox uploads of these sets come from [Footagesus/Icons](https://github.com/Footagesus/Icons) (MIT). Browse that repository for the exact names in each pack.
 
