@@ -4,16 +4,20 @@
 -- Studio:    put dist/Halcyon.luau in a ModuleScript named "Halcyon" under
 --            ReplicatedStorage and this file in a LocalScript.
 --
--- The Player and Camera tabs change real things on your own character and
--- camera, and put them back on unload. The Components tab only shows what
--- each control looks like; its callbacks write to the status line.
+-- The Dashboard, Player and Camera tabs read and change real things on your
+-- own client, and unloading puts them back. The Components tab only shows
+-- what each control looks like; its callbacks write to the line at its top.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local SOURCE = "https://raw.githubusercontent.com/ScriptsForDays/Halcyon/main/dist/Halcyon.luau"
+local REPOSITORY = "https://github.com/ScriptsForDays/Halcyon"
+local DISCORD = "https://discord.gg/example"
 
 local function loadLibrary()
 	local module = ReplicatedStorage:FindFirstChild("Halcyon")
@@ -29,170 +33,261 @@ end
 
 local Halcyon = loadLibrary()
 
--- The hub is built by one function so the Looks tab can rebuild it in
--- another look. A rebuild replaces the window and keeps the player's access.
-local Window
-local function start(look)
-	look = look or {}
-	Window = Halcyon:CreateWindow({
-		-- What the Looks tab picked; nil keeps Halcyon's defaults.
-		Preset = look.Preset,
-		WindowStyle = look.WindowStyle,
-		OpenAnimation = look.OpenAnimation,
-		TabIndicator = look.TabIndicator,
-		TopbarControls = look.TopbarControls,
-		TopbarImageStyle = look.TopbarImageStyle or "Rounded",
-		Title = "Halcyon",
-		Subtitle = "Example hub",
-		Version = "v2.1.0",
-		Icon = "layers",
-		-- Any image works here: an asset id, a workspace file or a URL. URLs
-		-- and files need an executor with getcustomasset; Studio shows the
-		-- fallback icon instead.
-		TopbarImage = "https://i.insider.com/602ee9ced3ad27001837f2ac?width=700",
-		Folder = "HalcyonExample",
-		Theme = "Midnight",
-		TabStyle = "Sidebar",
-		-- Ctrl+K opens a search over every tab and setting.
-		CommandPalette = true,
-		Profile = { Avatar = "Headshot", ShowClock = true, Discord = "https://discord.gg/example" },
-		-- Releases shown in their own tab, newest first. Popup shows the newest
-		-- one once as a What's new card.
-		UpdateLog = {
-			Title = "Updates",
-			Group = "Library",
-			Popup = false,
-			Updates = {
-				{
-					Version = "2.1.0",
-					Date = "12 Nov 2026",
-					Title = "Images and invites",
-					Summary = "Bring your own pictures, and point players at your Discord.",
-					Entries = {
-						{ Kind = "New", Text = "Discord buttons on the key prompt and the profile card." },
-						{ Kind = "New", Text = "Images from a URL or a workspace file, anywhere the UI takes one." },
-						{ Kind = "New", Text = "An image in the top bar, in six shapes." },
-						{ Kind = "New", Text = "This update log." },
-					},
-				},
-				{
-					Version = "2.0.0",
-					Date = "12 Nov 2026",
-					Title = "A look for everything",
-					Entries = {
-						{ Kind = "New", Text = "Named looks for every control, and five presets." },
-						{ Kind = "New", Text = "Ctrl+K searches every tab and setting." },
-						{ Kind = "Improved", Text = "Players can change font, corners and spacing." },
-						{ Kind = "Fixed", Text = "Inline dropdowns no longer stack their layouts." },
-					},
-				},
-				{
-					Version = "1.0.0",
-					Date = "1 Nov 2026",
-					Title = "First release",
-					Entries = {
-						{ Kind = "New", Text = "Window, tabs, sections and fifteen controls." },
-						{ Kind = "Security", Text = "Key checks run before any feature loads." },
-					},
-				},
-			},
+-- Releases for the Updates tab, newest first. The dashboard's banner opens
+-- the newest one as a What's new card.
+local UPDATES = {
+	{
+		Version = "2.2.0",
+		Date = "13 Nov 2026",
+		Title = "Switches and new parts",
+		Summary = "Turn any part off with false, and give your logo more room.",
+		Entries = {
+			{ Kind = "New", Text = "Every built-in part turns on or off with true or false, and Window:Set flips them live." },
+			{ Kind = "New", Text = "Four header styles, including a big logo above the sidebar." },
+			{ Kind = "New", Text = "Lists, tags, player lists, stats, graphs, logs, banners, links and menus." },
+			{ Kind = "New", Text = "Side sheets and a floating quick bar." },
+			{ Kind = "Improved", Text = "Notices pause while hovered, swipe away, and keep a history behind a bell." },
+			{ Kind = "Improved", Text = "Shorter labels in the settings tab." },
 		},
-		KeySystem = {
-			Title = "Halcyon example",
-			-- A round invite button under the prompt; false leaves it out.
-			Discord = "https://discord.gg/example",
-			Note = "Demo keys: HALCYON-FREE and HALCYON-PAID. Keyless needs none.",
-			Tiers = {
-				{ Name = "Keyless", NoKey = true, Description = "Try it with no key. Rows marked Free or Paid stay locked." },
-				{
-					Name = "Free",
-					Keys = { "HALCYON-FREE" },
-					Duration = 86400,
-					Description = "In a real hub this key comes from your ad link. Lasts a day.",
-					Link = "https://github.com/ScriptsForDays/Halcyon",
-				},
-				{ Name = "Paid", Keys = { "HALCYON-PAID" }, Description = "Unlocks every row.", Link = "https://github.com/ScriptsForDays/Halcyon" },
-			},
+	},
+	{
+		Version = "2.1.0",
+		Date = "12 Nov 2026",
+		Title = "Images and invites",
+		Summary = "Bring your own pictures, and point players at your Discord.",
+		Entries = {
+			{ Kind = "New", Text = "Discord buttons on the key prompt and the profile card." },
+			{ Kind = "New", Text = "Images from a URL or a workspace file, anywhere the UI takes one." },
+			{ Kind = "New", Text = "An image in the top bar, in six shapes." },
+			{ Kind = "New", Text = "This update log." },
+		},
+	},
+	{
+		Version = "2.0.0",
+		Date = "12 Nov 2026",
+		Title = "A look for everything",
+		Entries = {
+			{ Kind = "New", Text = "Named looks for every control, and five presets." },
+			{ Kind = "New", Text = "Ctrl+K searches every tab and setting." },
+			{ Kind = "Improved", Text = "Players can change font, corners and spacing." },
+			{ Kind = "Fixed", Text = "Inline dropdowns no longer stack their layouts." },
+		},
+	},
+	{
+		Version = "1.0.0",
+		Date = "1 Nov 2026",
+		Title = "First release",
+		Entries = {
+			{ Kind = "New", Text = "Window, tabs, sections and fifteen controls." },
+			{ Kind = "Security", Text = "Key checks run before any feature loads." },
+		},
+	},
+}
+
+-- 4:05, or 1:04:05 past an hour.
+local function clockText(seconds)
+	seconds = math.floor(seconds)
+	if seconds >= 3600 then
+		return string.format("%d:%02d:%02d", seconds // 3600, seconds // 60 % 60, seconds % 60)
+	end
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+-- What each notice look says when the Looks tab shows it: title, content, kind.
+local NOTICE_SAMPLES = {
+	Default = { "Auto farm on", "Collecting in the Forest.", "success" },
+	Timer = { "Boss spawns soon", "Head to the arena.", "warning" },
+	Compact = { "Saved", nil, "success" },
+	Banner = { "Server restarts in 5 minutes", "Finish your run first.", "warning" },
+	Progress = { "Loading map data", "Reading 12 areas", "info" },
+	Accent = { "Trade request", "Kite wants to trade.", "info" },
+	Glass = { "Daily reward ready", "Claim it in the shop.", "success" },
+	Achievement = { "Level 10 reached", "The Arena is open to you.", "success" },
+	Snackbar = { "Config deleted", nil, "info" },
+	Island = { "Connected", "Joined a new server.", "success" },
+}
+
+-- The hub is built by `start` so the Looks tab can rebuild it in another
+-- look. Each tab has its own builder, and they share one `hub` table: the
+-- window, the log, what to put back on unload. `Window` is always the
+-- current window, rebuilt or not.
+local Window
+local start
+
+local function buildDashboard(hub)
+	local Window, player = hub.window, hub.player
+	local Dashboard = Window:Tab({ Title = "Dashboard", Icon = "gauge", Group = "Features" })
+
+	local News = Dashboard:Section({ Title = "News", Icon = "flag" })
+	News:Banner({
+		Title = "Halcyon 2.2",
+		Text = UPDATES[1].Summary,
+		Button = {
+			Title = "What's new",
+			Callback = function()
+				Window:Changelog({ Version = UPDATES[1].Version, Entries = UPDATES[1].Entries, Force = true })
+			end,
 		},
 	})
-	if not Window then
-		return
+
+	local Session = Dashboard:Section({ Title = "Session", Icon = "clock" })
+	local figures = Session:Stats({
+		Columns = 4,
+		Items = {
+			{ Title = "FPS", Value = 0, Key = "fps", Icon = "gauge" },
+			{ Title = "Ping", Value = 0, Unit = "ms", Key = "ping", Icon = "wifi" },
+			{ Title = "Memory", Value = 0, Unit = "MB", Key = "memory", Icon = "cpu" },
+			{ Title = "Players", Value = #Players:GetPlayers(), Key = "players", Icon = "users" },
+		},
+	})
+	local playtime = Session:Stat({ Title = "Time in game", Value = clockText(time()), Icon = "timer", Style = "Plain" })
+
+	local Performance = Dashboard:Section({ Title = "Performance", Icon = "activity", Side = "Right" })
+	local frameGraph = Performance:Graph({ Title = "Frame rate", Style = "Area", Suffix = " fps", Min = 0, Max = 30 })
+	local pingGraph = Performance:Graph({ Title = "Ping", Style = "Bars", Suffix = " ms", Min = 0, Max = 30 })
+
+	local Activity = Dashboard:Section({ Title = "Activity", Icon = "terminal", Side = "Right" })
+	local log = Activity:Log({ Title = "Events", Height = 150, MaxLines = 100 })
+	function hub.note(text, level)
+		log:Add(text, level)
 	end
 
-	local player = Players.LocalPlayer
-	local camera = Workspace.CurrentCamera
+	local Server = Dashboard:Section({ Title = "Server", Icon = "users" })
+	local watching
+	-- Pressing Spectate again on the same player puts the camera back.
+	local function spectate(target)
+		if target == nil or target == watching then
+			watching = nil
+			hub.camera.CameraSubject = hub.humanoid()
+			hub.note("Camera back on you")
+			return
+		end
+		local character = target.Character
+		local subject = character and character:FindFirstChildOfClass("Humanoid")
+		if not subject then
+			hub.note(target.DisplayName .. " has no character yet", "warn")
+			return
+		end
+		watching = target
+		hub.camera.CameraSubject = subject
+		hub.note("Spectating " .. target.DisplayName)
+	end
+	function hub.stopSpectating()
+		if watching then
+			spectate(nil)
+		end
+	end
+	Server:PlayerList({
+		Title = "Players",
+		Actions = { { Title = "Spectate", Icon = "eye", Callback = spectate } },
+	})
 
-	-- What the example changed, so unload can put it back.
-	local original = { fieldOfView = camera.FieldOfView }
+	local Links = Dashboard:Section({ Title = "Links", Icon = "link", Side = "Right" })
+	Links:Link({ Title = "Source code", Url = REPOSITORY, Icon = "code" })
+	Links:Link({ Title = "Discord", Url = DISCORD, Icon = "message-circle" })
+
+	-- Counts frames for a second at a time, then updates every figure once.
+	local frames, since = 0, os.clock()
+	table.insert(hub.connections, RunService.Heartbeat:Connect(function()
+		frames += 1
+		local now = os.clock()
+		if now - since < 1 then
+			return
+		end
+		local fps = math.round(frames / (now - since))
+		local ping = math.round(player:GetNetworkPing() * 1000)
+		frames, since = 0, now
+		figures:Set("fps", fps)
+		figures:Set("ping", ping)
+		figures:Set("memory", math.round(Stats:GetTotalMemoryUsageMb()))
+		frameGraph:Push(fps)
+		pingGraph:Push(ping)
+		playtime:Set(clockText(time()))
+	end))
+	table.insert(hub.connections, Players.PlayerAdded:Connect(function(joined)
+		figures:Set("players", #Players:GetPlayers())
+		hub.note(joined.DisplayName .. " joined")
+	end))
+	-- PlayerRemoving fires while the player is still in the list.
+	table.insert(hub.connections, Players.PlayerRemoving:Connect(function(leaving)
+		figures:Set("players", #Players:GetPlayers() - 1)
+		hub.note(leaving.DisplayName .. " left")
+	end))
+
+	return Dashboard
+end
+
+local function buildPlayer(hub)
+	local Window, player = hub.window, hub.player
 	local movement = { enabled = false, speed = 32, infiniteJump = false }
-
-	local function humanoid()
-		local character = player.Character
-		return character and character:FindFirstChildOfClass("Humanoid")
-	end
+	hub.movement = movement
 
 	local function applyWalkSpeed()
-		local current = humanoid()
+		local current = hub.humanoid()
 		if not current then
 			return
 		end
 		if movement.enabled then
-			original.walkSpeed = original.walkSpeed or current.WalkSpeed
+			hub.original.walkSpeed = hub.original.walkSpeed or current.WalkSpeed
 			current.WalkSpeed = movement.speed
-		elseif original.walkSpeed then
-			current.WalkSpeed = original.walkSpeed
-			original.walkSpeed = nil
+		elseif hub.original.walkSpeed then
+			current.WalkSpeed = hub.original.walkSpeed
+			hub.original.walkSpeed = nil
 		end
 	end
+	hub.applyWalkSpeed = applyWalkSpeed
 
-	local connections = {
-		player.CharacterAdded:Connect(function(character)
-			-- A new character starts at the game's own speed again.
-			original.walkSpeed = nil
-			character:WaitForChild("Humanoid", 5)
-			applyWalkSpeed()
-		end),
-		UserInputService.JumpRequest:Connect(function()
-			local current = humanoid()
-			if movement.infiniteJump and current then
-				current:ChangeState(Enum.HumanoidStateType.Jumping)
-			end
-		end),
-	}
-
-	-- Player ----------------------------------------------------------------------
+	table.insert(hub.connections, player.CharacterAdded:Connect(function(character)
+		-- A new character starts at the game's own speed again.
+		hub.original.walkSpeed = nil
+		character:WaitForChild("Humanoid", 5)
+		applyWalkSpeed()
+	end))
+	table.insert(hub.connections, UserInputService.JumpRequest:Connect(function()
+		local current = hub.humanoid()
+		if movement.infiniteJump and current then
+			current:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end))
 
 	local Player = Window:Tab({ Title = "Player", Icon = "person-standing", Group = "Features" })
 	local Movement = Player:Section({ Title = "Movement", Icon = "footprints" })
-
 	Movement:Toggle({
 		Title = "Custom walk speed",
-		Description = "Applied again after every respawn",
+		Description = "Kept after respawning",
 		Flag = "WalkSpeedEnabled",
 		Keybind = { Default = Enum.KeyCode.V, Flag = "WalkSpeedKey" },
 		Callback = function(enabled)
 			movement.enabled = enabled
 			applyWalkSpeed()
+			hub.note(if enabled then "Walk speed on" else "Walk speed off")
 		end,
 	})
-	Movement:Slider({
+	local speed
+	speed = Movement:Slider({
 		Title = "Walk speed",
 		Min = 16,
 		Max = 120,
 		Default = movement.speed,
 		Suffix = " st/s",
 		Flag = "WalkSpeed",
-		Callback = function(speed)
-			movement.speed = speed
+		Menu = {
+			{ Title = "Back to 32", Icon = "refresh-cw", Callback = function()
+				speed:Set(32)
+			end },
+		},
+		Callback = function(value)
+			movement.speed = value
 			applyWalkSpeed()
 		end,
 	})
 	Movement:Toggle({
 		Title = "Infinite jump",
-		Description = "Jump again while in the air",
+		Description = "Jump again in mid-air",
 		Flag = "InfiniteJump",
 		Callback = function(enabled)
 			movement.infiniteJump = enabled
+			hub.note(if enabled then "Infinite jump on" else "Infinite jump off")
 		end,
 	})
 
@@ -211,7 +306,7 @@ local function start(look)
 						Title = "Reset",
 						Variant = "Danger",
 						Callback = function()
-							local current = humanoid()
+							local current = hub.humanoid()
 							if current then
 								current.Health = 0
 							end
@@ -222,20 +317,21 @@ local function start(look)
 		end,
 	})
 	Character:Paragraph({
-		Title = "Scope",
-		Content = "These rows change your own character on your own client. A game's server can still correct them.",
+		Title = "Client side",
+		Content = "These change your own character from your client. A game's server can still undo them.",
 		Icon = "info",
 	})
+end
 
-	-- Camera ----------------------------------------------------------------------
-
+local function buildCamera(hub)
+	local Window, camera = hub.window, hub.camera
 	local Camera = Window:Tab({ Title = "Camera", Icon = "camera", Group = "Features" })
 	local View = Camera:Section({ Title = "View", Icon = "eye" })
 	View:Slider({
 		Title = "Field of view",
 		Min = 40,
 		Max = 120,
-		Default = math.round(original.fieldOfView),
+		Default = math.round(hub.original.fieldOfView),
 		Suffix = "°",
 		Stacked = true,
 		Flag = "FieldOfView",
@@ -244,21 +340,27 @@ local function start(look)
 		end,
 	})
 	View:Button({
-		Title = "Restore field of view",
+		Title = "Reset field of view",
 		Icon = "refresh-cw",
 		Callback = function()
-			Window.Flags.FieldOfView:Set(math.round(original.fieldOfView))
+			Window.Flags.FieldOfView:Set(math.round(hub.original.fieldOfView))
 		end,
 	})
+end
 
-	-- Components --------------------------------------------------------------------
-
+local function buildComponents(hub)
+	local Window = hub.window
 	local Components = Window:Tab({ Title = "Components", Icon = "layout-grid", Group = "Library" })
-	local Status = Components:Paragraph({ Title = "Last change", Content = "Use any control below.", Icon = "activity" })
+	local Status = Components:Paragraph({ Title = "Last change", Content = "Nothing yet", Icon = "activity" })
 	local function show(name)
 		return function(...)
+			local count = select("#", ...)
+			if count == 0 then
+				Status:Set(name)
+				return
+			end
 			local parts = {}
-			for index = 1, select("#", ...) do
+			for index = 1, count do
 				local value = select(index, ...)
 				parts[index] = if type(value) == "table" then table.concat(value, ", ") else tostring(value)
 			end
@@ -269,21 +371,36 @@ local function start(look)
 	local Inputs = Components:Section({ Title = "Inputs", Icon = "sliders-horizontal" })
 	Inputs:Toggle({
 		Title = "Switch",
-		Description = "The default toggle",
 		Badge = "New",
-		Info = "Rows can carry a badge (New, Beta, Risky or your own) and this info icon for a longer explanation.",
+		Info = "Saved with your config, so it stays on next time.",
 		Callback = show("Switch"),
 	})
-	Inputs:Toggle({ Title = "Needs hookfunction", Description = "Locked when the executor lacks it", Requires = { "hookfunction" }, Callback = show("Needs hookfunction") })
+	Inputs:Toggle({ Title = "Silent aim", Requires = { "hookfunction" }, Callback = show("Silent aim") })
 	Inputs:Toggle({ Title = "Checkbox", Style = "Checkbox", Callback = show("Checkbox") })
 	Inputs:Toggle({ Title = "Oval thumb", Thumb = "Oval", Default = true, Callback = show("Oval thumb") })
 	Inputs:Toggle({ Title = "Square thumb", Thumb = "Square", Callback = show("Square thumb") })
-	Inputs:Toggle({ Title = "Toggle with a colour", Color = { Default = Color3.fromRGB(91, 141, 239), Callback = show("Toggle colour") }, Callback = show("Toggle") })
-	Inputs:Slider({ Title = "Slider", Min = 0, Max = 100, Default = 40, Suffix = "%", Callback = show("Slider") })
+	Inputs:Toggle({ Title = "With a colour", Color = { Default = Color3.fromRGB(91, 141, 239), Callback = show("Toggle colour") }, Callback = show("Toggle") })
+	local percent
+	percent = Inputs:Slider({
+		Title = "Slider",
+		Description = "Right-click or hold for a menu",
+		Min = 0,
+		Max = 100,
+		Default = 40,
+		Suffix = "%",
+		Menu = {
+			{ Title = "Reset", Icon = "refresh-cw", Callback = function()
+				percent:Set(40)
+			end },
+			{ Title = "Max", Icon = "arrow-up", Callback = function()
+				percent:Set(100)
+			end },
+		},
+		Callback = show("Slider"),
+	})
 	Inputs:Slider({ Title = "Range slider", Min = 0, Max = 500, Step = 10, Range = true, Default = { 100, 300 }, Stacked = true, Callback = show("Range") })
 	Inputs:Segmented({
 		Title = "Slider tooltip",
-		Description = "The value bubble shown while a slider is dragged",
 		Values = { "Rounded", "Sharp", "Pill", "Plain", "Off" },
 		Stacked = true,
 		Callback = function(style)
@@ -292,8 +409,7 @@ local function start(look)
 	})
 	local outline = { enabled = true }
 	Inputs:Toggle({
-		Title = "Toggle hover outline",
-		Description = "The ring around a switch while its row is hovered",
+		Title = "Hover ring",
 		Default = true,
 		Color = {
 			Default = Color3.fromRGB(91, 141, 239),
@@ -318,16 +434,82 @@ local function start(look)
 	Choices:Dropdown({
 		Title = "Searchable dropdown",
 		Searchable = true,
-		Placeholder = "Pick a key",
+		Placeholder = "Pick a letter",
 		Values = { "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet" },
-		Callback = show("Search dropdown"),
+		Callback = show("Searchable"),
 	})
 	Choices:Segmented({ Title = "Segmented", Values = { "Low", "Medium", "High" }, Default = "Medium", Callback = show("Segmented") })
+
+	local Lists = Components:Section({ Title = "Lists", Icon = "list", Badge = "New" })
+	Lists:List({ Title = "Route", Values = { "Forest", "Mines", "Docks", "Volcano" }, Default = "Mines", Callback = show("Route") })
+	Lists:List({
+		Title = "Ores",
+		Multi = true,
+		Values = {
+			{ Text = "Iron", Icon = "hammer", Description = "Common" },
+			{ Text = "Gold", Icon = "coins", Description = "Rare" },
+			{ Text = "Ruby", Icon = "gem", Description = "Very rare" },
+		},
+		Default = { "Gold" },
+		Callback = show("Ores"),
+	})
+	Lists:List({ Title = "Priority", Description = "Drag to reorder", Values = { "Boss", "Chest", "Mob", "Quest" }, Reorder = true, Callback = show("Priority") })
+	local names = {}
+	for _, other in Players:GetPlayers() do
+		table.insert(names, other.Name)
+	end
+	Lists:Tags({ Title = "Whitelist", Placeholder = "Add a name", Suggestions = names, Max = 10, Callback = show("Whitelist") })
+
+	local Panels = Components:Section({ Title = "Menus and panels", Icon = "layers", Side = "Right", Badge = "New" })
+	Panels:MenuButton({
+		Title = "Config",
+		Items = {
+			{ Title = "Rename", Icon = "text-cursor-input", Callback = show("Rename") },
+			{ Title = "Duplicate", Icon = "copy", Callback = show("Duplicate") },
+			{ Divider = true },
+			{ Title = "Delete", Icon = "trash-2", Danger = true, Callback = show("Delete") },
+		},
+	})
+	local pair = Panels:Group({ Columns = 2 })
+	pair:Toggle({ Title = "Auto farm", Callback = show("Auto farm") })
+	pair:Toggle({ Title = "Auto sell", Callback = show("Auto sell") })
+	local sheet = Window:Sheet({ Title = "Farm options" })
+	sheet:Slider({ Title = "Radius", Min = 10, Max = 200, Default = 60, Suffix = " st", Callback = show("Radius") })
+	sheet:Dropdown({ Title = "Target", Values = { "Nearest", "Strongest", "Weakest" }, Default = "Nearest", Callback = show("Target") })
+	sheet:Toggle({ Title = "Skip bosses", Callback = show("Skip bosses") })
+	Panels:Button({
+		Title = "Farm options",
+		Icon = "sliders-horizontal",
+		Callback = function()
+			sheet:Open()
+		end,
+	})
+	local quick
+	Panels:Toggle({
+		Title = "Quick bar",
+		Description = "Stays when the hub is hidden",
+		Callback = function(on)
+			if on and not quick then
+				quick = Window:QuickBar({
+					Items = {
+						"WalkSpeedEnabled",
+						"InfiniteJump",
+						{ Title = "Reset field of view", Icon = "refresh-cw", Callback = function()
+							Window.Flags.FieldOfView:Set(math.round(hub.original.fieldOfView))
+						end },
+					},
+				})
+			elseif not on and quick then
+				quick:Destroy()
+				quick = nil
+			end
+		end,
+	})
 
 	local Feedback = Components:Section({ Title = "Feedback", Icon = "bell", Side = "Right" })
 	local Bar = Feedback:Progress({ Title = "Progress", Value = 35 })
 	Feedback:Button({
-		Title = "Advance progress",
+		Title = "Add 15%",
 		Callback = function()
 			Bar:Set((Bar:Get() + 15) % 115)
 		end,
@@ -337,12 +519,11 @@ local function start(look)
 		Values = { "Default", "Timer", "Compact", "Banner" },
 		Stacked = true,
 		Callback = function(style)
-			Window:Notify({ Title = `A {string.lower(style)} notice`, Content = "Tap a notice to dismiss it.", Style = style, Duration = 6 })
+			Window:Notify({ Title = "Config saved", Content = "Saved as Main.", Style = style, Duration = 6 })
 		end,
 	})
 	Feedback:Button({
 		Title = "Notify with progress",
-		Description = "Fills over three seconds, then reports it finished",
 		Icon = "download",
 		Callback = function()
 			local job = Window:Notify({ Title = "Downloading assets", Content = "0 of 10", Style = "Progress" })
@@ -358,43 +539,61 @@ local function start(look)
 	})
 	Feedback:Button({
 		Title = "Notify with a button",
-		Description = "Stays for eight seconds and counts down",
 		Icon = "bell",
 		Callback = function()
 			Window:Notify({
-				Title = "Config saved",
-				Content = "Your settings were written to disk.",
-				Kind = "success",
+				Title = "Config deleted",
+				Content = "Main was removed.",
+				Kind = "warning",
 				Duration = 8,
-				Actions = { { Title = "Undo", Callback = show("Notice button") }, { Title = "Dismiss" } },
+				Actions = { { Title = "Undo", Callback = show("Undo") }, { Title = "Dismiss" } },
 			})
 		end,
 	})
 	Feedback:Button({ Title = "Filled button", Variant = "Filled", Callback = show("Filled button") })
 	Feedback:Button({ Title = "Outline button", Variant = "Outline", Callback = show("Outline button") })
 
-	local Content = Components:Section({ Title = "Content", Icon = "file-text" })
-	Content:Label("A label is one quiet line between controls.")
-	Content:Divider({ Title = "Divider" })
+	local Content = Components:Section({ Title = "Content", Icon = "file-text", Side = "Right" })
+	Content:Label("Last updated 13 Nov 2026")
+	Content:Divider({ Title = "Advanced" })
 	Content:Code({
 		Title = "Loadstring",
 		Code = 'local Halcyon = loadstring(game:HttpGet("' .. SOURCE .. '"))()\nlocal Window = Halcyon:CreateWindow({ Title = "My Hub" })',
 	})
 
-	local Tiers = Components:Section({ Title = "Tiers", Icon = "crown" })
-	Tiers:Paragraph({ Title = "Your tier", Content = "Signed in as " .. Window:GetTier() .. ". Rows above your tier show locked.", Icon = "badge-check" })
-	Tiers:Toggle({ Title = "Free key switch", Description = "Needs a Free key or better", Tier = "Free", Callback = show("Free key switch") })
-	Tiers:Toggle({ Title = "Paid switch", Description = "One row locked on its own", PaidOnly = true, Callback = show("Paid switch") })
+	local Tiers = Components:Section({ Title = "Tiers", Icon = "crown", Side = "Right" })
+	Tiers:Paragraph({ Title = "Your tier", Content = Window:GetTier(), Icon = "badge-check" })
+	Tiers:Toggle({ Title = "Free feature", Tier = "Free", Callback = show("Free feature") })
+	Tiers:Toggle({ Title = "Paid feature", PaidOnly = true, Callback = show("Paid feature") })
 
 	local Vault = Components:Section({ Title = "Paid section", Icon = "gem", Side = "Right", PaidOnly = true, LockHint = "Enter HALCYON-PAID at the key prompt" })
 	Vault:Toggle({ Title = "Paid toggle", Callback = show("Paid toggle") })
 	Vault:Slider({ Title = "Paid slider", Min = 0, Max = 10, Default = 5, Callback = show("Paid slider") })
+end
 
-	-- Layouts -----------------------------------------------------------------------
+-- Switches the Layouts tab flips live with Window:Set, and their labels.
+local LIVE_SWITCHES = {
+	{ "Search", "Search box" },
+	{ "Profile", "Profile card" },
+	{ "ShowVersion", "Version tag" },
+	{ "Minimize", "Minimise button" },
+	{ "Close", "Close button" },
+	{ "Resize", "Resize grip" },
+	{ "Drag", "Dragging" },
+	{ "Shadow", "Shadow" },
+	{ "Tooltips", "Tooltips" },
+	{ "Animations", "Animations" },
+	{ "Blur", "Background blur" },
+	{ "NotificationCenter", "Notice bell" },
+	{ "Watermark", "Watermark" },
+	{ "KeybindList", "Keybind list" },
+}
 
+local function buildLayouts(hub)
+	local Window = hub.window
 	local Layouts = Window:Tab({ Title = "Layouts", Icon = "panel-left", Group = "Library" })
-	local Styles = Layouts:Section({ Title = "Navigation", Icon = "menu" })
-	Styles:Segmented({
+	local Navigation = Layouts:Section({ Title = "Navigation", Icon = "menu" })
+	Navigation:Segmented({
 		Title = "Tab style",
 		Values = { "Sidebar", "Rail", "Top", "Dock" },
 		Default = "Sidebar",
@@ -403,9 +602,8 @@ local function start(look)
 			Window:SetTabStyle(style)
 		end,
 	})
-	Styles:Segmented({
+	Navigation:Segmented({
 		Title = "Minimise to",
-		Description = "What the minimise button leaves on screen",
 		Values = { "Topbar", "Pill", "Chip" },
 		Default = "Topbar",
 		Stacked = true,
@@ -413,61 +611,46 @@ local function start(look)
 			Window:SetMinimizeStyle(style)
 		end,
 	})
-	Layouts:Section({ Title = "Card section", Style = "Card", Side = "Right" }):Toggle({ Title = "Rows sit on one surface" })
-	Layouts:Section({ Title = "Outlined section", Style = "Outlined", Side = "Right" }):Toggle({ Title = "An outline and nothing else" })
-	Layouts:Section({ Title = "Flat section", Style = "Flat" }):Toggle({ Title = "Each row carries its own fill" })
-	Layouts:Section({ Title = "Glass section", Style = "Glass", Side = "Right" }):Toggle({ Title = "A see-through card" })
-	Layouts:Section({ Title = "Accent section", Style = "Accent", Badge = 2, Side = "Right" }):Toggle({ Title = "A stripe marks the group" })
-	Layouts:Section({ Title = "Header section", Style = "Header", Icon = "layers", IconColor = "accent" }):Toggle({ Title = "The title sits on a band" })
-	Layouts:Section({ Title = "Inset section", Style = "Inset", Description = "Sunk into the page, with a line that explains it." }):Toggle({ Title = "Rows on the page colour" })
-	Layouts:Section({ Title = "Collapsed section", Collapsed = true }):Label("Sections fold when their title is pressed.")
 
-	local Hud = Layouts:Section({ Title = "Overlays", Icon = "monitor" })
-	local overlays = {}
-	Hud:Toggle({
-		Title = "Watermark",
-		Description = "Title, executor, frame rate and time",
-		Callback = function(enabled)
-			if enabled then
-				overlays.watermark = Window:Watermark({ Fields = { "Title", "Executor", "FPS", "Time" } })
-			elseif overlays.watermark then
-				overlays.watermark:Destroy()
-				overlays.watermark = nil
-			end
-		end,
-	})
-	Hud:Toggle({
-		Title = "Keybind list",
-		Description = "Shows every bound key and which are active",
-		Callback = function(enabled)
-			if enabled then
-				overlays.keybinds = Window:KeybindList()
-			elseif overlays.keybinds then
-				overlays.keybinds:Destroy()
-				overlays.keybinds = nil
-			end
-		end,
-	})
+	local Live = Layouts:Section({ Title = "Window switches", Icon = "toggle-left" })
+	for _, entry in LIVE_SWITCHES do
+		local name, title = entry[1], entry[2]
+		Live:Toggle({
+			Title = title,
+			Description = name,
+			Default = Window:Get(name) == true,
+			Callback = function(on)
+				Window:Set(name, on)
+			end,
+		})
+	end
 
-	-- Looks -----------------------------------------------------------------------
-	-- Every registered look side by side, each with the line that opts into it.
+	-- Every section look, down the right-hand column.
+	Layouts:Section({ Title = "Card section", Style = "Card", Side = "Right" }):Toggle({ Title = "Auto farm" })
+	Layouts:Section({ Title = "Outlined section", Style = "Outlined", Side = "Right" }):Toggle({ Title = "Auto sell" })
+	Layouts:Section({ Title = "Flat section", Style = "Flat", Side = "Right" }):Toggle({ Title = "Auto rebirth" })
+	Layouts:Section({ Title = "Glass section", Style = "Glass", Side = "Right" }):Toggle({ Title = "Night vision" })
+	Layouts:Section({ Title = "Accent section", Style = "Accent", Badge = 2, Side = "Right" }):Toggle({ Title = "Auto quest" })
+	Layouts:Section({ Title = "Header section", Style = "Header", Icon = "layers", IconColor = "accent", Side = "Right" }):Toggle({ Title = "Player outlines" })
+	Layouts:Section({ Title = "Inset section", Style = "Inset", Description = "Only works in the lobby.", Side = "Right" }):Toggle({ Title = "Auto queue" })
+	local Panel = Layouts:Section({ Title = "Panel section", Style = "Panel", Side = "Right" })
+	Panel:Toggle({ Title = "Auto collect" })
+	Panel:Slider({ Title = "Range", Min = 5, Max = 50, Default = 20, Suffix = " st" })
+	Layouts:Section({ Title = "Folded section", Collapsed = true, Side = "Right" }):Toggle({ Title = "Auto claim rewards" })
+end
 
-	local Looks = Window:Tab({
-		Title = "Looks",
-		Icon = "palette",
-		Group = "Library",
-		Description = "Every look each control can take. Copy the line under a name to use it.",
-	})
-	Looks:Notice({ Title = "Tip", Content = 'Set Preset = "Glass" on CreateWindow to restyle the whole hub in one line.', Kind = "info", Dismissible = true })
+local function buildLooks(hub, look)
+	local Window = hub.window
+	local Looks = Window:Tab({ Title = "Looks", Icon = "palette", Group = "Library" })
 
-	-- Try a look: the window-wide choices that need a rebuild.
+	-- The window-wide choices, which need a rebuild to show.
 	local chosen = table.clone(look)
-	local Trial = Looks:Section({ Title = "Try a look", Icon = "palette", Description = "Pick any of these, then rebuild the hub to see it." })
+	local Trial = Looks:Section({ Title = "Try a look", Icon = "palette" })
 	local function picker(title, kind, key)
 		local names = Halcyon:GetStyles(kind)
 		Trial:Dropdown({
 			Title = title,
-			Description = key .. ' = "..."',
+			Description = key,
 			Values = names,
 			-- What the window is using now, whether picked here or set by a preset.
 			Default = chosen[key] or Window.styles[kind] or names[1],
@@ -479,7 +662,7 @@ local function start(look)
 	local presets = Halcyon:GetPresets()
 	Trial:Dropdown({
 		Title = "Preset",
-		Description = "Preset = \"...\" sets many looks at once",
+		Description = "Preset",
 		Values = presets,
 		Default = chosen.Preset or presets[1],
 		Callback = function(name)
@@ -491,17 +674,28 @@ local function start(look)
 	picker("Tab marker", "TabIndicator", "TabIndicator")
 	picker("Window buttons", "Controls", "TopbarControls")
 	picker("Top-bar image", "TopbarImage", "TopbarImageStyle")
+	picker("Header", "Header", "HeaderStyle")
+	for _, key in { "Logo", "Icon", "TopbarImage" } do
+		Trial:Toggle({
+			Title = if key == "TopbarImage" then "Top-bar image" else key,
+			Description = key .. " = false",
+			Default = chosen[key] ~= false,
+			Callback = function(on)
+				chosen[key] = if on then nil else false
+			end,
+		})
+	end
 	Trial:Buttons({
 		Buttons = {
 			{
-				Title = "Rebuild with this look",
+				Title = "Rebuild hub",
 				Icon = "refresh-cw",
 				Callback = function()
 					task.defer(start, chosen)
 				end,
 			},
 			{
-				Title = "Back to default",
+				Title = "Reset to default",
 				Variant = "Ghost",
 				Callback = function()
 					task.defer(start, {})
@@ -580,15 +774,15 @@ local function start(look)
 
 	local NoticeLooks = Looks:Section({ Title = "Notices", Icon = "bell", Badge = #Halcyon:GetStyles("Notification") })
 	for _, name in Halcyon:GetStyles("Notification") do
+		local sample = NOTICE_SAMPLES[name] or { name .. " notice", nil, "info" }
 		NoticeLooks:Button({
 			Title = name,
 			Description = 'Style = "' .. name .. '"',
-			Tooltip = { Title = name, Text = "Press to show this notice look.", Key = "Click" },
 			Callback = function()
 				local notice = Window:Notify({
-					Title = if name == "Achievement" then "Level 10 reached" else name .. " notice",
-					Content = "Shows how this look sits on screen.",
-					Kind = if name == "Snackbar" then "info" else "success",
+					Title = sample[1],
+					Content = sample[2],
+					Kind = sample[3],
 					Style = name,
 					Duration = 5,
 					Actions = if name == "Snackbar" then { { Title = "Undo" } } else nil,
@@ -599,20 +793,20 @@ local function start(look)
 							task.wait(0.25)
 							notice.SetProgress(step / 10)
 						end
-						notice.Done("Finished")
+						notice.Done("Map data loaded")
 					end)
 				end
 			end,
 		})
 	end
-	NoticeLooks:Button({ Title = "Open the command palette", Variant = "Soft", Icon = "search", Spotlight = { Title = "New", Text = "Press Ctrl+K anywhere to jump to any setting.", Id = "palette" }, Callback = function()
+	NoticeLooks:Button({ Title = "Open the command palette", Variant = "Soft", Icon = "search", Spotlight = { Title = "New", Text = "Ctrl+K jumps to any setting.", Id = "palette" }, Callback = function()
 		Window:OpenPalette()
 	end })
 
 	local Panels = Looks:Section({ Title = "Panels", Icon = "layers", Side = "Right" })
 	Panels:Button({
 		Title = "Loading screen",
-		Description = "Window:Loading() moves only as the hub reports steps",
+		Description = "Window:Loading()",
 		Callback = function()
 			local loader = Window:Loading({ Title = "Setting up", Text = "Finding the map" })
 			-- A real hub reports its own steps; these stand in for them.
@@ -625,22 +819,21 @@ local function start(look)
 	})
 	Panels:Button({
 		Title = "What's new",
-		Description = "Window:Changelog() shows once per version",
+		Description = "Window:Changelog()",
 		Callback = function()
 			Window:Changelog({
 				Force = true,
 				Entries = {
-					{ Kind = "New", Text = "A style for every control, and presets." },
-					{ Kind = "New", Text = "Ctrl+K searches every setting." },
-					{ Kind = "Improved", Text = "Notices have five new looks." },
-					{ Kind = "Fixed", Text = "Tooltips stay on screen near edges." },
+					{ Kind = "New", Text = "Auto farm works in the Volcano." },
+					{ Kind = "Improved", Text = "Teleports wait for the map to load." },
+					{ Kind = "Fixed", Text = "Walk speed no longer resets on respawn." },
 				},
 			})
 		end,
 	})
 	Panels:Button({
 		Title = "Lock screen",
-		Description = "Window:Lock() for maintenance or a required update",
+		Description = "Window:Lock()",
 		Callback = function()
 			Window:Lock({
 				Title = "Down for maintenance",
@@ -653,7 +846,7 @@ local function start(look)
 	})
 	Panels:Button({
 		Title = "Confirm with a countdown",
-		Description = "Dialog buttons can wait before they work",
+		Description = "Delay = 3",
 		Callback = function()
 			Window:Dialog({
 				Title = "Reset every setting?",
@@ -664,36 +857,101 @@ local function start(look)
 		end,
 	})
 
-	local Boxed = Looks:Section({ Title = "Tabs in a section", Icon = "layers", Tabs = { "Aim", "Visuals", "Misc" }, Side = "Right" })
+	local Boxed = Looks:Section({ Title = "Tabs in a section", Icon = "layers", Tabs = { "Aim", "Visuals", "Idle" }, Side = "Right" })
 	Boxed:Toggle({ Title = "Silent aim" })
 	Boxed:Slider({ Title = "Field of view", Min = 10, Max = 180, Default = 90 })
 	Boxed:Tab("Visuals"):Toggle({ Title = "Player outlines" })
 	Boxed:Tab("Visuals"):ColorPicker({ Title = "Outline colour", Default = Color3.fromRGB(240, 82, 127) })
-	Boxed:Tab("Misc"):Label({ Title = "Each inner tab keeps its own rows.", Style = "Note" })
+	Boxed:Tab("Idle"):Toggle({ Title = "Anti-AFK" })
 
 	local Switched = Looks:Section({ Title = "Header switch", Icon = "power", Switch = { Default = true }, Side = "Right" })
 	local farmMode = Switched:Dropdown({ Title = "Mode", Values = { "Safe", "Fast" } })
 	Switched:Slider({ Title = "Fast speed", Min = 1, Max = 10, Default = 6 }):ShowWhen(farmMode, "Fast")
-	Switched:Label({ Title = "Pick Fast to reveal the speed row. The switch greys everything here." })
 
 	local Extras = Looks:Section({ Title = "More controls", Icon = "layout-grid" })
 	Extras:Status({ Title = "Server", Status = "Online", Kind = "success", Pulse = true })
 	Extras:Countdown({ Title = "Boss spawns in", Seconds = 300, Done = "Spawned" })
 	Extras:DatePicker({ Title = "Event date", Time = true })
-	Extras:Keybind({ Title = "Dash", Default = Enum.KeyCode.Q, Style = "Keycap", ModePicker = true, Description = "Right-click the key to change its mode" })
+	Extras:Keybind({ Title = "Dash", Default = Enum.KeyCode.Q, Style = "Keycap", ModePicker = true, Description = "Right-click to change the mode" })
 	Extras:Keybind({ Title = "Sprint", Default = Enum.KeyCode.LeftShift, Style = "Brackets" })
 	Extras:ColorPicker({ Title = "Tint", Palette = true, Default = Color3.fromRGB(91, 141, 239) })
-	Extras:Stepper({ Title = "Amount", Min = 0, Max = 99, Default = 5, Description = "Drag the number sideways" })
-	Extras:Accordion({ Title = "How do the looks work?", Content = 'Each control has a Style option. Set one look per control, or set Styles = { Toggle = "Slim" } on the window for all of them.' })
-	Extras:Label({ Title = "Info callouts explain a setting.", Style = "Info" })
-	Extras:Label({ Title = "Warnings flag something risky.", Style = "Warning" })
-	Extras:Label({ Title = "Success confirms it worked.", Style = "Success" })
-	Extras:Paragraph({ Title = "Paragraph with buttons", Content = "Text can carry <b>bold</b> and <i>italic</i> words.", Buttons = { { Title = "Docs" }, { Title = "Discord", Variant = "Outline" } } })
+	Extras:Stepper({ Title = "Amount", Min = 0, Max = 99, Default = 5, Description = "Drag to change" })
+	Extras:Accordion({ Title = "Setting a look", Content = 'Give one control a Style, or set Styles = { Toggle = "Slim" } on CreateWindow to change them all.' })
+	Extras:Label({ Title = "Works best in a private server.", Style = "Info" })
+	Extras:Label({ Title = "Fast mode can get you kicked.", Style = "Warning" })
+	Extras:Label({ Title = "Connected to the key server.", Style = "Success" })
+	Extras:Paragraph({ Title = "Patch 4.2", Content = "<b>Faster</b> farming in the Mines and <i>fewer</i> disconnects.", Buttons = { { Title = "Docs" }, { Title = "Discord", Variant = "Outline" } } })
 	Extras:Table({
 		Title = "Leaderboard",
 		Columns = { "Player", { Title = "Kills", Align = "Right", Width = 0.25 }, { Title = "Level", Align = "Right", Width = 0.25 } },
 		Rows = { { "Nova", 42, 18 }, { "Kite", 17, 31 }, { "Rook", 88, 12 }, { "Ash", 5, 40 } },
 	})
+end
+
+function start(look)
+	look = look or {}
+	Window = Halcyon:CreateWindow({
+		-- What the Looks tab picked; nil keeps Halcyon's defaults.
+		Preset = look.Preset,
+		WindowStyle = look.WindowStyle,
+		OpenAnimation = look.OpenAnimation,
+		TabIndicator = look.TabIndicator,
+		TopbarControls = look.TopbarControls,
+		TopbarImageStyle = look.TopbarImageStyle or "Rounded",
+		HeaderStyle = look.HeaderStyle,
+		-- false hides them; nil keeps the defaults below.
+		Logo = if look.Logo == false then false else nil,
+		Icon = if look.Icon == false then false else "layers",
+		-- Any image works here: an asset id, a workspace file or a URL. URLs
+		-- and files need an executor with getcustomasset; Studio shows the
+		-- fallback icon instead.
+		TopbarImage = if look.TopbarImage == false then false else "https://i.insider.com/602ee9ced3ad27001837f2ac?width=700",
+		Title = "Halcyon",
+		Subtitle = "Example hub",
+		Version = "v2.2.0",
+		Folder = "HalcyonExample",
+		Theme = "Midnight",
+		TabStyle = "Sidebar",
+		CommandPalette = true,
+		NotificationCenter = true,
+		Profile = { Avatar = "Headshot", ShowClock = true, Discord = DISCORD },
+		UpdateLog = { Title = "Updates", Group = "Library", Popup = false, Updates = UPDATES },
+		KeySystem = {
+			Title = "Halcyon example",
+			Discord = DISCORD,
+			Note = "Demo keys: HALCYON-FREE and HALCYON-PAID. Keyless needs none.",
+			Tiers = {
+				{ Name = "Keyless", NoKey = true, Description = "No key. Free and Paid rows stay locked." },
+				{ Name = "Free", Keys = { "HALCYON-FREE" }, Duration = 86400, Description = "Lasts a day.", Link = REPOSITORY },
+				{ Name = "Paid", Keys = { "HALCYON-PAID" }, Description = "Unlocks every row.", Link = REPOSITORY },
+			},
+		},
+	})
+	if not Window then
+		return
+	end
+
+	local player = Players.LocalPlayer
+	local hub = {
+		window = Window,
+		player = player,
+		camera = Workspace.CurrentCamera,
+		connections = {},
+		note = function() end,
+	}
+	-- What the example changed, so unload can put it back.
+	hub.original = { fieldOfView = hub.camera.FieldOfView }
+	function hub.humanoid()
+		local character = player.Character
+		return character and character:FindFirstChildOfClass("Humanoid")
+	end
+
+	local Dashboard = buildDashboard(hub)
+	buildPlayer(hub)
+	buildCamera(hub)
+	buildComponents(hub)
+	buildLayouts(hub)
+	buildLooks(hub, look)
 
 	local Saves = Window:Tab({ Title = "Configs", Icon = "save", Group = "Library" })
 	Window:ConfigSection(Saves)
@@ -701,19 +959,21 @@ local function start(look)
 	Settings:About({
 		Description = "An example hub built with Halcyon.",
 		Credits = { { Name = "Halcyon", Role = "UI library" } },
-		Links = { { Title = "Source", Url = "https://github.com/ScriptsForDays/Halcyon" } },
+		Links = { { Title = "Source", Url = REPOSITORY } },
 	})
-	Components:SetBadge("New")
+	Dashboard:SetBadge("New")
 
 	Window.OnUnload:Connect(function()
-		for _, connection in connections do
+		for _, connection in hub.connections do
 			connection:Disconnect()
 		end
-		movement.enabled, movement.infiniteJump = false, false
-		applyWalkSpeed()
-		camera.FieldOfView = original.fieldOfView
+		hub.stopSpectating()
+		hub.movement.enabled, hub.movement.infiniteJump = false, false
+		hub.applyWalkSpeed()
+		hub.camera.FieldOfView = hub.original.fieldOfView
 	end)
 
+	hub.note(`Loaded on the {Window:GetTier()} tier`, "success")
 	Window:LoadAutoload()
 end
 
