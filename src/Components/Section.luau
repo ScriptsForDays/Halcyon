@@ -35,7 +35,14 @@ Styles.register("Section", "Header", { fill = "card", stroke = "stroke", surface
 Styles.register("Section", "Panel", { fill = "card", stroke = "stroke", surface = "card", rows = "background" })
 
 local Section = {}
-Section.__index = Section
+-- Methods first; element kinds (including ones a hub registers later) after.
+Section.__index = function(_, key)
+	local method = rawget(Section, key)
+	if method ~= nil then
+		return method
+	end
+	return if Registry.KindSet[key] then Registry.method(key) else nil
+end
 
 -- Options: Title, Icon, IconColor, Description, Badge, Style, Side,
 -- Tabs (a list of names: tabs inside the box, see Section:Tab), Switch

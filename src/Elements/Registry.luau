@@ -12,6 +12,7 @@ local Strings = require("../Core/Strings")
 local Tooltip = require("../Components/Tooltip")
 local Schema = require("../Core/Schema")
 local Favourites = require("../Components/Favourites")
+local Row = require("./Row")
 
 local MODULES = {
 	Button = require("./Button"),
@@ -334,12 +335,58 @@ function Registry.values(handle)
 	handle.readSaved, handle.writeSaved = read, write
 end
 
-function Registry.install(container)
-	for kind in MODULES do
-		container[kind] = function(self, options)
+-- One function per kind, shared by every container.
+local methods = {}
+function Registry.method(kind)
+	local method = methods[kind]
+	if not method then
+		method = function(self, options)
 			return create(self, kind, options)
 		end
+		methods[kind] = method
 	end
+	return method
+end
+
+-- Gives a container its element methods. A plain table also learns kinds
+-- registered later through its metatable.
+function Registry.install(container)
+	for kind in MODULES do
+		container[kind] = Registry.method(kind)
+	end
+	if getmetatable(container) == nil then
+		setmetatable(container, {
+			__index = function(_, key)
+				return if Registry.KindSet[key] then Registry.method(key) else nil
+			end,
+		})
+	end
+end
+
+-- A hub's own element kind; see Halcyon:RegisterElement.
+function Registry.register(kind, definition)
+	if type(kind) ~= "string" or not string.match(kind, "^%u%w*$") then
+		return false, "An element kind is one capitalised word, such as \"Counter\""
+	elseif MODULES[kind] or Registry.KindSet[kind] then
+		return false, `"{kind}" is already an element kind`
+	elseif type(definition) ~= "table" or type(definition.Build) ~= "function" then
+		return false, `RegisterElement("{kind}") needs a table with a Build function`
+	end
+	MODULES[kind] = {
+		new = function(container, options)
+			local row = Row.new(container, options, definition.Layout)
+			definition.Build(row, options, row.handle)
+			return row.handle
+		end,
+	}
+	if definition.Untitled then
+		UNTITLED[kind] = true
+	end
+	Registry.custom[kind] = { options = definition.Options or {}, value = definition.Value or "any" }
+	table.insert(Registry.Kinds, kind)
+	table.sort(Registry.Kinds)
+	Registry.KindSet[kind] = true
+	return true
 end
 
 return Registry

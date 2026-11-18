@@ -654,4 +654,19 @@ for _, kind in Registry.Kinds do
 	end
 end
 
+-- Kinds a hub registers after this file loaded go the same way.
+Tab.__index = function(_, key)
+	local method = rawget(Tab, key)
+	if method ~= nil then
+		return method
+	end
+	if Registry.KindSet[key] then
+		return function(self, options)
+			local section = looseSection(self)
+			return section[key](section, options)
+		end
+	end
+	return nil
+end
+
 return Tab

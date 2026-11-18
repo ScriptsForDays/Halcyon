@@ -6,10 +6,14 @@
 //                       because Studio refuses a script source of 200,000
 //                       characters or more
 //
+// and dist/Halcyon.types.luau, Luau types printed from src/Core/Schema.luau
+// by tools/gen-types.luau (needs the luau binary, as the tests do).
+//
 // Every source module uses relative string requires ("./Signal", "../Core/Theme").
 // Each is resolved at build time, so a require that points nowhere fails here
 // and never at runtime. Run with --check to fail when dist/ trails src/.
 
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +23,7 @@ const SRC = join(ROOT, "src");
 const DIST = join(ROOT, "dist");
 const SINGLE = join(DIST, "Halcyon.luau");
 const MODEL = join(DIST, "Halcyon.rbxmx");
+const TYPES = join(DIST, "Halcyon.types.luau");
 // Where the Studio parts are also written as plain files, for tools that load
 // them into a running Studio session. Not committed.
 const STUDIO_PARTS = join(ROOT, ".build", "studio");
@@ -166,13 +171,28 @@ export function studioModel() {
 	return ['<roblox version="4">', item("Halcyon", main, 0, inner), "</roblox>", ""].join("\n");
 }
 
+// The types file: the schema module's source, then the generator, run as
+// one chunk so the generator sees `Schema`.
+export function types() {
+	const schema = readFileSync(join(SRC, "Core", "Schema.luau"), "utf8").replace(/\r\n/g, "\n");
+	const generator = readFileSync(join(ROOT, "tools", "gen-types.luau"), "utf8").replace(/\r\n/g, "\n");
+	const chunk = `local Schema = (function()\n${schema}\nend)()\n\n${generator}`;
+	mkdirSync(join(ROOT, ".build"), { recursive: true });
+	const path = join(ROOT, ".build", "gen-types.luau");
+	writeFileSync(path, chunk);
+	const output = execFileSync(process.env.LUAU_BIN || "luau", [path], { encoding: "utf8" });
+	return output.replace(/\r\n/g, "\n");
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	const single = bundle();
 	const model = studioModel();
+	const typed = types();
 	if (process.argv.includes("--check")) {
 		const stale = [
 			[SINGLE, single],
 			[MODEL, model],
+			[TYPES, typed],
 		].filter(([path, expected]) => !existsSync(path) || readFileSync(path, "utf8") !== expected);
 		if (stale.length > 0) {
 			console.error(`${stale.map(([path]) => relative(ROOT, path)).join(", ")} out of date. Run: node tools/bundle.mjs`);
@@ -183,6 +203,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		mkdirSync(DIST, { recursive: true });
 		writeFileSync(SINGLE, single);
 		writeFileSync(MODEL, model);
+		writeFileSync(TYPES, typed);
 		const { main, children } = studioParts();
 		mkdirSync(STUDIO_PARTS, { recursive: true });
 		writeFileSync(join(STUDIO_PARTS, "Halcyon.luau"), main);

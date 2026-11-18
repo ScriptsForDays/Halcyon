@@ -34,6 +34,8 @@ local Switches = require("./Components/Switches")
 local Theme = require("./Core/Theme")
 local Tokens = require("./Core/Tokens")
 local Window = require("./Components/Window")
+local Build = require("./Components/Build")
+local Registry = require("./Elements/Registry")
 
 for _, palette in Palettes do
 	assert(Theme.add(palette))
@@ -318,6 +320,28 @@ end
 -- `callback(id, problem)`. Needs getcustomasset for URLs and files.
 function Halcyon:Image(source, callback)
 	return Assets.resolve(source, callback)
+end
+
+-- A hub's own element kind, usable on every tab, section, page and sheet
+-- like a built-in one, with flags, configs, locks, search and ShowWhen.
+--   Halcyon:RegisterElement("Counter", {
+--       Options = { Step = "number" },
+--       Build = function(row, options, handle) ... end,
+--   })
+-- Build gets the row (see LLM.txt, "Custom elements"); give `handle` Get and
+-- Set, and call row.fire(value) from Set.
+function Halcyon:RegisterElement(kind, definition)
+	local ok, message = Registry.register(kind, definition)
+	if not ok then
+		error(message, 2)
+	end
+	return true
+end
+
+-- A whole hub from one table; see Components/Build.luau. Returns the
+-- window (nil if a key prompt was closed) and its elements by Id or Flag.
+function Halcyon:Build(spec)
+	return Build.run(self, spec)
 end
 
 -- Warnings for option names Halcyon doesn't know, misspelt looks and

@@ -31,6 +31,98 @@ return import("Halcyon")
 <Properties>
 <string name="Name">Part01</string>
 <ProtectedString name="Source"><![CDATA[return function(modules, import)
+modules["Components/Build"] = function()
+local Registry = import("Elements/Registry")
+local Schema = import("Core/Schema")
+local Build = {}
+local STRUCTURE = { Sections = true, Elements = true, Pages = true, Kind = true, Id = true }
+local function optionsOf(spec)
+local options = {}
+for key, value in spec do
+if type(key) == "string" and not STRUCTURE[key] then
+options[key] = value
+end
+end
+return options
+end
+local function fail(path, message)
+error(`Halcyon:Build {path}: {message}`, 0)
+end
+local function call(path, target, method, options)
+local ok, result = pcall(target[method], target, options)
+if not ok then
+fail(path, tostring(result))
+end
+return result
+end
+function Build.run(Halcyon, spec)
+if type(spec) ~= "table" then
+error("Halcyon:Build expects a table", 3)
+end
+local window = Halcyon:CreateWindow(spec.Window or {})
+if not window then
+return nil, {}
+end
+local elements = {}
+local function addElements(container, list, path)
+if list == nil then
+return
+end
+if type(list) ~= "table" then
+fail(path, "Elements must be a list")
+end
+for index, item in list do
+local where = `{path}.Elements[{index}]`
+if type(item) ~= "table" then
+fail(where, "each element is a table such as { \"Toggle\", Title = \"Fly\" }")
+end
+local kind = item[1] or item.Kind
+if type(kind) ~= "string" or not Registry.KindSet[kind] then
+local guess = if type(kind) == "string" then Schema.closest(kind, Registry.KindSet) else nil
+fail(where, `unknown kind "{tostring(kind)}"{if guess then `, did you mean "{guess}"?` else ""}`)
+end
+local handle = call(where, container, kind, optionsOf(item))
+local key = item.Id or item.Flag
+if key ~= nil then
+elements[key] = handle
+end
+end
+end
+local function addPages(parent, list, path)
+for index, pageSpec in list or {} do
+local where = `{path}.Pages[{index}]`
+local page = call(where, parent, "Page", optionsOf(pageSpec))
+Build.fill(page, pageSpec, where, addElements, addPages)
+end
+end
+for index, tabSpec in spec.Tabs or {} do
+local where = `Tabs[{index}]`
+if type(tabSpec) ~= "table" then
+fail(where, "each tab is a table with a Title")
+end
+local tab = call(where, window, "Tab", optionsOf(tabSpec))
+Build.fill(tab, tabSpec, where, addElements, addPages)
+end
+if spec.SettingsTab then
+window:SettingsTab(if type(spec.SettingsTab) == "table" then spec.SettingsTab else nil)
+end
+if spec.Autoload ~= false then
+window:LoadAutoload()
+end
+return window, elements
+end
+function Build.fill(target, spec, path, addElements, addPages)
+for index, sectionSpec in spec.Sections or {} do
+local where = `{path}.Sections[{index}]`
+local section = call(where, target, "Section", optionsOf(sectionSpec))
+addElements(section, sectionSpec.Elements, where)
+addPages(section, sectionSpec.Pages, where)
+end
+addElements(target, spec.Elements, path)
+addPages(target, spec.Pages, path)
+end
+return Build
+end
 modules["Components/CommandPalette"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
@@ -4555,7 +4647,13 @@ Styles.register("Section", "Inset", { fill = "background", stroke = "stroke", su
 Styles.register("Section", "Header", { fill = "card", stroke = "stroke", surface = "card", band = "raised" })
 Styles.register("Section", "Panel", { fill = "card", stroke = "stroke", surface = "card", rows = "background" })
 local Section = {}
-Section.__index = Section
+Section.__index = function(_, key)
+local method = rawget(Section, key)
+if method ~= nil then
+return method
+end
+return if Registry.KindSet[key] then Registry.method(key) else nil
+end
 function Section.new(tab, options)
 options = options or {}
 local window = tab.window
@@ -6708,6 +6806,19 @@ Tab[kind] = function(self, options)
 local section = looseSection(self)
 return section[kind](section, options)
 end
+end
+Tab.__index = function(_, key)
+local method = rawget(Tab, key)
+if method ~= nil then
+return method
+end
+if Registry.KindSet[key] then
+return function(self, options)
+local section = looseSection(self)
+return section[key](section, options)
+end
+end
+return nil
 end
 return Tab
 end
@@ -16575,6 +16686,7 @@ local Strings = import("Core/Strings")
 local Tooltip = import("Components/Tooltip")
 local Schema = import("Core/Schema")
 local Favourites = import("Components/Favourites")
+local Row = import("Elements/Row")
 local MODULES = {
 Button = import("Elements/Button"),
 Toggle = import("Elements/Toggle"),
@@ -16844,12 +16956,52 @@ write(default)
 end
 handle.readSaved, handle.writeSaved = read, write
 end
-function Registry.install(container)
-for kind in MODULES do
-container[kind] = function(self, options)
+local methods = {}
+function Registry.method(kind)
+local method = methods[kind]
+if not method then
+method = function(self, options)
 return create(self, kind, options)
 end
+methods[kind] = method
 end
+return method
+end
+function Registry.install(container)
+for kind in MODULES do
+container[kind] = Registry.method(kind)
+end
+if getmetatable(container) == nil then
+setmetatable(container, {
+__index = function(_, key)
+return if Registry.KindSet[key] then Registry.method(key) else nil
+end,
+})
+end
+end
+function Registry.register(kind, definition)
+if type(kind) ~= "string" or not string.match(kind, "^%u%w*$") then
+return false, "An element kind is one capitalised word, such as \"Counter\""
+elseif MODULES[kind] or Registry.KindSet[kind] then
+return false, `"{kind}" is already an element kind`
+elseif type(definition) ~= "table" or type(definition.Build) ~= "function" then
+return false, `RegisterElement("{kind}") needs a table with a Build function`
+end
+MODULES[kind] = {
+new = function(container, options)
+local row = Row.new(container, options, definition.Layout)
+definition.Build(row, options, row.handle)
+return row.handle
+end,
+}
+if definition.Untitled then
+UNTITLED[kind] = true
+end
+Registry.custom[kind] = { options = definition.Options or {}, value = definition.Value or "any" }
+table.insert(Registry.Kinds, kind)
+table.sort(Registry.Kinds)
+Registry.KindSet[kind] = true
+return true
 end
 return Registry
 end
@@ -17476,6 +17628,15 @@ return handle
 end
 return Segmented
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX4">
+<Properties>
+<string name="Name">Part04</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Slider"] = function()
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
@@ -17749,15 +17910,6 @@ return handle
 end
 return Slider
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX4">
-<Properties>
-<string name="Name">Part04</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/SliderTooltip"] = function()
 local Create = import("Core/Create")
 local Mount = import("Core/Mount")
@@ -19466,6 +19618,8 @@ local Switches = import("Components/Switches")
 local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
 local Window = import("Components/Window")
+local Build = import("Components/Build")
+local Registry = import("Elements/Registry")
 for _, palette in Palettes do
 assert(Theme.add(palette))
 end
@@ -19671,6 +19825,16 @@ return Presets.register(name, preset)
 end
 function Halcyon:Image(source, callback)
 return Assets.resolve(source, callback)
+end
+function Halcyon:RegisterElement(kind, definition)
+local ok, message = Registry.register(kind, definition)
+if not ok then
+error(message, 2)
+end
+return true
+end
+function Halcyon:Build(spec)
+return Build.run(self, spec)
 end
 function Halcyon:SetDebug(enabled)
 Schema.enabled = enabled == true
