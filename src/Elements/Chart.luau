@@ -348,8 +348,17 @@ function Chart.new(container, options)
 			guide.Visible = true
 			readout.Text = table.concat(parts, "  ")
 			readout.Visible = true
-			readout.AnchorPoint = Vector2.new(if guideX > width / 2 then 1 else 0, 0)
-			readout.Position = UDim2.fromOffset(guideX + (if guideX > width / 2 then -6 else 6), 4)
+			-- Beside the guide on whichever side it fits, and never past the
+			-- plot's edges (its width is last frame's, close enough for one label).
+			local plotWidth = size.X / row.library.scale
+			local readoutWidth = readout.AbsoluteSize.X / row.library.scale
+			if guideX + 6 + readoutWidth <= plotWidth - 4 then
+				readout.AnchorPoint = Vector2.new(0, 0)
+				readout.Position = UDim2.fromOffset(guideX + 6, 4)
+			else
+				readout.AnchorPoint = Vector2.new(1, 0)
+				readout.Position = UDim2.fromOffset(math.min(math.max(guideX - 6, readoutWidth + 4), plotWidth - 4), 4)
+			end
 		end)
 		scope:connect(plot.MouseLeave, function()
 			guide.Visible = false
