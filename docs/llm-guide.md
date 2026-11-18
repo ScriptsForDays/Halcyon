@@ -34,6 +34,12 @@ Only then pick controls. A hub with six features needs six or so rows plus setti
 | Read-only state | Status, Progress, Countdown, Label | Nothing to press, so don't make it look pressable |
 | Read-only figures (FPS, coins per hour) | Stat, or Stats for several | Big numbers read at a glance; labels in a row don't |
 | A number's recent history | Graph | A trend is the point; one number hides it |
+| A share of a maximum (health, a cooldown, progress to a goal) | Gauge | A ring reads at a glance; a Progress bar needs a row of its own |
+| A value the player dials in a tight space | Knob | Compact; a Slider is clearer when there is room |
+| Shares of a whole, or several series compared | Chart (Donut/Pie, Line/Bars) | Graph shows one number's history only |
+| Picking from an inventory where pictures, counts and rarity matter | ItemGrid | A Dropdown hides what makes items different |
+| Places the player saves and returns to | Waypoints | A Dropdown of hard-coded spots can't hold the player's own |
+| A model or the character to look at | Viewport | An image can't turn |
 | What the hub did, line by line | Log | Notices vanish; a log can be scrolled, filtered and copied |
 | Read-only rows of data | Table | Labels in a loop can't sort or align |
 | Picks the player should see without opening anything, or an order | List (`Reorder` for priorities) | A Dropdown hides the choices; toggles per item waste rows |
@@ -58,6 +64,18 @@ A row description is one short line about what the feature does or a caveat ("Ke
 - **Short pairs share a line.** `Section:Group({ Columns = 2 })` fits two short toggles side by side (Auto farm / Auto sell). Keep sliders, lists and long titles on their own lines.
 - **A feature with many settings** can keep its main switch on the tab and its tuning in a `Window:Sheet`, opened by a button beside it, so the page stays short.
 
+### Where a setting lives
+
+| The setting is | Put it | Why |
+|---|---|---|
+| used every session | a row on the tab, near the top of its section | one press away |
+| tuning for one feature (smoothing, prediction, filters) | a sub-page (`Section:Page`) opened from that feature's section | the tab stays short; the breadcrumb shows where it belongs |
+| a side task done now and then (manage presets, edit a list) | a `Window:Sheet` | slides over the page and back without leaving it |
+| a live readout or two switches players want while the hub is hidden | a section with `PopOut = true` | the panel stays on screen over the game |
+| several variants of one thing (Aim for players / NPCs) | `Tabs = { ... }` inside the section | parallel options side by side |
+
+Don't use pages as a second set of tabs: one level is usual, two is the most a player will follow.
+
 ## 4. Decide what to save
 
 Give a `Flag` to settings a player would want restored: speeds, toggles for passive features, colours, keybinds, selected modes. Leave Flags off:
@@ -68,6 +86,10 @@ Give a `Flag` to settings a player would want restored: speeds, toggles for pass
 
 Call `Window:SettingsTab()` (or `ConfigSection`) so players can save and load configs. Call `LoadAutoload()` once, last.
 
+- A universal hub that runs in many games should use `Configs = { PerGame = "Universe" }`, so a speed tuned for one game doesn't load in another.
+- Share codes come with the config block. They also work on executors without file functions, so don't build your own export.
+- When the UI must follow game state (a WalkSpeed changed by the game, a mode the server switched), update rows with `SetSilent`, not `Set`, so the hub doesn't fight the game.
+
 ## 5. Feedback: say less, but say what matters
 
 - **Notify** on results the player can't otherwise see: a config saved or failed, a teleport failed, a long task finished, a key about to expire.
@@ -75,6 +97,10 @@ Call `Window:SettingsTab()` (or `ConfigSection`) so players can save and load co
 - **For work that takes time,** use a Progress notice, `Button:SetLoading`, or `Window:Loading` during setup, driven by real progress. Never a timer pretending to be progress.
 - **For errors,** say what failed and what to do ("Teleport failed: the destination is locked for your level"), not "An error occurred".
 - **Tab notices, spotlights and badges** are for genuinely new or important things. One spotlight per release is plenty. A notice on every tab gets ignored.
+- **Running status** (coins farmed, the current target) is one notice updated with the same `Id`, or a Stat in a popped-out section. Never a new notice per update.
+- **Repeats fold.** Identical notices merge into one with a count, so a hub that sells an item twenty times shows one "Item sold 20". Keep the title identical for that to happen; put changing numbers in an `Id` notice instead.
+- **Countdown look.** The default bar is fine. `Countdown = "Edge"` (the outline drains) suits short, important notices; use one countdown look across the hub, set with `Halcyon:SetNotificationDefaults`.
+- **Errors in callbacks** already show on the row and in `Window.Errors`. Don't add a notice for them; do add the Settings tab's Errors row so players can copy a report.
 
 ## 6. Looks: defaults first
 
@@ -84,6 +110,7 @@ Halcyon's defaults are a complete, consistent design. Customising looks is optio
 - **Avoid per-element `Style`** except where an element has a different job. Examples: a Danger button, a Labelled toggle for a setting where "ON/OFF" matters, a Chips dropdown for a filter that is changed often.
 - **Theme:** pick one theme or let players choose in Settings. Don't hardcode accent colours on individual elements; the theme system recolours everything consistently, and literal colours break when players switch themes.
 - **Don't stack effects.** Glass window, gradient accent, glow toggles and sweep buttons together read as noise. Pick one signature.
+- **Moving backgrounds** are a signature on their own. Use one on the window (`Aurora` at the default intensity reads as depth, not decoration), and at most one or two sections with their own, for the section the player should look at first (a live session panel, a featured mode). Keep `Intensity` at or below the default behind text. They pause while hidden and stop under reduced motion, so don't add your own toggle for them.
 
 ## 7. Phones and small screens
 
@@ -100,7 +127,42 @@ Halcyon's defaults are a complete, consistent design. Customising looks is optio
 - **Verifying keys:** keys must be checked by the developer's own server or the ad service's API via `Validate`, `Remote` or `Confirm`. Never invent an endpoint or a key algorithm, and never call a client-side check secure.
 - **Discord:** add the `Discord` invite on the key prompt when getting a key involves a community step; on the profile card when the hub has an active community. Use the developer's real invite.
 
-## 9. What to leave out
+## 9. Features that clean up after themselves
+
+Every feature a toggle starts must stop when it turns off and when the hub unloads.
+
+- Keep each connection or loop in a variable owned by the feature; disconnect it in the toggle's Callback when `on` is false and in `Window.OnUnload`.
+- For loops, use a run counter (LLM.txt, "Recipes"): fast toggling must never leave two loops running.
+- Put back what the feature changed (WalkSpeed, lighting, collisions) when it turns off; remember the original value when it turns on.
+- A Callback may yield. Halcyon runs it on its own thread and catches errors, so don't wrap it in `task.spawn` or `pcall`.
+
+## 10. Performance
+
+- Nothing per frame unless the feature needs it, and only while it is on.
+- Update Stats, Gauges and Graphs about once a second, not every frame.
+- Charts and ItemGrids rebuild on `Set`/`Refresh`; call them when the data changes, not on a timer.
+- Large hubs build the first tab, then the rest a frame apart (section 7).
+
+## 11. Words on the screen
+
+Write the way a player talks about the game. Name the thing and what it does.
+
+- Titles: the feature's name ("Auto farm", "Walk speed"). No "Enable", "Toggle", "Ultimate", "Pro", "Premium", "Advanced" unless it really is a separate advanced page.
+- Descriptions: one short line, a fact or a caveat ("Stops when your bag is full"). Not "Enhances your experience", "Seamlessly", "Unleash", "Elevate", "Powerful", "Next-level".
+- No emoji in titles, tabs or notices; icons are image icons.
+- Errors say what failed and what to do next.
+- Don't invent proof (player counts, "trusted by thousands"), and don't call a client-side key prompt secure.
+
+## 12. Players' own tools
+
+These help players without the hub doing more:
+
+- `Favourites = true` on hubs with more than about 40 rows: players keep their shortlist in one tab.
+- `TabReorder = true` when tabs are many and players' habits differ.
+- The Settings tab's Language row and `Language = "auto"` when the hub's own text is short or also translated.
+- `UpdateCheck` when the hub has releases and a place to host a version file.
+
+## 13. What to leave out
 
 Unless the developer asks for it, leave out:
 
@@ -109,11 +171,13 @@ Unless the developer asks for it, leave out:
 - Personalise and the theme builder, which are optional extras in Settings;
 - Watermark and KeybindList, which are overlays some players dislike. Offer them as Settings toggles rather than forcing them on;
 - `NotificationCenter` and `Blur`, unless the hub sends notices worth reading later or the developer wants the blur;
-- a QuickBar, unless the hub targets phones and has two or three features players flip constantly.
+- a QuickBar, unless the hub targets phones and has two or three features players flip constantly;
+- moving backgrounds on more than the window and one or two sections;
+- `Debug = true` in the code you hand over (it is for building).
 
 To remove a built-in part the developer doesn't want, set its switch to `false` (`Search = false`, `Close = false`) rather than hiding instances.
 
-## 10. Examples of over-building, and the fix
+## 14. Examples of over-building, and the fix
 
 **Too many tabs.** "Main, Player, Movement, Character, Combat, Aim, ESP, Visuals, World, Teleports, Misc, Credits, Settings."
 - Merge Player, Movement and Character into one Player tab with sections.
@@ -132,7 +196,7 @@ To remove a built-in part the developer doesn't want, set its switch to `false` 
 **Faked loading.** A Loading screen with `task.wait(3)`.
 - Drop it, or report real steps (asset preload, remote discovery) with `SetProgress`.
 
-## 11. A checklist before you hand the code over
+## 15. A checklist before you hand the code over
 
 - [ ] Every row maps to a real feature, and each tab name describes its contents.
 - [ ] Controls match their values (section 2); destructive actions confirm.
@@ -141,3 +205,8 @@ To remove a built-in part the developer doesn't want, set its switch to `false` 
 - [ ] Notifications only for results and failures.
 - [ ] Looks are defaults, one Preset, or one window `Styles` table, not scattered per element.
 - [ ] Nothing in this hub uses an option, method, look or icon not listed in LLM.txt.
+- [ ] It ran once with `Debug = true` and no `[Halcyon debug]` warning was left; Debug is removed now.
+- [ ] Loops started by toggles use a run counter, and `OnUnload` stops them.
+- [ ] Rows that mirror game state use `SetSilent`.
+- [ ] Deep tuning sits on pages or a Sheet, not at the top of the tab.
+- [ ] Wording passes section 11: names, not adjectives; no emoji; errors say what to do.

@@ -34,6 +34,7 @@ Schema.shared = {
 	Enabled = "boolean",
 	ShowWhen = "Condition",
 	EnableWhen = "Condition",
+	Favourite = "boolean",
 }
 
 local values = "{ any }"
@@ -481,28 +482,37 @@ function Schema.accepts(kind, key)
 end
 
 -- The known name closest to a typo, when it is close enough to be a guess.
+-- Two swapped letters count as one slip ("Stpe" is one away from "Step").
 local function distance(a, b)
 	a, b = string.lower(a), string.lower(b)
-	local previous = {}
-	for j = 0, #b do
-		previous[j] = j
+	local rows = {}
+	for i = 0, #a do
+		rows[i] = { [0] = i }
+	end
+	for j = 1, #b do
+		rows[0][j] = j
 	end
 	for i = 1, #a do
-		local current = { [0] = i }
 		for j = 1, #b do
-			local cost = if string.sub(a, i, i) == string.sub(b, j, j) then 0 else 1
-			current[j] = math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost)
+			local here, there = string.sub(a, i, i), string.sub(b, j, j)
+			local cost = if here == there then 0 else 1
+			local best = math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost)
+			if i > 1 and j > 1 and here == string.sub(b, j - 1, j - 1) and string.sub(a, i - 1, i - 1) == there then
+				best = math.min(best, rows[i - 2][j - 2] + 1)
+			end
+			rows[i][j] = best
 		end
-		previous = current
 	end
-	return previous[#b]
+	return rows[#a][#b]
 end
 
 function Schema.closest(name, known)
 	local best, bestScore = nil, math.huge
 	for candidate in known do
 		local score = distance(name, candidate)
-		if score < bestScore then
+		-- Ties go to the alphabetically first name, so the guess never
+		-- depends on table order.
+		if score < bestScore or (score == bestScore and best ~= nil and candidate < best) then
 			best, bestScore = candidate, score
 		end
 	end

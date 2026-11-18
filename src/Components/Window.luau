@@ -627,9 +627,22 @@ function Window:SetBackground(spec)
 		self.movingBackground.Destroy()
 		self.movingBackground = nil
 	end
+	-- How much of the background shows through solid section cards.
+	local seeThrough = if type(spec) == "table" and tonumber(spec.SeeThrough) then tonumber(spec.SeeThrough) else 0.35
+	self.cardSeeThrough = if spec then math.clamp(seeThrough, 0, 0.6) else 0
+	local places = table.clone(self.tabs)
+	for _, page in self.subPages do
+		table.insert(places, page)
+	end
+	for _, place in places do
+		for _, section in place.sections do
+			section:applySeeThrough()
+		end
+	end
 	local controller = Background.new(self.root, spec, {
-		Intensity = 0.45,
+		Intensity = 0.75,
 		Radius = 12,
+		Vignette = true,
 		Scale = function()
 			return self.scale
 		end,
@@ -1420,7 +1433,8 @@ function Window:Tab(options)
 	table.insert(self.tabs, tab)
 	tab:reflow(self.wide)
 	self:buildNav()
-	if not tab.Hidden and (not self.selected or self.selected.Hidden) then
+	-- The Favourites tab leads the list, but a hub opens on its own first tab.
+	if not tab.Hidden and not self.makingFavourites and (not self.selected or self.selected.Hidden) then
 		self:SelectTab(tab)
 	end
 	-- ShowWhen given when the tab is made; Visible was read by Tab.new.

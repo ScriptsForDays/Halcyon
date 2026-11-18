@@ -255,6 +255,8 @@ return {
 	["Favourites"] = "Yêu thích",
 	["Add to favourites"] = "Thêm vào yêu thích",
 	["Remove from favourites"] = "Bỏ khỏi yêu thích",
+	["No favourites yet"] = "Chưa có mục yêu thích",
+	["Right-click a row, or press and hold it, then choose Add to favourites."] = "Nhấp chuột phải vào một dòng, hoặc nhấn giữ, rồi chọn Thêm vào yêu thích.",
 	["Open in its own window"] = "Đang mở trong cửa sổ riêng",
 	["Bring back"] = "Đưa về đây",
 	["Unpin"] = "Bỏ ghim",

@@ -255,6 +255,8 @@ return {
 	["Favourites"] = "Favoriler",
 	["Add to favourites"] = "Favorilere ekle",
 	["Remove from favourites"] = "Favorilerden çıkar",
+	["No favourites yet"] = "Henüz favori yok",
+	["Right-click a row, or press and hold it, then choose Add to favourites."] = "Bir satıra sağ tıklayın ya da basılı tutun, sonra Favorilere ekle'yi seçin.",
 	["Open in its own window"] = "Kendi penceresinde açık",
 	["Bring back"] = "Geri getir",
 	["Unpin"] = "Sabitlemeyi kaldır",

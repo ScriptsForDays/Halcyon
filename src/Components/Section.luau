@@ -22,6 +22,11 @@ local Tokens = require("../Core/Tokens")
 local PopOut = require("./PopOut")
 local Background = require("../Core/Background")
 
+-- Corners of a section's moving background: inside the card, and filling
+-- a popped-out panel.
+local CARD_RADIUS = 10
+local PANEL_RADIUS = PopOut.RADIUS
+
 -- fill: the section's own colour; stroke: its outline; surface: the colour
 -- rows sit on (veils match it); flat: no container at all.
 Styles.register("Section", "Card", { fill = "card", stroke = "stroke", surface = "card" })
@@ -90,6 +95,8 @@ function Section.new(tab, options)
 	self.scope:add(root)
 	self.root = root
 	self.look = look
+	self.fillTransparency = root.BackgroundTransparency
+	self:applySeeThrough()
 	if not flat then
 		Create.corner(10, root)
 		if look.stroke then
@@ -366,6 +373,7 @@ end
 function Section:refresh()
 	local open = self.searching or not self.collapsed
 	self.rows.Visible = open
+	self:placeBackground()
 	if self.edge then
 		-- A folded section keeps a few pixels of body, which would leave a stub of stripe.
 		self.edge.Visible = open
@@ -709,7 +717,9 @@ function Section:SetBackground(spec)
 	-- laid out as a row; the header keeps the card's plain colour.
 	local controller = Background.new(self.body, spec, {
 		Intensity = 0.3,
-		Radius = 10,
+		Radius = CARD_RADIUS,
+		Contained = true,
+		Measure = self.rows,
 		Scale = function()
 			return self.window.scale
 		end,
@@ -718,18 +728,44 @@ function Section:SetBackground(spec)
 		return
 	end
 	self.movingBackground = controller
-	local page = self.tab.page
-	local function follow()
-		controller.SetVisible(page.Visible)
-	end
-	local connection = page:GetPropertyChangedSignal("Visible"):Connect(follow)
-	follow()
+	local connection = self.tab.page:GetPropertyChangedSignal("Visible"):Connect(function()
+		self:placeBackground()
+	end)
+	self:placeBackground()
 	local destroy = controller.Destroy
 	function controller.Destroy()
 		connection:Disconnect()
 		destroy()
 	end
 	self.scope:add(controller.Destroy)
+end
+
+-- The moving background sits behind the rows, or fills the whole panel
+-- while the section is popped out, so it grows and shrinks with the panel;
+-- the panel stays on screen, so there it keeps moving whichever tab is open.
+function Section:placeBackground()
+	local controller = self.movingBackground
+	if not controller then
+		return
+	end
+	local panel = if self.popped then self.panel else nil
+	controller.frame.Parent = panel or self.body
+	local corner = controller.frame:FindFirstChildOfClass("UICorner")
+	if corner then
+		corner.CornerRadius = UDim.new(0, if panel then PANEL_RADIUS else CARD_RADIUS)
+	end
+	-- In the card the pieces fill the rows, which size to their content;
+	-- folded away with them, they can't hold the card open either.
+	controller.MeasureFrom(panel or self.rows)
+	controller.SetVisible(panel ~= nil or (self.tab.page.Visible and self.rows.Visible))
+end
+
+-- Behind a moving window background, solid cards let some of it through
+-- (the window's SeeThrough); cards that were already clear stay as they are.
+function Section:applySeeThrough()
+	if self.fillTransparency == 0 then
+		self.root.BackgroundTransparency = self.window.cardSeeThrough or 0
+	end
 end
 
 function Section:IsPoppedOut()

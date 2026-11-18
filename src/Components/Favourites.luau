@@ -47,10 +47,15 @@ local DROPPED = {
 	ShowWhen = true,
 	EnableWhen = true,
 	Exclusive = true,
+	Favourite = true,
 }
 
+-- Shows the copies in order, or the empty note when there are none.
+local refresh
+
 function Favourites.setup(window, saved)
-	window.favourites = { order = {}, starred = {}, copies = {}, originals = {} }
+	-- With no saved list yet, rows made with Favourite = true start starred.
+	window.favourites = { order = {}, starred = {}, copies = {}, originals = {}, fresh = type(saved) ~= "table" }
 	if type(saved) == "table" then
 		for _, id in saved do
 			if type(id) == "string" and not window.favourites.starred[id] then
@@ -59,9 +64,12 @@ function Favourites.setup(window, saved)
 			end
 		end
 	end
-	local tab = window:Tab({ Title = Strings.get("Favourites"), Icon = "star", Visible = false })
+	window.makingFavourites = true
+	local tab = window:Tab({ Title = Strings.get("Favourites"), Icon = "star" })
+	window.makingFavourites = nil
 	window.favourites.tab = tab
 	tab.isFavourites = true
+	refresh(window)
 end
 
 -- Rows are told apart by Flag when they have one, otherwise by where they
@@ -74,12 +82,21 @@ function Favourites.idOf(handle)
 	return `row:{if tab then tab.Title else ""}/{handle.Title}`
 end
 
-local function refresh(window)
+function refresh(window)
 	local state = window.favourites
 	local tab = state.tab
+	-- The tab is always there, so players can find the feature; while it
+	-- is empty it says how to fill it.
 	local any = next(state.copies) ~= nil
-	if tab.Hidden == any then
-		tab:SetVisible(any)
+	if any and state.empty then
+		state.empty.Destroy()
+		state.empty = nil
+	elseif not any and not state.empty then
+		state.empty = tab:EmptyState({
+			Icon = "star",
+			Title = Strings.get("No favourites yet"),
+			Text = Strings.get("Right-click a row, or press and hold it, then choose Add to favourites."),
+		})
 	end
 	for position, id in state.order do
 		local copy = state.copies[id]
@@ -208,6 +225,10 @@ function Favourites.register(window, handle, container)
 	end
 	handle.favouriteId = Favourites.idOf(handle)
 	state.originals[handle.favouriteId] = handle
+	if state.fresh and handle.Options.Favourite == true and not state.starred[handle.favouriteId] then
+		state.starred[handle.favouriteId] = true
+		table.insert(state.order, handle.favouriteId)
+	end
 	-- A small star by the control marks a starred row where it lives.
 	local mark = Create.icon("star", 12, "warning", handle.row.slot)
 	mark.Name = "Favourite"

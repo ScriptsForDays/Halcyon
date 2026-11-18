@@ -13,6 +13,9 @@ local Theme = require("../Core/Theme")
 
 local PopOut = {}
 
+-- The panel's corner radius; a moving background that fills it matches.
+PopOut.RADIUS = 12
+
 local MIN_SIZE = Vector2.new(240, 140)
 local DEFAULT_SIZE = Vector2.new(320, 300)
 local BAR = 36
@@ -49,7 +52,7 @@ function PopOut.open(section)
 		Parent = layer(library),
 	})
 	scope:add(panel)
-	Create.corner(12, panel)
+	Create.corner(PopOut.RADIUS, panel)
 	Create.stroke("stroke", panel)
 	Create.new("UIScale", { Scale = window.scale, Parent = panel })
 
@@ -191,6 +194,7 @@ function PopOut.open(section)
 	section.popped = true
 	section.popScope = scope
 	section.panel = panel
+	section:placeBackground()
 	if section.popButton then
 		Theme.bind(section.popButton, "ImageColor3", "accent")
 	end
@@ -206,6 +210,8 @@ function PopOut.close(section)
 	section.popped = false
 	section.body.Parent = section.homeOfBody or section.root
 	section.panel = nil
+	-- Before the panel goes, or its background would go with it.
+	section:placeBackground()
 	if section.popButton then
 		Theme.bind(section.popButton, "ImageColor3", "textMuted")
 	end

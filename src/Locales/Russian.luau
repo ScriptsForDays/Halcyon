@@ -255,6 +255,8 @@ return {
 	["Favourites"] = "Избранное",
 	["Add to favourites"] = "Добавить в избранное",
 	["Remove from favourites"] = "Убрать из избранного",
+	["No favourites yet"] = "Пока нет избранного",
+	["Right-click a row, or press and hold it, then choose Add to favourites."] = "Нажмите на строку правой кнопкой или удерживайте её, затем выберите «Добавить в избранное».",
 	["Open in its own window"] = "Открыто в отдельном окне",
 	["Bring back"] = "Вернуть сюда",
 	["Unpin"] = "Открепить",

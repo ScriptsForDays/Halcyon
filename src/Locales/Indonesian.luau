@@ -255,6 +255,8 @@ return {
 	["Favourites"] = "Favorit",
 	["Add to favourites"] = "Tambah ke favorit",
 	["Remove from favourites"] = "Hapus dari favorit",
+	["No favourites yet"] = "Belum ada favorit",
+	["Right-click a row, or press and hold it, then choose Add to favourites."] = "Klik kanan sebuah baris, atau tekan dan tahan, lalu pilih Tambah ke favorit.",
 	["Open in its own window"] = "Terbuka di jendela sendiri",
 	["Bring back"] = "Kembalikan",
 	["Unpin"] = "Lepas sematan",

@@ -48,7 +48,7 @@ line("export type Image = string | number")
 line("export type Callback = (...any) -> ()")
 line("export type Condition = string | { any } | any")
 line("export type MenuItem = { Title: string?, Icon: Image?, Callback: (() -> ())?, Danger: boolean?, Disabled: boolean?, Divider: boolean? }")
-line("export type Background = string | { Kind: string?, Colors: { string | Color3 }?, Speed: number?, Intensity: number?, Image: Image? }")
+line("export type Background = string | { Kind: string?, Colors: { string | Color3 }?, Speed: number?, Intensity: number?, Image: Image?, Sheen: boolean?, Vignette: boolean?, SeeThrough: number? }")
 line("export type Signal<T...> = { Connect: (self: any, (T...) -> ()) -> { Disconnect: (self: any) -> () } }")
 line()
 

@@ -406,6 +406,65 @@ Window:AddUpdate({ Version = "1.2.1", Entries = { { Kind = "Fixed", Text = "Cras
 
 Releases are ordered by version number (1.10 comes after 1.9), newest first; `Pinned = true` keeps one on top. Entry kinds are New, Improved, Fixed, Removed and Security; a plain string is New. The newest release is open, older ones are folded, and the tab carries a badge until the player opens it. Players can search and filter by kind. Looks: Timeline (default), Cards, Compact. `UpdateLog = false` builds nothing.
 
+## New in 2.3
+
+LLM.txt has every option; this is the short tour.
+
+### Values
+
+| Call | Does |
+|---|---|
+| `handle:SetSilent(value)` | Sets the value and fires `Changed` without running the Callback |
+| `handle:Reset()`, `handle:GetDefault()` | Back to, or read, the value it was made with |
+| `Window:GetValues()`, `:SetValues(table, silent)`, `:ResetValues()` | Every flag at once |
+| `Window:Undo()` | Brings back what the last load, import, `SetValues` or reset replaced |
+| `Window:ExportConfig()`, `:ImportConfig(code)` | Settings as one line of text (`Halcyon1:...`) |
+
+### Pages, favourites, pop-outs
+
+```lua
+local aim = Combat:Section({ Title = "Aim", PopOut = true })
+local prediction = aim:Page({ Title = "Prediction", Description = "How far ahead to aim" })
+prediction:Section({ Title = "Lead" }):Slider({ Title = "Lead time", Flag = "Lead", Min = 0, Max = 1, Step = 0.05 })
+```
+
+`Favourites = true` and `TabReorder = true` on `CreateWindow` let players keep a starred shortlist and arrange tabs; both are saved per hub. Players star a row from its right-click or long-press menu, and `Favourite = true` on a row starts it in the list on the first run.
+
+### New elements
+
+`Viewport` (3D preview), `Gauge`, `Knob`, `Chart` (`Type = "Donut" | "Pie" | "Line" | "Bars"`), `ItemGrid` (inventory with rarities), `Waypoints` (saved places). Options in LLM.txt.
+
+### Moving backgrounds
+
+```lua
+Halcyon:CreateWindow({ Title = "Farm", Background = { Kind = "Aurora", Sheen = true } })
+Farm:Section({ Title = "Session", Background = { Kind = "Glow", Intensity = 0.55 } })
+```
+
+| Key | What it does |
+| --- | --- |
+| `Kind` | `"Aurora"`, `"Glow"` (a light that follows the pointer), `"Gradient"`, `"Mesh"`, `"Pattern"` or `"Image"` |
+| `Colors` | theme roles or Color3s; the accent and its neighbours by default |
+| `Speed`, `Intensity` | how fast it moves; how strong it is (0.75 behind the window, 0.3 in a section) |
+| `Sheen` | a band of light crosses every few seconds |
+| `Vignette` | darkens the rim (on by default behind the window) |
+| `SeeThrough` | how much of a window background shows through the cards, 0 to 0.6 [0.35] |
+
+### Notices
+
+`Countdown = "Edge"` drains the card's outline back to the top centre; `Id` updates a notice in place; `Stack = "Deck"` (through `SetNotificationDefaults`) piles them.
+
+### Translation
+
+`Language = "auto"` (or "pt-br", "es", "vi", "id", "ru", "tr", "fr", "de") and `Strings = { ["English text"] = "yours" }`.
+
+### Building, extending, checking
+
+- `Halcyon:Build(spec)` makes a whole hub from one table.
+- `Halcyon:RegisterElement(kind, { Build, Options })` adds an element kind.
+- `Debug = true` warns about unknown option names, looks and themes.
+- `UpdateCheck = { Url }`, `Window:SupportPanel()`, `Window:ErrorsPanel()`.
+
 ## Configs
 
 A config holds the value of every element that has a `Flag`.
@@ -421,7 +480,9 @@ Each returns `ok, message`; the message is written for the player. Without file 
 
 Loading a config calls `Set` on each flag, which runs its Callback. Give a `Flag` only to settings you want restored; leave it off a toggle that should never start by itself.
 
-The player's interface choices (theme, navigation, scale, menu key, minimise style, folded groups, anonymous mode, reduced motion) save on their own to `Halcyon/<Folder>/settings.json`, unless `SavePreferences = false`.
+With `Configs = { PerGame = "Place" }` (or `"Universe"`), configs and autoload live in `configs/<game id>/`; configs saved before still load. Share codes (`ExportConfig`, `ImportConfig`) need no files at all.
+
+The player's interface choices (theme, navigation, scale, menu key, minimise style, folded groups, anonymous mode, reduced motion, language, favourites, tab order, popped-out panels) save on their own to `Halcyon/<Folder>/settings.json`, unless `SavePreferences = false`.
 
 ## Settings tab and overlays
 
@@ -429,7 +490,7 @@ The player's interface choices (theme, navigation, scale, menu key, minimise sty
 Window:SettingsTab({ Title = "Settings", Icon = "settings", Group = "Library" })
 ```
 
-Each row is on unless its switch is `false`: `Theme`, `Accent`, `Navigation`, `Scale`, `ReduceMotion`, `MenuKey`, `Minimize`, `Anonymous`, `Configs`, `Unload`. `ScaleControl = "Slider"` shows the interface scale as a slider instead of a stepper. `Personalise = true` and `ThemeBuilder = true` add the player's look settings and the theme builder.
+Each row is on unless its switch is `false`: `Theme`, `Accent`, `Navigation`, `Scale`, `Language`, `ReduceMotion`, `MenuKey`, `Minimize`, `Anonymous`, `Configs`, `Support`, `Errors`, `Unload`. `ScaleControl = "Slider"` shows the interface scale as a slider instead of a stepper. `Personalise = true` and `ThemeBuilder = true` add the player's look settings and the theme builder.
 
 ```lua
 local mark = Window:Watermark({ Fields = { "Title", "User", "Executor", "FPS", "Ping", "Time", "Date" } })

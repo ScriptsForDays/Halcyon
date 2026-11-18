@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.3.0
+
+- The resize grip keeps the window's bottom-right corner under the pointer. It grew the window by twice the pointer's travel, which only held while the window was centred; after a drag, or with a saved position, the corner ran away at double speed.
+- Values: `SetSilent`, `Reset` and `GetDefault` on every control; `Window:GetValues`, `SetValues`, `ResetValues` and `Undo`.
+- Share codes: `ExportConfig` and `ImportConfig` move every flagged setting as one line of text, with copy and paste rows in the config block. They work on executors without file functions.
+- `Configs = { PerGame = "Place" | "Universe" }` keeps configs and autoload per game.
+- A failing callback shows its reason under its row and is kept in `Window.Errors`; a button whose callback yields shows its spinner until it returns.
+- `Debug = true` warns about option names Halcyon doesn't know, with the name it guesses you meant, and about misspelt looks and themes.
+- Halcyon's own text can be translated: `Language` (with "auto"), `Strings`, a Language row in Settings, and packs for Brazilian Portuguese, Spanish, Vietnamese, Indonesian, Russian, Turkish, French and German.
+- Notices: `Countdown` picks a bar, the card's outline draining back to the top centre (Edge), a ring round the close button, a top line or none. `Id` updates a notice in place, repeats fold into one with a count, `Image` and `Avatar` show a picture, `OnClick` and `OnDismiss` report what the player did, `Stack = "Deck"` piles notices, and `ClearNotifications` dismisses them all.
+- New elements: Viewport, Gauge, Knob, Chart (donut, pie, line, bars), ItemGrid and Waypoints.
+- Keybind `Modifiers` for Ctrl, Shift and Alt combinations; a `Keybind` on Button; Toggle `Exclusive` groups and `Confirm`; Input `Validate` and `SetError`.
+- `Tab:Page` and `Section:Page` open sub-pages with a breadcrumb, a back arrow and Escape.
+- `Favourites = true` lets players star rows into a Favourites tab of live copies (`Favourite = true` on a row starts it there); `TabReorder = true` lets them drag, pin and move tabs.
+- `PopOut = true` on a section moves its rows into a floating panel that stays up while the hub is hidden and resizes from its corner; a section background moves into the panel and fills it.
+- Search marks the matched words, counts matches per section and in the box, and Enter or the arrow keys step through them with a light that runs round the row.
+- `Background` puts a moving Aurora, Glow, Gradient, Mesh, Pattern or Image behind the window or inside a section, driven by tweens and paused while hidden. Glow follows the pointer, `Sheen = true` sends a band of light across, `Vignette` darkens the rim, and `SeeThrough` lets the background show through the cards.
+- `UpdateCheck` tells players when a newer version is out; `SupportPanel` and `ErrorsPanel` (also rows in Settings) help with bug reports.
+- `Halcyon:RegisterElement` adds your own element kinds, `Halcyon:Build` makes a whole hub from one table, and `dist/Halcyon.types.luau` gives editors the types.
+- LLM.txt and docs/llm-guide.md cover all of the above, with a task index, recipes, common mistakes and the messages Halcyon prints.
+
 ## 2.2.1
 
 - Text no longer starts small and jumps to size when a window opens. The library starts loading its font as soon as it loads, and `CreateWindow` waits for it (at most two seconds, and only the first time).

@@ -255,6 +255,8 @@ return {
 	["Favourites"] = "Favoritos",
 	["Add to favourites"] = "Adicionar aos favoritos",
 	["Remove from favourites"] = "Tirar dos favoritos",
+	["No favourites yet"] = "Nenhum favorito ainda",
+	["Right-click a row, or press and hold it, then choose Add to favourites."] = "Clique com o botão direito em uma linha, ou toque e segure, e escolha Adicionar aos favoritos.",
 	["Open in its own window"] = "Aberto numa janela própria",
 	["Bring back"] = "Trazer de volta",
 	["Unpin"] = "Desafixar",

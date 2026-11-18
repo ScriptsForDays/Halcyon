@@ -37,6 +37,20 @@ local Halcyon = loadLibrary()
 -- the newest one as a What's new card.
 local UPDATES: { { [string]: any } } = {
 	{
+		Version = "2.3.0",
+		Date = "18 Nov 2026",
+		Title = "Pages, favourites and moving backgrounds",
+		Summary = "Sub-pages, pop-out panels, new notices and controls, and a resize grip that stays under the pointer.",
+		Entries = {
+			{ Kind = "Fixed", Text = "The resize grip keeps the window's corner under the pointer wherever the window sits." },
+			{ Kind = "New", Text = "Sub-pages, favourites, tabs you can drag into order, and sections that pop out into their own panel." },
+			{ Kind = "New", Text = "Gauges, knobs, charts, an inventory grid, saved places and a 3D preview." },
+			{ Kind = "New", Text = "Notices that count down around their border, update in place and pile into a deck." },
+			{ Kind = "New", Text = "Moving backgrounds, share codes for settings, undo and nine languages." },
+			{ Kind = "Improved", Text = "Search marks and counts matches; Enter steps through them." },
+		},
+	},
+	{
 		Version = "2.2.0",
 		Date = "13 Nov 2026",
 		Title = "Switches and new parts",
@@ -120,7 +134,7 @@ local function buildDashboard(hub)
 
 	local News = Dashboard:Section({ Title = "News", Icon = "flag" })
 	News:Banner({
-		Title = "Halcyon 2.2",
+		Title = "Halcyon 2.3",
 		Text = UPDATES[1].Summary,
 		Button = {
 			Title = "What's new",
@@ -130,7 +144,14 @@ local function buildDashboard(hub)
 		},
 	})
 
-	local Session = Dashboard:Section({ Title = "Session", Icon = "clock" })
+	-- The one section with its own moving background: a light that follows
+	-- the pointer. It can also float over the game while the hub is hidden.
+	local Session = Dashboard:Section({
+		Title = "Session",
+		Icon = "clock",
+		PopOut = true,
+		Background = { Kind = "Glow", Intensity = 0.55 },
+	})
 	local figures = Session:Stats({
 		Columns = 4,
 		Items = {
@@ -143,7 +164,15 @@ local function buildDashboard(hub)
 	local playtime = Session:Stat({ Title = "Time in game", Value = clockText(time()), Icon = "timer", Style = "Plain" })
 
 	local Performance = Dashboard:Section({ Title = "Performance", Icon = "activity", Side = "Right" })
-	local frameGraph = Performance:Graph({ Title = "Frame rate", Style = "Area", Suffix = " fps", Min = 0, Max = 30 })
+	local frameGauge = Performance:Gauge({
+		Title = "Frame rate",
+		Description = "Against 60 fps",
+		Max = 60,
+		Suffix = "",
+		Size = 64,
+		Thresholds = { { At = 0.5, Role = "warning" }, { At = 0.25, Role = "danger" } },
+	})
+	local frameGraph = Performance:Graph({ Title = "Frame rate history", Style = "Area", Suffix = " fps", Min = 0, Max = 30 })
 	local pingGraph = Performance:Graph({ Title = "Ping", Style = "Bars", Suffix = " ms", Min = 0, Max = 30 })
 
 	local Activity = Dashboard:Section({ Title = "Activity", Icon = "terminal", Side = "Right" })
@@ -201,6 +230,7 @@ local function buildDashboard(hub)
 		figures:Set("ping", ping)
 		figures:Set("memory", math.round(Stats:GetTotalMemoryUsageMb()))
 		frameGraph:Push(fps)
+		frameGauge:Set(math.min(fps, 60))
 		pingGraph:Push(ping)
 		playtime:Set(clockText(time()))
 	end))
@@ -271,6 +301,8 @@ local function buildPlayer(hub)
 		Default = movement.speed,
 		Suffix = " st/s",
 		Flag = "WalkSpeed",
+		-- Starts in the Favourites tab; players star more from any row's menu.
+		Favourite = true,
 		Menu = {
 			{ Title = "Back to 32", Icon = "refresh-cw", Callback = function()
 				speed:Set(32)
@@ -285,6 +317,7 @@ local function buildPlayer(hub)
 		Title = "Infinite jump",
 		Description = "Jump again in mid-air",
 		Flag = "InfiniteJump",
+		Favourite = true,
 		Callback = function(enabled)
 			movement.infiniteJump = enabled
 			hub.note(if enabled then "Infinite jump on" else "Infinite jump off")
@@ -321,6 +354,18 @@ local function buildPlayer(hub)
 		Content = "These change your own character from your client. A game's server can still undo them.",
 		Icon = "info",
 	})
+	Character:Viewport({ Title = "Your character", Character = true, Height = 170, Spin = 25 })
+
+	-- Places are saved with the config, so they come back next time.
+	local Places = Player:Section({ Title = "Places", Icon = "map-pin" })
+	Places:Waypoints({
+		Title = "Saved places",
+		Description = "Stand somewhere, name it, save it",
+		Flag = "Places",
+		Callback = function(list)
+			hub.note(`{#list} saved places`)
+		end,
+	})
 end
 
 local function buildCamera(hub)
@@ -335,6 +380,7 @@ local function buildCamera(hub)
 		Suffix = "°",
 		Stacked = true,
 		Flag = "FieldOfView",
+		Favourite = true,
 		Callback = function(degrees)
 			camera.FieldOfView = degrees
 		end,
@@ -556,6 +602,60 @@ local function buildComponents(hub)
 	Feedback:Button({ Title = "Filled button", Variant = "Filled", Callback = show("Filled button") })
 	Feedback:Button({ Title = "Outline button", Variant = "Outline", Callback = show("Outline button") })
 
+	-- Controls added in 2.3, with sample data.
+	local Added = Components:Section({ Title = "New in 2.3", Icon = "sparkles", Badge = "New", Description = "Sample data; nothing here changes the game." })
+	Added:Toggle({ Title = "Legit aim", Exclusive = "aim mode", Callback = show("Legit aim") })
+	Added:Toggle({ Title = "Rage aim", Exclusive = "aim mode", Confirm = "Other players may report this.", Callback = show("Rage aim") })
+	Added:Keybind({ Title = "Panic key", Modifiers = true, Default = "Ctrl+P", Callback = show("Panic key") })
+	Added:Button({ Title = "Rejoin", Icon = "refresh-cw", Keybind = Enum.KeyCode.J, Callback = show("Rejoin") })
+	Added:Input({
+		Title = "Target name",
+		Placeholder = "At least 3 letters",
+		Validate = function(text)
+			if #text > 0 and #text < 3 then
+				return false, "Use at least 3 letters."
+			end
+			return true
+		end,
+		Callback = show("Target name"),
+	})
+	Added:Knob({ Title = "Volume", Max = 10, Default = 6, Callback = show("Volume") })
+	Added:Chart({
+		Title = "Loot",
+		Type = "Donut",
+		Height = 110,
+		Items = { { Name = "Coins", Value = 640 }, { Name = "Gems", Value = 120 }, { Name = "Eggs", Value = 40 } },
+	})
+	Added:Chart({
+		Title = "Coins per minute",
+		Type = "Bars",
+		Labels = { "1", "2", "3", "4", "5" },
+		Series = { { Name = "Coins", Values = { 12, 30, 22, 41, 38 } }, { Name = "Gems", Values = { 2, 4, 3, 9, 6 } } },
+	})
+	Added:ItemGrid({
+		Title = "Eggs",
+		Sort = "Rarity",
+		Items = {
+			{ Title = "Basic egg", Rarity = "Common", Count = 12, Icon = "package", Value = "basic" },
+			{ Title = "Forest egg", Rarity = "Uncommon", Count = 4, Icon = "leaf", Value = "forest" },
+			{ Title = "Ocean egg", Rarity = "Rare", Count = 2, Icon = "droplet", Value = "ocean" },
+			{ Title = "Shadow egg", Rarity = "Epic", Count = 1, Icon = "ghost", Value = "shadow" },
+			{ Title = "Golden egg", Rarity = "Legendary", Count = 1, Icon = "crown", Value = "golden" },
+		},
+		Callback = show("Egg"),
+	})
+	local Tuning = Added:Page({ Title = "Prediction", Description = "A sub-page: its own sections, a breadcrumb, Escape to go back." })
+	Tuning:Section({ Title = "Lead" }):Slider({ Title = "Lead time", Min = 0, Max = 1, Step = 0.05, Default = 0.2, Callback = show("Lead time") })
+	Added:Button({
+		Title = "Show the new notices",
+		Icon = "bell",
+		Callback = function()
+			Window:Notify({ Title = "Config saved", Content = "Saved as Main.", Kind = "success", Countdown = "Edge", Duration = 6 })
+			Window:Notify({ Title = "Boss spawns soon", Content = "Head to the arena.", Kind = "warning", Countdown = "Ring", Duration = 6 })
+			Window:Notify({ Id = "example-status", Title = "Farming", Content = "Updates in place", Duration = 6 })
+		end,
+	})
+
 	local Content = Components:Section({ Title = "Content", Icon = "file-text", Side = "Right" })
 	Content:Label("Last updated 13 Nov 2026")
 	Content:Divider({ Title = "Advanced" })
@@ -678,9 +778,9 @@ local function buildLooks(hub, look)
 	picker("Window buttons", "Controls", "TopbarControls")
 	picker("Top-bar image", "TopbarImage", "TopbarImageStyle")
 	picker("Header", "Header", "HeaderStyle")
-	for _, key in { "Logo", "Icon", "TopbarImage" } do
+	for _, key in { "Logo", "Icon", "TopbarImage", "Background" } do
 		Trial:Toggle({
-			Title = if key == "TopbarImage" then "Top-bar image" else key,
+			Title = if key == "TopbarImage" then "Top-bar image" elseif key == "Background" then "Moving background" else key,
 			Description = key .. " = false",
 			Default = chosen[key] ~= false,
 			Callback = function(on)
@@ -920,8 +1020,17 @@ function start(look)
 		TopbarImage = if look.TopbarImage == false then false else "https://i.insider.com/602ee9ced3ad27001837f2ac?width=700",
 		Title = "Halcyon",
 		Subtitle = "Example hub",
-		Version = "v2.2.0",
+		Version = "v2.3.0",
 		Folder = "HalcyonExample",
+		-- A slow aurora behind everything; the Looks tab can turn it off.
+		Background = if look.Background == false then nil else { Kind = "Aurora", Sheen = true },
+		-- A Favourites tab; players star rows from a row's right-click or
+		-- long-press menu.
+		Favourites = true,
+		TabReorder = true,
+		Notifications = { Countdown = "Edge" },
+		-- package.json on GitHub carries the newest version number.
+		UpdateCheck = { Url = "https://raw.githubusercontent.com/ScriptsForDays/Halcyon/main/package.json", Current = "2.3.0" },
 		Theme = "Midnight",
 		TabStyle = "Sidebar",
 		CommandPalette = true,
