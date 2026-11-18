@@ -6,6 +6,7 @@ local Motion = require("../Core/Motion")
 local Options = require("./Options")
 local Popup = require("../Components/Popup")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -224,7 +225,7 @@ function Dropdown.new(container, options)
 			search = Create.new("TextBox", {
 				Name = "Search",
 				Size = UDim2.new(1, 0, 0, height),
-				PlaceholderText = "Search",
+				PlaceholderText = Strings.get("Search"),
 				TextSize = 13,
 				Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
 				Parent = parent,

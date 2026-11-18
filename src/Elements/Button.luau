@@ -13,6 +13,7 @@ local Effects = require("../Core/Effects")
 local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -152,7 +153,7 @@ function Button.new(container, options)
 
 	-- A first press arms the button and changes its wording; a second within
 	-- three seconds runs it.
-	local confirmText = if type(options.Confirm) == "string" then options.Confirm else "Press again to confirm"
+	local confirmText = if type(options.Confirm) == "string" then options.Confirm else Strings.get("Press again to confirm")
 	local function activate()
 		if busy then
 			return

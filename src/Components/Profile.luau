@@ -8,6 +8,7 @@ local Create = require("../Core/Create")
 local DiscordButton = require("./DiscordButton")
 local Env = require("../Core/Env")
 local Popup = require("./Popup")
+local Strings = require("../Core/Strings")
 
 local DEFAULTS = {
 	Enabled = true,
@@ -59,7 +60,7 @@ end
 
 function Profile.names(settings)
 	if settings.Anonymous then
-		return "Anonymous", "Identity hidden"
+		return Strings.get("Anonymous"), Strings.get("Identity hidden")
 	end
 	local player = Players.LocalPlayer
 	return settings.Name or player.DisplayName, settings.Subtitle or ("@" .. player.Name)
@@ -226,8 +227,8 @@ function Profile.card(window, scope, parent)
 	if discord then
 		DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(how, link)
 			window:Notify({
-				Title = if how == "opened" then "Opened in Discord" elseif how == "copied" then "Discord invite copied" else "Discord invite",
-				Content = if how == "opened" then "Accept the invite in the Discord app." elseif how == "copied" then "Paste it into your browser to join." else link,
+				Title = if how == "opened" then Strings.get("Opened in Discord") elseif how == "copied" then Strings.get("Discord invite copied") else Strings.get("Discord invite"),
+				Content = if how == "opened" then Strings.get("Accept the invite in the Discord app.") elseif how == "copied" then Strings.get("Paste it into your browser to join.") else link,
 				Kind = if how then "success" else "info",
 				Style = "Compact",
 				Duration = if how then 3 else 8,
@@ -242,7 +243,7 @@ function Profile.card(window, scope, parent)
 	local function countdown()
 		if expiry then
 			local left = window:GetKeyExpiry()
-			expiry.Text = if left > 0 then `Key expires in {Env.duration(left)}` else "Key expired"
+			expiry.Text = if left > 0 then Strings.get("Key expires in {time}", { time = Env.duration(left) }) else Strings.get("Key expired")
 			expiry.Visible = true
 		end
 	end

@@ -6,6 +6,7 @@
 -- tab uses the same block.
 
 local Env = require("../Core/Env")
+local Strings = require("../Core/Strings")
 
 local ConfigSection = {}
 
@@ -28,7 +29,7 @@ local function reportUndoable(window, done, failed, ok, message)
 		Duration = 6,
 		Actions = {
 			{
-				Title = "Undo",
+				Title = Strings.get("Undo"),
 				Callback = function()
 					window:Undo()
 				end,
@@ -42,31 +43,31 @@ end
 local function shareRows(window, section)
 	local shown
 	section:Button({
-		Title = "Copy share code",
-		Description = "Every setting as one line of text",
+		Title = Strings.get("Copy share code"),
+		Description = Strings.get("Every setting as one line of text"),
 		Icon = "copy",
 		Callback = function()
 			local code = window:ExportConfig()
 			if not code then
-				report(window, "", "Code not made", false, "These settings could not be written as a code.")
+				report(window, "", Strings.get("Code not made"), false, Strings.get("These settings could not be written as a code."))
 			elseif Env.copy(code) then
-				report(window, "Share code copied", "", true, "Paste it into the box below on another device or account.")
+				report(window, Strings.get("Share code copied"), "", true, Strings.get("Paste it into the box below on another device or account."))
 			elseif shown then
 				shown:Set(code)
 			else
-				shown = section:Code({ Title = "Share code", Code = code })
+				shown = section:Code({ Title = Strings.get("Share code"), Code = code })
 			end
 		end,
 	})
 	section:Input({
-		Title = "Paste share code",
+		Title = Strings.get("Paste share code"),
 		Placeholder = "Halcyon1:...",
 		Clearable = true,
 		Callback = function(text)
 			if text == "" then
 				return
 			end
-			reportUndoable(window, "Settings imported", "Code not imported", window:ImportConfig(text))
+			reportUndoable(window, Strings.get("Settings imported"), Strings.get("Code not imported"), window:ImportConfig(text))
 		end,
 	})
 end
@@ -78,18 +79,18 @@ function ConfigSection.build(window, target, options)
 	options = options or {}
 	local section = target
 	if type(target.Section) == "function" then
-		section = target:Section({ Title = options.Title or "Configs", Icon = options.Icon or "save", Side = options.Side })
+		section = target:Section({ Title = options.Title or Strings.get("Configs"), Icon = options.Icon or "save", Side = options.Side })
 	end
 	if not Env.canSave then
-		section:Paragraph({ Title = "Saving is off", Content = Env.NO_FILES .. " Share codes still work.", Icon = "info" })
+		section:Paragraph({ Title = Strings.get("Saving is off"), Content = Strings.get(Env.NO_FILES) .. " " .. Strings.get("Share codes still work."), Icon = "info" })
 		if options.ShareCodes ~= false then
 			shareRows(window, section)
 		end
 		return section
 	end
 
-	local name = section:Input({ Title = "Config name", Placeholder = "default" })
-	local saved = section:Dropdown({ Title = "Saved configs", Values = window:ListConfigs(), AllowNone = true, Placeholder = "None" })
+	local name = section:Input({ Title = Strings.get("Config name"), Placeholder = Strings.get("default") })
+	local saved = section:Dropdown({ Title = Strings.get("Saved configs"), Values = window:ListConfigs(), AllowNone = true, Placeholder = Strings.get("None") })
 	-- A typed name wins over the one picked in the list.
 	local function chosen()
 		local typed = name:Get()
@@ -101,11 +102,11 @@ function ConfigSection.build(window, target, options)
 	end))
 
 	local function save(configName)
-		report(window, "Config saved", "Config not saved", window:SaveConfig(configName))
+		report(window, Strings.get("Config saved"), Strings.get("Config not saved"), window:SaveConfig(configName))
 	end
 
 	section:Button({
-		Title = "Save",
+		Title = Strings.get("Save"),
 		Icon = "save",
 		Callback = function()
 			local configName = chosen() or "default"
@@ -114,12 +115,12 @@ function ConfigSection.build(window, target, options)
 				return
 			end
 			window:Dialog({
-				Title = `Overwrite "{Env.safeName(configName)}"?`,
-				Content = "Its saved settings are replaced with the current ones.",
+				Title = Strings.get('Overwrite "{name}"?', { name = Env.safeName(configName) }),
+				Content = Strings.get("Its saved settings are replaced with the current ones."),
 				Buttons = {
-					{ Title = "Keep" },
+					{ Title = Strings.get("Keep") },
 					{
-						Title = "Overwrite",
+						Title = Strings.get("Overwrite"),
 						Variant = "Primary",
 						Callback = function()
 							save(configName)
@@ -130,39 +131,39 @@ function ConfigSection.build(window, target, options)
 		end,
 	})
 	section:Button({
-		Title = "Load",
+		Title = Strings.get("Load"),
 		Icon = "download",
 		Callback = function()
-			reportUndoable(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
+			reportUndoable(window, Strings.get("Config loaded"), Strings.get("Config not loaded"), window:LoadConfig(chosen()))
 		end,
 	})
 	section:Button({
-		Title = "Load on start",
-		Description = "Loads it when the hub starts",
+		Title = Strings.get("Load on start"),
+		Description = Strings.get("Loads it when the hub starts"),
 		Icon = "pin",
 		Callback = function()
-			report(window, "Loads on start", "Autoload not set", window:SetAutoload(chosen()))
+			report(window, Strings.get("Loads on start"), Strings.get("Autoload not set"), window:SetAutoload(chosen()))
 		end,
 	})
 	section:Button({
-		Title = "Delete",
+		Title = Strings.get("Delete"),
 		Icon = "trash-2",
 		Callback = function()
 			local configName = chosen()
 			if not configName then
-				report(window, "Config deleted", "Nothing deleted", false, "Pick a config to delete.")
+				report(window, Strings.get("Config deleted"), Strings.get("Nothing deleted"), false, Strings.get("Pick a config to delete."))
 				return
 			end
 			window:Dialog({
-				Title = `Delete "{Env.safeName(configName) or configName}"?`,
-				Content = "This can't be undone.",
+				Title = Strings.get('Delete "{name}"?', { name = Env.safeName(configName) or configName }),
+				Content = Strings.get("This can't be undone."),
 				Buttons = {
-					{ Title = "Keep" },
+					{ Title = Strings.get("Keep") },
 					{
-						Title = "Delete",
+						Title = Strings.get("Delete"),
 						Variant = "Danger",
 						Callback = function()
-							report(window, "Config deleted", "Config not deleted", window:DeleteConfig(configName))
+							report(window, Strings.get("Config deleted"), Strings.get("Config not deleted"), window:DeleteConfig(configName))
 						end,
 					},
 				},

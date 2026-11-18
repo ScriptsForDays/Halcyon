@@ -647,7 +647,7 @@ Stub.check(not Stub.byName(plain.root, "minus").Visible, "Minimizable = false hi
 Stub.equal(Stub.byText(plain.root, "Tester"), nil, "Profile = false leaves no profile card")
 Stub.equal(Stub.byText(plain.root, "Open").Parent.ClassName, "Frame", "CollapsibleGroups = false makes headings plain")
 Stub.check(not folded.button.Visible, "CollapsedGroups folds a group from the start")
-local trimmed = plain:SettingsTab({ Theme = false, Accent = false, Navigation = false, Scale = false, ReduceMotion = false, Configs = false, Unload = false })
+local trimmed = plain:SettingsTab({ Theme = false, Accent = false, Navigation = false, Scale = false, Language = false, ReduceMotion = false, Configs = false, Unload = false })
 Stub.check(Stub.byText(trimmed.page, "Appearance") == nil, "a settings section with every row off is left out")
 Stub.check(Stub.byText(trimmed.page, "Toggle key") ~= nil, "rows left on stay")
 Stub.check(Stub.byText(trimmed.page, "Unload") == nil and Stub.byText(trimmed.page, "Configs") == nil, "Unload and Configs can be turned off")

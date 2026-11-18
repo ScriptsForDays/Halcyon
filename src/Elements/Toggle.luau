@@ -5,6 +5,7 @@ local Icons = require("../Core/Icons")
 local Keybind = require("./Keybind")
 local Motion = require("../Core/Motion")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -271,7 +272,7 @@ function Toggle.new(container, options)
 			Motion.tween(knob, timing, { BackgroundColor3 = Theme.color(knobRole) })
 		end
 		if word then
-			word.Text = if value then look.labels[1] else look.labels[2]
+			word.Text = Strings.get(if value then look.labels[1] else look.labels[2])
 			Theme.bind(word, "TextColor3", if value then "onAccent" else "textMuted")
 		end
 		if glyph then

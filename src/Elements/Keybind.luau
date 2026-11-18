@@ -5,6 +5,7 @@ local Env = require("../Core/Env")
 local Popup = require("../Components/Popup")
 local Row = require("./Row")
 local Signal = require("../Core/Signal")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -70,7 +71,7 @@ function Keybind.control(row, options, onInput)
 	end
 
 	local function draw()
-		local name = if listening then "Press a key" elseif key then SHORT[key.Name] or key.Name else "None"
+		local name = if listening then Strings.get("Press a key") elseif key then SHORT[key.Name] or key.Name else Strings.get("None")
 		chip.Text = if look.brackets then "[ " .. name .. " ]" else name
 		if listening then
 			Theme.bind(chip, "TextColor3", "accent")

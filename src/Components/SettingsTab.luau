@@ -5,15 +5,25 @@
 local ConfigSection = require("./ConfigSection")
 local Personalise = require("./Personalise")
 local Motion = require("../Core/Motion")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local STYLES = { "Sidebar", "Rail", "Top", "Dock" }
+
+-- Look names stay the values; only the wording shown is translated.
+local function choices(names)
+	local list = {}
+	for _, name in names do
+		table.insert(list, { Text = Strings.get(name), Value = name })
+	end
+	return list
+end
 
 local SettingsTab = {}
 
 -- Options: Title, Icon, Group, and one switch per row. Every row is on
 -- unless its switch is false:
---   Theme, Accent, Navigation, Scale, ReduceMotion, MenuKey, Minimize,
+--   Theme, Accent, Navigation, Scale, Language, ReduceMotion, MenuKey, Minimize,
 --   Anonymous, Configs, Unload
 -- ScaleControl picks "Stepper" (default) or "Slider" for the interface scale.
 -- Two sections are added only when asked for: Personalise = true (or a
@@ -28,14 +38,14 @@ function SettingsTab.build(window, options)
 		end
 		return false
 	end
-	local tab = window:Tab({ Title = options.Title or "Settings", Icon = options.Icon or "settings", Group = options.Group })
+	local tab = window:Tab({ Title = options.Title or Strings.get("Settings"), Icon = options.Icon or "settings", Group = options.Group })
 	local scope = tab.scope
 
-	if wants("Theme", "Accent", "Navigation", "Scale", "ReduceMotion") then
-		local look = tab:Section({ Title = "Appearance", Icon = "palette" })
+	if wants("Theme", "Accent", "Navigation", "Scale", "Language", "ReduceMotion") then
+		local look = tab:Section({ Title = Strings.get("Appearance"), Icon = "palette" })
 		if wants("Theme") then
 			local themes = look:Dropdown({
-				Title = "Theme",
+				Title = Strings.get("Theme"),
 				Values = Theme.names(),
 				Default = Theme.current.Name,
 				Callback = function(name)
@@ -54,7 +64,7 @@ function SettingsTab.build(window, options)
 		end
 		if wants("Accent") then
 			look:ColorPicker({
-				Title = "Accent colour",
+				Title = Strings.get("Accent colour"),
 				Default = Theme.color("accent"),
 				Callback = function(color)
 					window:SetAccent(color)
@@ -63,8 +73,8 @@ function SettingsTab.build(window, options)
 		end
 		if wants("Navigation") then
 			look:Dropdown({
-				Title = "Tab layout",
-				Values = STYLES,
+				Title = Strings.get("Tab layout"),
+				Values = choices(STYLES),
 				Default = window.tabStyle,
 				Callback = function(style)
 					window:SetTabStyle(style)
@@ -73,7 +83,7 @@ function SettingsTab.build(window, options)
 		end
 		if wants("Scale") then
 			local scale = {
-				Title = "Interface scale",
+				Title = Strings.get("Interface scale"),
 				Min = 75,
 				Max = 125,
 				Step = 5,
@@ -92,9 +102,29 @@ function SettingsTab.build(window, options)
 				look:Stepper(scale)
 			end
 		end
+		if wants("Language") then
+			local languages = {}
+			for _, language in Strings.languages() do
+				table.insert(languages, { Text = language.Name, Value = language.Code })
+			end
+			look:Dropdown({
+				Title = Strings.get("Language"),
+				Values = languages,
+				Default = Strings.language,
+				Callback = function(code)
+					if code and code ~= Strings.language then
+						window:SetLanguage(code)
+						window:Notify({
+							Title = Strings.get("Language changed"),
+							Content = Strings.get("Run the hub again to see every part in the new language."),
+						})
+					end
+				end,
+			})
+		end
 		if wants("ReduceMotion") then
 			look:Toggle({
-				Title = "Reduce motion",
+				Title = Strings.get("Reduce motion"),
 				Default = Motion.reduced,
 				Callback = function(reduced)
 					window:SetReducedMotion(reduced)
@@ -105,10 +135,10 @@ function SettingsTab.build(window, options)
 
 	local anonymous = wants("Anonymous") and window.profile.Enabled
 	if wants("MenuKey", "Minimize") or anonymous then
-		local menu = tab:Section({ Title = "Menu", Icon = "keyboard", Side = "Right" })
+		local menu = tab:Section({ Title = Strings.get("Menu"), Icon = "keyboard", Side = "Right" })
 		if wants("MenuKey") then
 			menu:Keybind({
-				Title = "Toggle key",
+				Title = Strings.get("Toggle key"),
 				Default = window.toggleKey,
 				ChangedCallback = function(key)
 					window:SetToggleKey(key)
@@ -117,8 +147,8 @@ function SettingsTab.build(window, options)
 		end
 		if wants("Minimize") then
 			menu:Dropdown({
-				Title = "Minimise to",
-				Values = { "Topbar", "Pill", "Chip" },
+				Title = Strings.get("Minimise to"),
+				Values = choices({ "Topbar", "Pill", "Chip" }),
 				Default = window.minimizeStyle,
 				Callback = function(style)
 					window:SetMinimizeStyle(style)
@@ -127,8 +157,8 @@ function SettingsTab.build(window, options)
 		end
 		if anonymous then
 			menu:Toggle({
-				Title = "Anonymous mode",
-				Description = "Hides your name and picture",
+				Title = Strings.get("Anonymous mode"),
+				Description = Strings.get("Hides your name and picture"),
 				Default = window.profile.Anonymous,
 				Callback = function(hidden)
 					if hidden ~= window.profile.Anonymous then
@@ -151,8 +181,8 @@ function SettingsTab.build(window, options)
 	end
 
 	if wants("Unload") then
-		tab:Section({ Title = "Session", Icon = "power" }):Button({
-			Title = "Unload",
+		tab:Section({ Title = Strings.get("Session"), Icon = "power" }):Button({
+			Title = Strings.get("Unload"),
 			Variant = "Danger",
 			Callback = function()
 				window:RequestUnload()

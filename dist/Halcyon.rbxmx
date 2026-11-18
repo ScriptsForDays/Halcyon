@@ -36,6 +36,7 @@ local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
+local Strings = import("Core/Strings")
 local WIDTH, RESULTS = 460, 8
 local CommandPalette = {}
 local function catalogue(window)
@@ -153,7 +154,7 @@ Create.icon("search", 16, "textMuted", bar)
 local box = Create.new("TextBox", {
 Name = "Query",
 Size = UDim2.fromScale(0, 1),
-PlaceholderText = "Jump to a tab or setting",
+PlaceholderText = Strings.get("Jump to a tab or setting"),
 TextSize = 14,
 LayoutOrder = 1,
 Theme = { TextColor3 = "text" },
@@ -162,7 +163,7 @@ Parent = bar,
 local hint = Create.new("TextLabel", {
 Size = UDim2.fromOffset(0, 20),
 AutomaticSize = Enum.AutomaticSize.X,
-Text = "Esc",
+Text = Strings.get("Esc"),
 TextSize = 12,
 Weight = "bold",
 LayoutOrder = 2,
@@ -251,7 +252,7 @@ if #buttons == 0 then
 local empty = Create.new("TextLabel", {
 Name = "Result",
 Size = UDim2.new(1, 0, 0, 40),
-Text = `Nothing matches "{box.Text}"`,
+Text = Strings.get('Nothing matches "{query}".', { query = box.Text }),
 TextSize = 13,
 TextXAlignment = Enum.TextXAlignment.Center,
 Theme = { TextColor3 = "textMuted" },
@@ -307,6 +308,7 @@ return CommandPalette
 end
 modules["Components/ConfigSection"] = function()
 local Env = import("Core/Env")
+local Strings = import("Core/Strings")
 local ConfigSection = {}
 local function report(window, done, failed, ok, message)
 window:Notify({ Title = if ok then done else failed, Content = message, Kind = if ok then "success" else "warning" })
@@ -323,7 +325,7 @@ Kind = "success",
 Duration = 6,
 Actions = {
 {
-Title = "Undo",
+Title = Strings.get("Undo"),
 Callback = function()
 window:Undo()
 end,
@@ -334,31 +336,31 @@ end
 local function shareRows(window, section)
 local shown
 section:Button({
-Title = "Copy share code",
-Description = "Every setting as one line of text",
+Title = Strings.get("Copy share code"),
+Description = Strings.get("Every setting as one line of text"),
 Icon = "copy",
 Callback = function()
 local code = window:ExportConfig()
 if not code then
-report(window, "", "Code not made", false, "These settings could not be written as a code.")
+report(window, "", Strings.get("Code not made"), false, Strings.get("These settings could not be written as a code."))
 elseif Env.copy(code) then
-report(window, "Share code copied", "", true, "Paste it into the box below on another device or account.")
+report(window, Strings.get("Share code copied"), "", true, Strings.get("Paste it into the box below on another device or account."))
 elseif shown then
 shown:Set(code)
 else
-shown = section:Code({ Title = "Share code", Code = code })
+shown = section:Code({ Title = Strings.get("Share code"), Code = code })
 end
 end,
 })
 section:Input({
-Title = "Paste share code",
+Title = Strings.get("Paste share code"),
 Placeholder = "Halcyon1:...",
 Clearable = true,
 Callback = function(text)
 if text == "" then
 return
 end
-reportUndoable(window, "Settings imported", "Code not imported", window:ImportConfig(text))
+reportUndoable(window, Strings.get("Settings imported"), Strings.get("Code not imported"), window:ImportConfig(text))
 end,
 })
 end
@@ -366,17 +368,17 @@ function ConfigSection.build(window, target, options)
 options = options or {}
 local section = target
 if type(target.Section) == "function" then
-section = target:Section({ Title = options.Title or "Configs", Icon = options.Icon or "save", Side = options.Side })
+section = target:Section({ Title = options.Title or Strings.get("Configs"), Icon = options.Icon or "save", Side = options.Side })
 end
 if not Env.canSave then
-section:Paragraph({ Title = "Saving is off", Content = Env.NO_FILES .. " Share codes still work.", Icon = "info" })
+section:Paragraph({ Title = Strings.get("Saving is off"), Content = Strings.get(Env.NO_FILES) .. " " .. Strings.get("Share codes still work."), Icon = "info" })
 if options.ShareCodes ~= false then
 shareRows(window, section)
 end
 return section
 end
-local name = section:Input({ Title = "Config name", Placeholder = "default" })
-local saved = section:Dropdown({ Title = "Saved configs", Values = window:ListConfigs(), AllowNone = true, Placeholder = "None" })
+local name = section:Input({ Title = Strings.get("Config name"), Placeholder = Strings.get("default") })
+local saved = section:Dropdown({ Title = Strings.get("Saved configs"), Values = window:ListConfigs(), AllowNone = true, Placeholder = Strings.get("None") })
 local function chosen()
 local typed = name:Get()
 return if typed ~= "" then typed else saved:Get()
@@ -385,10 +387,10 @@ section.scope:add(window.ConfigChanged:Connect(function()
 saved:Refresh(window:ListConfigs())
 end))
 local function save(configName)
-report(window, "Config saved", "Config not saved", window:SaveConfig(configName))
+report(window, Strings.get("Config saved"), Strings.get("Config not saved"), window:SaveConfig(configName))
 end
 section:Button({
-Title = "Save",
+Title = Strings.get("Save"),
 Icon = "save",
 Callback = function()
 local configName = chosen() or "default"
@@ -397,12 +399,12 @@ save(configName)
 return
 end
 window:Dialog({
-Title = `Overwrite "{Env.safeName(configName)}"?`,
-Content = "Its saved settings are replaced with the current ones.",
+Title = Strings.get('Overwrite "{name}"?', { name = Env.safeName(configName) }),
+Content = Strings.get("Its saved settings are replaced with the current ones."),
 Buttons = {
-{ Title = "Keep" },
+{ Title = Strings.get("Keep") },
 {
-Title = "Overwrite",
+Title = Strings.get("Overwrite"),
 Variant = "Primary",
 Callback = function()
 save(configName)
@@ -413,39 +415,39 @@ end,
 end,
 })
 section:Button({
-Title = "Load",
+Title = Strings.get("Load"),
 Icon = "download",
 Callback = function()
-reportUndoable(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
+reportUndoable(window, Strings.get("Config loaded"), Strings.get("Config not loaded"), window:LoadConfig(chosen()))
 end,
 })
 section:Button({
-Title = "Load on start",
-Description = "Loads it when the hub starts",
+Title = Strings.get("Load on start"),
+Description = Strings.get("Loads it when the hub starts"),
 Icon = "pin",
 Callback = function()
-report(window, "Loads on start", "Autoload not set", window:SetAutoload(chosen()))
+report(window, Strings.get("Loads on start"), Strings.get("Autoload not set"), window:SetAutoload(chosen()))
 end,
 })
 section:Button({
-Title = "Delete",
+Title = Strings.get("Delete"),
 Icon = "trash-2",
 Callback = function()
 local configName = chosen()
 if not configName then
-report(window, "Config deleted", "Nothing deleted", false, "Pick a config to delete.")
+report(window, Strings.get("Config deleted"), Strings.get("Nothing deleted"), false, Strings.get("Pick a config to delete."))
 return
 end
 window:Dialog({
-Title = `Delete "{Env.safeName(configName) or configName}"?`,
-Content = "This can't be undone.",
+Title = Strings.get('Delete "{name}"?', { name = Env.safeName(configName) or configName }),
+Content = Strings.get("This can't be undone."),
 Buttons = {
-{ Title = "Keep" },
+{ Title = Strings.get("Keep") },
 {
-Title = "Delete",
+Title = Strings.get("Delete"),
 Variant = "Danger",
 Callback = function()
-report(window, "Config deleted", "Config not deleted", window:DeleteConfig(configName))
+report(window, Strings.get("Config deleted"), Strings.get("Config not deleted"), window:DeleteConfig(configName))
 end,
 },
 },
@@ -466,6 +468,7 @@ local Effects = import("Core/Effects")
 local Env = import("Core/Env")
 local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local VARIANTS = {
 Primary = { fill = "accent", hover = "accentHover", text = "onAccent" },
@@ -597,7 +600,7 @@ Dialog.text(shell.card, options.Content, 1)
 end
 local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0, 38), LayoutOrder = 2, Parent = shell.card })
 Create.list(actions, "Horizontal", 8, { HorizontalAlignment = Enum.HorizontalAlignment.Right })
-for index, settings in options.Buttons or { { Title = "Close" } } do
+for index, settings in options.Buttons or { { Title = Strings.get("Close") } } do
 local button = Dialog.button(shell.scope, actions, { Title = settings.Title, Variant = settings.Variant, LayoutOrder = index })
 local waiting = tonumber(settings.Delay) or 0
 if waiting > 0 then
@@ -759,6 +762,7 @@ local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Hairline = import("Core/Hairline")
 local Icons = import("Core/Icons")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 Styles.register("Header", "Bar", { height = 48 })
@@ -846,7 +850,7 @@ local box = Create.new("TextBox", {
 Name = "Query",
 Position = UDim2.fromOffset(32, 0),
 Size = UDim2.new(1, -38, 1, 0),
-PlaceholderText = "Search",
+PlaceholderText = Strings.get("Search"),
 TextSize = 13,
 ClipsDescendants = true,
 Text = window.searchText or "",
@@ -926,6 +930,7 @@ local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Env = import("Core/Env")
 local Profile = import("Components/Profile")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 Styles.register("Watermark", "Card", { fill = true, corner = 8, separator = "  |  " })
@@ -1051,7 +1056,7 @@ Create.padding(panel, 12, 10)
 Create.list(panel, "Vertical", 6)
 Create.new("TextLabel", {
 Size = UDim2.new(1, 0, 0, 16),
-Text = options.Title or "Keybinds",
+Text = options.Title or Strings.get("Keybinds"),
 TextSize = 12,
 Weight = "bold",
 Theme = { TextColor3 = "textMuted" },
@@ -1111,6 +1116,7 @@ local DiscordButton = import("Components/DiscordButton")
 local Env = import("Core/Env")
 local Hairline = import("Core/Hairline")
 local Motion = import("Core/Motion")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local VERSION = 1
 local INVALID_KEY_MESSAGE = "That key is not valid."
@@ -1163,7 +1169,7 @@ local valid, detail = remote.Accept(response, status)
 return valid == true, detail
 end
 if not ok then
-return false, if status == 0 then "The key server could not be reached." else nil
+return false, if status == 0 then Strings.get("The key server could not be reached.") else nil
 end
 local decoded, reply = Env.decode(response)
 if not decoded or type(reply) ~= "table" then
@@ -1181,7 +1187,7 @@ local ad = adService(tier)
 local keyed = not (ad and ad.RequiresKey == false)
 key = trim(key)
 if key == "" and keyed then
-return nil, "Enter your key first."
+return nil, Strings.get("Enter your key first.")
 end
 if key ~= "" then
 for index = #tiers, 1, -1 do
@@ -1238,14 +1244,14 @@ return nil, nil
 end)
 if not ok then
 warn(`[Halcyon] Key validator failed: {unlocked}`)
-return nil, "The key could not be checked. Try again."
+return nil, Strings.get("The key could not be checked. Try again.")
 elseif unlocked then
 return unlocked, nil, detail
 end
 if not message and ad and not keyed then
-message = `The {ad.Name or "ad"} step is not confirmed yet. Finish it, then try again.`
+message = Strings.get("The {service} step is not confirmed yet. Finish it, then try again.", { service = ad.Name or Strings.get("ad") })
 end
-return nil, message or INVALID_KEY_MESSAGE
+return nil, message or Strings.get(INVALID_KEY_MESSAGE)
 end
 local function savedPath(folder)
 return `Halcyon/{folder}/key.json`
@@ -1353,7 +1359,7 @@ AutomaticSize = Enum.AutomaticSize.Y,
 TextWrapped = true,
 TextSize = 17,
 Weight = "bold",
-Text = options.Title or `{context.title} access`,
+Text = options.Title or Strings.get("{title} access", { title = context.title }),
 Theme = { TextColor3 = "text" },
 Parent = titles,
 })
@@ -1391,7 +1397,7 @@ local paid = paidRank ~= nil and index >= paidRank
 local ad = adService(tier)
 local tag = tier.Tag
 if not tag then
-tag = if tier.NoKey then "No key needed" elseif ad then `Via {ad.Name or "an ad"}` elseif paid then "Paid key" else "Key required"
+tag = if tier.NoKey then Strings.get("No key needed") elseif ad then Strings.get("Via {service}", { service = ad.Name or Strings.get("an ad") }) elseif paid then Strings.get("Paid key") else Strings.get("Key required")
 if tier.Duration and showExpiry then
 tag ..= ` · {Env.duration(tier.Duration)}`
 end
@@ -1464,7 +1470,7 @@ local input = Create.new("TextBox", {
 Name = "Key",
 Position = UDim2.fromOffset(40, 0),
 Size = UDim2.new(1, -52, 1, 0),
-PlaceholderText = "Paste your key",
+PlaceholderText = Strings.get("Paste your key"),
 TextSize = 14,
 ClipsDescendants = true,
 Theme = { TextColor3 = "text" },
@@ -1519,16 +1525,16 @@ local discord = DiscordButton.settings(options.Discord)
 if discord then
 local line = Create.new("Frame", { Name = "Community", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = 9, Parent = card })
 Create.list(line, "Horizontal", 10, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
-local settings = { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1, Label = discord.Label or "Join the Discord" }
+local settings = { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1, Label = discord.Label or Strings.get("Join the Discord") }
 DiscordButton.new(scope, line, settings, function(how, link)
 if how == "opened" then
-setStatus("Opened the invite in Discord.", "success")
+setStatus(Strings.get("Opened the invite in Discord."), "success")
 elseif how == "copied" then
-setStatus("Discord invite copied. Paste it into your browser.", "success")
+setStatus(Strings.get("Discord invite copied. Paste it into your browser."), "success")
 else
 linkBox.Text = link
 linkBox.Visible = true
-setStatus("Copy the invite from the box below.", "info")
+setStatus(Strings.get("Copy the invite from the box below."), "info")
 end
 end)
 end
@@ -1544,18 +1550,18 @@ end
 local ad = adService(tier)
 local service = if ad then ad.Name or "the ad" else nil
 local keyed = not (ad and ad.RequiresKey == false)
-local hint = tier.Description or (if ad then `Finish the {service} step to unlock {tier.Name}.` else nil)
+local hint = tier.Description or (if ad then Strings.get("Finish the {service} step to unlock {tier}.", { service = service, tier = tier.Name }) else nil)
 description.Text = hint or ""
 description.Visible = hint ~= nil
 input.Visible = not tier.NoKey and keyed
 field.Visible = input.Visible
-local lasts = if tier.Duration and showExpiry and input.Visible then `Keys for {tier.Name} last {Env.duration(tier.Duration)}.` else nil
-local kept = if options.SaveKey ~= false and input.Visible then "Your key is saved on this device." else nil
+local lasts = if tier.Duration and showExpiry and input.Visible then Strings.get("Keys for {tier} last {time}.", { tier = tier.Name, time = Env.duration(tier.Duration) }) else nil
+local kept = if options.SaveKey ~= false and input.Visible then Strings.get("Your key is saved on this device.") else nil
 footer.Text = if lasts and kept then `{lasts} {kept}` else lasts or kept or ""
 footer.Visible = footer.Text ~= ""
 getKey.Visible = not tier.NoKey and (tier.Link ~= nil or tier.GetLink ~= nil or (ad ~= nil and (ad.Link ~= nil or ad.GetLink ~= nil)))
-getKey.Text = tier.LinkLabel or (if ad then `Open {service}` else "Get a key")
-verify.Text = if busy then "Checking" elseif tier.NoKey then `Continue with {tier.Name}` elseif not keyed then `I finished {service}` else "Verify key"
+getKey.Text = tier.LinkLabel or (if ad then Strings.get("Open {service}", { service = service }) else Strings.get("Get a key"))
+verify.Text = if busy then Strings.get("Checking") elseif tier.NoKey then Strings.get("Continue with {tier}", { tier = tier.Name }) elseif not keyed then Strings.get("I finished {service}", { service = service }) else Strings.get("Verify key")
 linkBox.Visible = false
 end
 local function finish(index, key, detail)
@@ -1572,7 +1578,7 @@ local function lockOut()
 locked = true
 scope:add(task.spawn(function()
 for remaining = cooldown, 1, -1 do
-setStatus(`Too many attempts. Try again in {remaining} s.`, "danger")
+setStatus(Strings.get("Too many attempts. Try again in {seconds} s.", { seconds = remaining }), "danger")
 task.wait(1)
 end
 locked, attempts = false, 0
@@ -1590,7 +1596,7 @@ return
 end
 local key = trim(input.Text)
 busy = true
-setStatus("Checking the key.", "textMuted")
+setStatus(Strings.get("Checking the key."), "textMuted")
 refresh()
 local index, message, detail = KeySystem.check(options, selected, key)
 busy = false
@@ -1636,14 +1642,17 @@ local ok, made = pcall(make)
 link = if ok then made else nil
 end
 if type(link) ~= "string" then
-setStatus("The key link is not available right now.", "danger")
+setStatus(Strings.get("The key link is not available right now."), "danger")
 elseif Env.copy(link) then
-local after = if not ad then "to get a key" elseif ad.RequiresKey == false then "and finish the step, then confirm here" else "and finish the step, then paste your key here"
-setStatus(`Link copied. Open it in your browser {after}.`, "success")
+local sentence = if not ad
+then "Link copied. Open it in your browser to get a key."
+elseif ad.RequiresKey == false then "Link copied. Open it in your browser and finish the step, then confirm here."
+else "Link copied. Open it in your browser and finish the step, then paste your key here."
+setStatus(Strings.get(sentence), "success")
 else
 linkBox.Text = link
 linkBox.Visible = true
-setStatus("Copy this link and open it in your browser.", "textMuted")
+setStatus(Strings.get("Copy this link and open it in your browser."), "textMuted")
 end
 end)
 setStatus("", nil)
@@ -1782,6 +1791,7 @@ local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Notifications = import("Components/Notifications")
 local Popup = import("Components/Popup")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local ICONS = { info = "info", success = "circle-check", warning = "triangle-alert", danger = "circle-alert" }
 local LIST_HEIGHT = 320
@@ -1853,7 +1863,7 @@ Create.padding(head, 8, 0, 4, 0)
 Create.new("TextLabel", {
 Name = "Title",
 Size = UDim2.fromScale(0.6, 1),
-Text = "Notices",
+Text = Strings.get("Notices"),
 TextSize = 14,
 Weight = "bold",
 Theme = { TextColor3 = "text" },
@@ -1865,7 +1875,7 @@ Size = UDim2.fromScale(0, 1),
 AutomaticSize = Enum.AutomaticSize.X,
 AnchorPoint = Vector2.new(1, 0),
 Position = UDim2.fromScale(1, 0),
-Text = "Clear all",
+Text = Strings.get("Clear all"),
 TextSize = 12,
 Weight = "medium",
 Theme = { TextColor3 = "textMuted" },
@@ -1891,7 +1901,7 @@ if #log.entries == 0 then
 Create.new("TextLabel", {
 Name = "Empty",
 Size = UDim2.new(1, 0, 0, 56),
-Text = "No notices yet",
+Text = Strings.get("No notices yet"),
 TextSize = 13,
 TextXAlignment = Enum.TextXAlignment.Center,
 Theme = { TextColor3 = "textMuted" },
@@ -1978,6 +1988,7 @@ local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
 local Signal = import("Core/Signal")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local WIDTH, NARROW = 320, 480
@@ -2103,7 +2114,7 @@ end
 function state.count()
 local waiting = #state.queue
 more.Visible = waiting > 0
-more.Text = `+{waiting} more`
+more.Text = Strings.get("+{count} more", { count = waiting })
 end
 library.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
 library.scope:add(function()
@@ -2676,6 +2687,7 @@ local Create = import("Core/Create")
 local Dialog = import("Components/Dialog")
 local Env = import("Core/Env")
 local Motion = import("Core/Motion")
+local Strings = import("Core/Strings")
 local TAGS = {
 New = "accent",
 Improved = "info",
@@ -2731,7 +2743,7 @@ scope:add(veil)
 local icon = Create.icon(options.Icon or window.Icon or "layers", 32, "accent", card)
 icon.ZIndex = 52
 line(card, options.Title or window.Title, 16, "text", "bold", 1)
-local status = line(card, options.Text or "Getting ready", 13, "textMuted", "regular", 2)
+local status = line(card, options.Text or Strings.get("Getting ready"), 13, "textMuted", "regular", 2)
 local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 4), LayoutOrder = 3, ZIndex = 52, Theme = { BackgroundColor3 = "raised" }, Parent = card })
 Create.corner(-1, rail)
 local fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(0, 1), ZIndex = 53, Theme = { BackgroundColor3 = "accent" }, Parent = rail })
@@ -2767,7 +2779,7 @@ if window.changelogSeen == version and not options.Force then
 return nil
 end
 local shell = Dialog.shell(window.library, { Width = 400, Dismissible = true })
-Dialog.heading(shell.card, options.Title or `What's new in {version}`, options.Icon or "bell")
+Dialog.heading(shell.card, options.Title or Strings.get("What's new in {version}", { version = version }), options.Icon or "bell")
 local list = Create.new("Frame", { Name = "Entries", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = shell.card })
 Create.list(list, "Vertical", 8)
 for index, entry in options.Entries or {} do
@@ -2802,7 +2814,7 @@ Parent = item,
 end
 local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0, 38), LayoutOrder = 2, Parent = shell.card })
 Create.list(actions, "Horizontal", 8, { HorizontalAlignment = Enum.HorizontalAlignment.Right })
-local close = Dialog.button(shell.scope, actions, { Title = options.Button or "Continue", Variant = "Primary" })
+local close = Dialog.button(shell.scope, actions, { Title = options.Button or Strings.get("Continue"), Variant = "Primary" })
 shell.scope:connect(close.Activated, shell.Close)
 window.changelogSeen = version
 window:savePreferences()
@@ -2810,28 +2822,28 @@ return shell
 end
 function Panels.about(window, tab, options)
 options = options or {}
-local section = tab:Section({ Title = options.Title or "About", Icon = "info", Side = options.Side })
+local section = tab:Section({ Title = options.Title or Strings.get("About"), Icon = "info", Side = options.Side })
 section:Paragraph({ Title = window.Title, Content = options.Description or window.Subtitle or "", Icon = window.Icon })
 if window.options.Version then
-section:Status({ Title = "Version", Status = tostring(window.options.Version), Kind = "info" })
+section:Status({ Title = Strings.get("Version"), Status = tostring(window.options.Version), Kind = "info" })
 end
 for _, credit in options.Credits or {} do
 section:Label({ Title = `<b>{credit.Name or ""}</b>  {credit.Role or ""}` })
 end
 local links = table.clone(options.Links or {})
 if options.Discord then
-table.insert(links, 1, { Title = "Discord", Url = options.Discord, Icon = "message-circle" })
+table.insert(links, 1, { Title = Strings.get("Discord"), Url = options.Discord, Icon = "message-circle" })
 end
 for _, link in links do
 section:Button({
-Title = link.Title or "Link",
+Title = link.Title or Strings.get("Link"),
 Description = tostring(link.Url),
 TrailingIcon = "copy",
 Callback = function()
 local copied = Env.copy(tostring(link.Url))
 window:Notify({
-Title = if copied then "Link copied" else "Can't copy",
-Content = if copied then "Paste it into your browser." else tostring(link.Url),
+Title = if copied then Strings.get("Link copied") else Strings.get("Can't copy"),
+Content = if copied then Strings.get("Paste it into your browser.") else tostring(link.Url),
 Kind = if copied then "success" else "info",
 Style = "Compact",
 })
@@ -2865,7 +2877,7 @@ local glyph = Create.icon(options.Icon or (if failed then "circle-alert" else "b
 glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
 local title = Create.new("TextLabel", {
 Size = UDim2.new(1, 0, 0, 20),
-Text = options.Title or (if failed then "Something went wrong" else "Nothing here yet"),
+Text = options.Title or (if failed then Strings.get("Something went wrong") else Strings.get("Nothing here yet")),
 TextSize = 15,
 Weight = "bold",
 TextXAlignment = Enum.TextXAlignment.Center,
@@ -2886,7 +2898,7 @@ Theme = { TextColor3 = "textMuted" },
 Parent = frame,
 })
 if options.Button then
-local button = Dialog.button(scope, frame, { Title = options.Button.Title or "Try again", Variant = if failed then "Default" else "Primary", LayoutOrder = 3 })
+local button = Dialog.button(scope, frame, { Title = options.Button.Title or Strings.get("Try again"), Variant = if failed then "Default" else "Primary", LayoutOrder = 3 })
 scope:connect(button.Activated, function()
 Env.call(options.Button.Title or "State", options.Button.Callback)
 end)
@@ -2914,7 +2926,7 @@ local disc = Create.new("Frame", { Size = UDim2.fromOffset(56, 56), ZIndex = 52,
 Create.corner(-1, disc)
 local glyph = Create.icon(options.Icon or "wrench", 26, "warning", disc)
 glyph.AnchorPoint, glyph.Position, glyph.ZIndex = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), 53
-line(card, options.Title or "Unavailable right now", 16, "text", "bold", 1)
+line(card, options.Title or Strings.get("Unavailable right now"), 16, "text", "bold", 1)
 line(card, options.Text or "", 13, "textMuted", "regular", 2)
 if options.Button then
 local button = Dialog.button(scope, card, { Title = options.Button.Title or "OK", Variant = "Primary", LayoutOrder = 3 })
@@ -2937,6 +2949,7 @@ modules["Components/Personalise"] = function()
 local Create = import("Core/Create")
 local Env = import("Core/Env")
 local Notifications = import("Components/Notifications")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
 local Personalise = {}
@@ -3062,13 +3075,13 @@ return plain
 end
 function Personalise.decodeTheme(plain)
 if type(plain) ~= "table" or type(plain.Name) ~= "string" then
-return nil, "That is not a theme."
+return nil, Strings.get("That is not a theme.")
 end
 local palette = { Name = string.sub(plain.Name, 1, 32) }
 for _, role in Theme.Roles do
 local hex = plain[role]
 if type(hex) ~= "string" or not string.match(hex, "^#?%x%x%x%x%x%x$") then
-return nil, `The theme is missing a valid "{role}" colour.`
+return nil, Strings.get('The theme is missing a valid "{role}" colour.', { role = role })
 end
 palette[role] = Color3.fromHex(hex)
 end
@@ -3094,7 +3107,7 @@ end
 function Personalise.importTheme(window, text)
 local ok, plain = Env.decode(tostring(text or ""))
 if not ok then
-return false, "That text is not a theme."
+return false, Strings.get("That text is not a theme.")
 end
 local palette, problem = Personalise.decodeTheme(plain)
 if not palette then
@@ -3105,12 +3118,12 @@ end
 function Personalise.section(window, tab, options)
 options = options or {}
 local personal = window.personal
-local section = tab:Section({ Title = options.Title or "Personalise", Icon = "paintbrush", Side = options.Side })
+local section = tab:Section({ Title = options.Title or Strings.get("Personalise"), Icon = "paintbrush", Side = options.Side })
 window.personalRows = window.personalRows or {}
 local rows = window.personalRows
 if options.Font ~= false then
 rows.Font = section:Dropdown({
-Title = "Font",
+Title = Strings.get("Font"),
 Values = Personalise.Fonts,
 Default = personal.Font or "Inter",
 Callback = function(name)
@@ -3120,7 +3133,7 @@ end,
 end
 if options.TextSize ~= false then
 rows.TextSize = section:Segmented({
-Title = "Text size",
+Title = Strings.get("Text size"),
 Values = Tokens.TextSize,
 Default = Tokens.names.text,
 Callback = function(name)
@@ -3130,7 +3143,7 @@ end,
 end
 if options.Corners ~= false then
 rows.Radius = section:Segmented({
-Title = "Corners",
+Title = Strings.get("Corners"),
 Values = Tokens.Radius,
 Default = Tokens.names.radius,
 Callback = function(name)
@@ -3140,7 +3153,7 @@ end,
 end
 if options.Density ~= false then
 rows.Density = section:Segmented({
-Title = "Spacing",
+Title = Strings.get("Spacing"),
 Values = Tokens.Density,
 Default = Tokens.names.density,
 Callback = function(name)
@@ -3150,7 +3163,7 @@ end,
 end
 if options.Transparency ~= false then
 rows.Transparency = section:Slider({
-Title = "See-through window",
+Title = Strings.get("See-through window"),
 Min = 0,
 Max = 60,
 Step = 5,
@@ -3163,7 +3176,7 @@ end,
 end
 if options.NoticePosition ~= false then
 rows.NoticePosition = section:Dropdown({
-Title = "Notice position",
+Title = Strings.get("Notice position"),
 Values = POSITIONS,
 Default = personal.NoticePosition or Notifications.Defaults.Position,
 Callback = function(position)
@@ -3173,7 +3186,7 @@ end,
 end
 if options.AccentGradient ~= false then
 rows.AccentGradient = section:Toggle({
-Title = "Gradient accent",
+Title = Strings.get("Gradient accent"),
 Default = personal.AccentGradient == true,
 Callback = function(on)
 Personalise.set(window, "AccentGradient", on)
@@ -3182,7 +3195,7 @@ end,
 end
 if options.SafeStatus ~= false then
 rows.SafeStatus = section:Toggle({
-Title = "Colour-blind friendly",
+Title = Strings.get("Colour-blind friendly"),
 Default = personal.SafeStatus == true,
 Callback = function(on)
 Personalise.set(window, "SafeStatus", on)
@@ -3193,7 +3206,7 @@ return section
 end
 function Personalise.builder(window, tab, options)
 options = options or {}
-local section = tab:Section({ Title = options.Title or "Theme builder", Icon = "palette", Side = options.Side })
+local section = tab:Section({ Title = options.Title or Strings.get("Theme builder"), Icon = "palette", Side = options.Side })
 local draft = table.clone(Theme.current)
 draft.Name = "Custom"
 local role = "accent"
@@ -3205,7 +3218,7 @@ end
 end
 local picker
 section:Dropdown({
-Title = "Colour",
+Title = Strings.get("Colour"),
 Values = Theme.Roles,
 Default = role,
 Callback = function(name)
@@ -3214,7 +3227,7 @@ picker:Set(draft[role])
 end,
 })
 picker = section:ColorPicker({
-Title = "Value",
+Title = Strings.get("Value"),
 Default = draft[role],
 Palette = true,
 Callback = function(color)
@@ -3222,7 +3235,7 @@ draft[role] = color
 preview()
 end,
 })
-local name = section:Input({ Title = "Name", Placeholder = "My theme", MaxLength = 32 })
+local name = section:Input({ Title = Strings.get("Name"), Placeholder = Strings.get("My theme"), MaxLength = 32 })
 local status = section:Label({ Title = "", Visible = false })
 local setStatus = status.SetTitle
 function status.SetTitle(target, text)
@@ -3232,12 +3245,12 @@ end
 section:Buttons({
 Buttons = {
 {
-Title = "Save",
+Title = Strings.get("Save"),
 Icon = "save",
 Callback = function()
 local chosen = name:Get()
 if chosen == "" then
-status:SetTitle("Give the theme a name first.")
+status:SetTitle(Strings.get("Give the theme a name first."))
 return
 end
 local saving = table.clone(draft)
@@ -3246,24 +3259,24 @@ local ok, message = Personalise.saveTheme(window, saving)
 if ok then
 Theme.set(chosen)
 end
-status:SetTitle(if ok then message or `Saved "{chosen}".` else message)
+status:SetTitle(if ok then message or Strings.get('Saved "{name}".', { name = chosen }) else message)
 end,
 },
 {
-Title = "Copy",
+Title = Strings.get("Copy"),
 Icon = "copy",
 Variant = "Outline",
 Callback = function()
 local text = Personalise.exportTheme(Theme.current.Name)
 local copied = text ~= nil and Env.copy(text)
-status:SetTitle(if copied then "Copied. Paste it into Import to share." else "This executor can't copy text.")
+status:SetTitle(if copied then Strings.get("Copied. Paste it into Import to share.") else Strings.get("This executor can't copy text."))
 end,
 },
 },
 })
 section:Input({
-Title = "Import",
-Placeholder = "Paste a theme",
+Title = Strings.get("Import"),
+Placeholder = Strings.get("Paste a theme"),
 Callback = function(text)
 if text == "" then
 return
@@ -3385,6 +3398,7 @@ local Create = import("Core/Create")
 local DiscordButton = import("Components/DiscordButton")
 local Env = import("Core/Env")
 local Popup = import("Components/Popup")
+local Strings = import("Core/Strings")
 local DEFAULTS = {
 Enabled = true,
 Avatar = "Headshot",
@@ -3428,7 +3442,7 @@ return table.concat(parts, " · ")
 end
 function Profile.names(settings)
 if settings.Anonymous then
-return "Anonymous", "Identity hidden"
+return Strings.get("Anonymous"), Strings.get("Identity hidden")
 end
 local player = Players.LocalPlayer
 return settings.Name or player.DisplayName, settings.Subtitle or ("@" .. player.Name)
@@ -3576,8 +3590,8 @@ local meta = line(text, Profile.meta(settings), 2, 12, "regular", "textMuted")
 if discord then
 DiscordButton.new(scope, tierLine, { Link = discord.Link, Icon = discord.Icon, Size = 24, LayoutOrder = 3 }, function(how, link)
 window:Notify({
-Title = if how == "opened" then "Opened in Discord" elseif how == "copied" then "Discord invite copied" else "Discord invite",
-Content = if how == "opened" then "Accept the invite in the Discord app." elseif how == "copied" then "Paste it into your browser to join." else link,
+Title = if how == "opened" then Strings.get("Opened in Discord") elseif how == "copied" then Strings.get("Discord invite copied") else Strings.get("Discord invite"),
+Content = if how == "opened" then Strings.get("Accept the invite in the Discord app.") elseif how == "copied" then Strings.get("Paste it into your browser to join.") else link,
 Kind = if how then "success" else "info",
 Style = "Compact",
 Duration = if how then 3 else 8,
@@ -3592,7 +3606,7 @@ end
 local function countdown()
 if expiry then
 local left = window:GetKeyExpiry()
-expiry.Text = if left > 0 then `Key expires in {Env.duration(left)}` else "Key expired"
+expiry.Text = if left > 0 then Strings.get("Key expires in {time}", { time = Env.duration(left) }) else Strings.get("Key expired")
 expiry.Visible = true
 end
 end
@@ -4280,8 +4294,16 @@ modules["Components/SettingsTab"] = function()
 local ConfigSection = import("Components/ConfigSection")
 local Personalise = import("Components/Personalise")
 local Motion = import("Core/Motion")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local STYLES = { "Sidebar", "Rail", "Top", "Dock" }
+local function choices(names)
+local list = {}
+for _, name in names do
+table.insert(list, { Text = Strings.get(name), Value = name })
+end
+return list
+end
 local SettingsTab = {}
 function SettingsTab.build(window, options)
 options = options or {}
@@ -4293,13 +4315,13 @@ end
 end
 return false
 end
-local tab = window:Tab({ Title = options.Title or "Settings", Icon = options.Icon or "settings", Group = options.Group })
+local tab = window:Tab({ Title = options.Title or Strings.get("Settings"), Icon = options.Icon or "settings", Group = options.Group })
 local scope = tab.scope
-if wants("Theme", "Accent", "Navigation", "Scale", "ReduceMotion") then
-local look = tab:Section({ Title = "Appearance", Icon = "palette" })
+if wants("Theme", "Accent", "Navigation", "Scale", "Language", "ReduceMotion") then
+local look = tab:Section({ Title = Strings.get("Appearance"), Icon = "palette" })
 if wants("Theme") then
 local themes = look:Dropdown({
-Title = "Theme",
+Title = Strings.get("Theme"),
 Values = Theme.names(),
 Default = Theme.current.Name,
 Callback = function(name)
@@ -4317,7 +4339,7 @@ end))
 end
 if wants("Accent") then
 look:ColorPicker({
-Title = "Accent colour",
+Title = Strings.get("Accent colour"),
 Default = Theme.color("accent"),
 Callback = function(color)
 window:SetAccent(color)
@@ -4326,8 +4348,8 @@ end,
 end
 if wants("Navigation") then
 look:Dropdown({
-Title = "Tab layout",
-Values = STYLES,
+Title = Strings.get("Tab layout"),
+Values = choices(STYLES),
 Default = window.tabStyle,
 Callback = function(style)
 window:SetTabStyle(style)
@@ -4336,7 +4358,7 @@ end,
 end
 if wants("Scale") then
 local scale = {
-Title = "Interface scale",
+Title = Strings.get("Interface scale"),
 Min = 75,
 Max = 125,
 Step = 5,
@@ -4353,9 +4375,29 @@ else
 look:Stepper(scale)
 end
 end
+if wants("Language") then
+local languages = {}
+for _, language in Strings.languages() do
+table.insert(languages, { Text = language.Name, Value = language.Code })
+end
+look:Dropdown({
+Title = Strings.get("Language"),
+Values = languages,
+Default = Strings.language,
+Callback = function(code)
+if code and code ~= Strings.language then
+window:SetLanguage(code)
+window:Notify({
+Title = Strings.get("Language changed"),
+Content = Strings.get("Run the hub again to see every part in the new language."),
+})
+end
+end,
+})
+end
 if wants("ReduceMotion") then
 look:Toggle({
-Title = "Reduce motion",
+Title = Strings.get("Reduce motion"),
 Default = Motion.reduced,
 Callback = function(reduced)
 window:SetReducedMotion(reduced)
@@ -4365,10 +4407,10 @@ end
 end
 local anonymous = wants("Anonymous") and window.profile.Enabled
 if wants("MenuKey", "Minimize") or anonymous then
-local menu = tab:Section({ Title = "Menu", Icon = "keyboard", Side = "Right" })
+local menu = tab:Section({ Title = Strings.get("Menu"), Icon = "keyboard", Side = "Right" })
 if wants("MenuKey") then
 menu:Keybind({
-Title = "Toggle key",
+Title = Strings.get("Toggle key"),
 Default = window.toggleKey,
 ChangedCallback = function(key)
 window:SetToggleKey(key)
@@ -4377,8 +4419,8 @@ end,
 end
 if wants("Minimize") then
 menu:Dropdown({
-Title = "Minimise to",
-Values = { "Topbar", "Pill", "Chip" },
+Title = Strings.get("Minimise to"),
+Values = choices({ "Topbar", "Pill", "Chip" }),
 Default = window.minimizeStyle,
 Callback = function(style)
 window:SetMinimizeStyle(style)
@@ -4387,8 +4429,8 @@ end,
 end
 if anonymous then
 menu:Toggle({
-Title = "Anonymous mode",
-Description = "Hides your name and picture",
+Title = Strings.get("Anonymous mode"),
+Description = Strings.get("Hides your name and picture"),
 Default = window.profile.Anonymous,
 Callback = function(hidden)
 if hidden ~= window.profile.Anonymous then
@@ -4408,8 +4450,8 @@ if options.Configs ~= false then
 ConfigSection.build(window, tab, { Side = "Right" })
 end
 if wants("Unload") then
-tab:Section({ Title = "Session", Icon = "power" }):Button({
-Title = "Unload",
+tab:Section({ Title = Strings.get("Session"), Icon = "power" }):Button({
+Title = Strings.get("Unload"),
 Variant = "Danger",
 Callback = function()
 window:RequestUnload()
@@ -4563,6 +4605,7 @@ local Create = import("Core/Create")
 local Effects = import("Core/Effects")
 local Mount = import("Core/Mount")
 local Motion = import("Core/Motion")
+local Strings = import("Core/Strings")
 local GAP, MARGIN = 8, 8
 local Spotlight = {}
 function Spotlight.attach(window, handle, options)
@@ -4649,7 +4692,7 @@ local button = Create.new("TextButton", {
 Name = "GotIt",
 Size = UDim2.fromOffset(0, if library.touch then 40 else 28),
 AutomaticSize = Enum.AutomaticSize.X,
-Text = options.Button or "Got it",
+Text = options.Button or Strings.get("Got it"),
 TextSize = 12,
 Weight = "bold",
 LayoutOrder = 2,
@@ -5579,10 +5622,20 @@ return { show = show, hide = hide }
 end
 return Tooltip
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX2">
+<Properties>
+<string name="Name">Part02</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Components/UpdateLog"] = function()
 local Create = import("Core/Create")
 local Panels = import("Components/Panels")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local KINDS = { "New", "Improved", "Fixed", "Removed", "Security" }
 local ROLES = { New = "accent", Improved = "info", Fixed = "success", Removed = "danger", Security = "warning" }
@@ -5717,7 +5770,7 @@ end
 function UpdateLog.build(window, settings)
 local look = Styles.pick("UpdateLog", settings.Style, window)
 local tab = window:Tab({
-Title = settings.Title or "Updates",
+Title = settings.Title or Strings.get("Updates"),
 Icon = settings.Icon or "clock",
 Group = settings.Group,
 Description = settings.Description,
@@ -5750,8 +5803,8 @@ end
 end
 if settings.Search ~= false then
 tools:Input({
-Title = "Search",
-Placeholder = "A version or a word",
+Title = Strings.get("Search"),
+Placeholder = Strings.get("A version or a word"),
 LeadingIcon = "search",
 Clearable = true,
 Live = true,
@@ -5762,12 +5815,12 @@ end,
 })
 end
 if settings.Filters ~= false then
-local values = { "All" }
+local values = { { Text = Strings.get("All"), Value = "All" } }
 for _, kind in KINDS do
-table.insert(values, kind)
+table.insert(values, { Text = Strings.get(kind), Value = kind })
 end
 chips = tools:Chips({
-Title = "Show",
+Title = Strings.get("Show"),
 Values = values,
 Default = "All",
 Callback = function(kind)
@@ -5807,7 +5860,7 @@ Icon = if latest then "tag" else "clock",
 IconColor = if latest then "accent" else nil,
 Style = look.section,
 Description = if #subtitle > 0 then table.concat(subtitle, "  \u{2014}  ") else nil,
-Badge = if latest then "Latest" elseif update.Pinned then "Pinned" else nil,
+Badge = if latest then Strings.get("Latest") elseif update.Pinned then Strings.get("Pinned") else nil,
 Collapsed = not latest and settings.ExpandAll ~= true,
 })
 if update.Image then
@@ -5832,7 +5885,7 @@ function log.markUnseen()
 local newest = log.updates[1]
 local version = newest and tostring(newest.Version or "")
 if version and version ~= "" and window.updateSeen ~= version and window.selected ~= tab then
-tab:SetBadge("New")
+tab:SetBadge(Strings.get("New"))
 else
 tab:SetBadge(nil)
 end
@@ -5870,7 +5923,7 @@ local entries = {}
 for _, entry in entriesOf(newest) do
 table.insert(entries, entry)
 end
-pcall(Panels.changelog, window, { Version = newest.Version, Title = newest.Title and `What's new: {newest.Title}`, Entries = entries })
+pcall(Panels.changelog, window, { Version = newest.Version, Title = newest.Title and Strings.get("What's new: {title}", { title = newest.Title }), Entries = entries })
 end
 end)
 end
@@ -5878,15 +5931,6 @@ return log
 end
 return UpdateLog
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX2">
-<Properties>
-<string name="Name">Part02</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Components/Window"] = function()
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
@@ -5911,6 +5955,7 @@ local Profile = import("Components/Profile")
 local Registry = import("Elements/Registry")
 local Signal = import("Core/Signal")
 local Resize = import("Core/Resize")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Switches = import("Components/Switches")
 local Tab = import("Components/Tab")
@@ -6021,12 +6066,13 @@ elseif not access then
 access = { Tiers = {}, Tier = "Keyless", Rank = 0, Keyless = true }
 end
 self.access = access
-self.lockText = options.LockText or "Requires {tier}"
-self.paidLockText = options.PaidLockText or "Paid only"
+self.lockText = options.LockText or Strings.get("Requires {tier}")
+self.paidLockText = options.PaidLockText or Strings.get("Paid only")
 self.lockHint = options.LockHint
-self.paidLockHint = options.PaidLockHint or "Unlock with a paid key"
+self.paidLockHint = options.PaidLockHint or Strings.get("Unlock with a paid key")
 self.lockedSections = {}
 local saved = if options.SavePreferences == false then {} else readPreferences(self.preferencesPath)
+self.languagePicked = if type(saved.language) == "string" then saved.language else nil
 self.personal, self.customThemes = {}, {}
 Personalise.loadThemes(self, saved.themes)
 Personalise.restore(self, saved.personal, true)
@@ -6808,7 +6854,7 @@ local folded = self.narrowTopbar and not box:IsFocused() and box.Text == ""
 search.Size = UDim2.fromOffset(if folded then 34 elseif self.narrowTopbar then 150 else 170, 30)
 box.Position = UDim2.fromOffset(if folded then 0 else 32, 0)
 box.Size = if folded then UDim2.fromScale(1, 1) else UDim2.new(1, -38, 1, 0)
-box.PlaceholderText = if folded then "" else "Search"
+box.PlaceholderText = if folded then "" else Strings.get("Search")
 end
 function Window:lane(style)
 if style == "Sidebar" and tonumber(self.options.SidebarWidth) then
@@ -7052,7 +7098,7 @@ if self.query ~= "" and first and self.selected and self.selected.matches == 0 t
 self:SelectTab(first)
 end
 self.empty.Visible = self.query ~= "" and first == nil
-self.empty.Text = `Nothing matches "{self.query}".`
+self.empty.Text = Strings.get('Nothing matches "{query}".', { query = self.query })
 if self.selected then
 self.selected.page.Visible = not self.empty.Visible
 end
@@ -7218,7 +7264,7 @@ end
 end)
 if not self.openButton.Visible and not self.hinted and self.toggleKey then
 self.hinted = true
-self:Notify({ Title = "Menu hidden", Content = `Press {self.toggleKey.Name} to open it again.` })
+self:Notify({ Title = Strings.get("Menu hidden"), Content = Strings.get("Press {key} to open it again.", { key = self.toggleKey.Name }) })
 end
 end
 function Window:Toggle()
@@ -7363,14 +7409,15 @@ scale = self.scale,
 reducedMotion = Motion.reduced,
 anonymous = self.profile.Anonymous,
 toggleKey = if self.toggleKey then self.toggleKey.Name else "",
+language = self.languagePicked,
 })
-local wrote, message = false, "The settings could not be encoded."
+local wrote, message = false, Strings.get("The settings could not be encoded.")
 if encoded then
 wrote, message = Env.write(self.preferencesPath, text)
 end
 if not wrote and not self.preferencesWarned then
 self.preferencesWarned = true
-self:Notify({ Title = "Settings not saved", Content = message, Kind = "warning" })
+self:Notify({ Title = Strings.get("Settings not saved"), Content = message, Kind = "warning" })
 end
 end
 function Window:savePreferences()
@@ -7414,6 +7461,14 @@ function Window:LoadConfig(name)
 self:keepForUndo()
 return announce(self, "load", name, self.config:load(name))
 end
+function Window:SetLanguage(code)
+local chosen = Strings.setLanguage(code)
+self.languagePicked = chosen
+if self.options.SavePreferences ~= false and Env.canSave then
+self:writePreferences()
+end
+return chosen
+end
 function Window:GetValues()
 local values = {}
 for flag, handle in self.Flags do
@@ -7453,11 +7508,11 @@ end
 function Window:Undo()
 local values = self.undoValues
 if not values then
-return false, "Nothing to undo."
+return false, Strings.get("Nothing to undo.")
 end
 self.undoValues = nil
 local count = self.config:apply(values)
-return true, `Restored {count} settings.`
+return true, Strings.get("Restored {count} settings.", { count = count })
 end
 local SHARE_PREFIX = "Halcyon1:"
 function Window:ExportConfig()
@@ -7466,20 +7521,20 @@ return if ok then SHARE_PREFIX .. text else nil
 end
 function Window:ImportConfig(code)
 if type(code) ~= "string" then
-return false, "Paste a share code first."
+return false, Strings.get("Paste a share code first.")
 end
 code = string.match(code, "^%s*(.-)%s*$")
 if string.sub(code, 1, #SHARE_PREFIX) ~= SHARE_PREFIX then
-return false, "That isn't a Halcyon share code."
+return false, Strings.get("That isn't a Halcyon share code.")
 end
 local ok, decoded = Env.decode(string.sub(code, #SHARE_PREFIX + 1))
 if not ok or type(decoded) ~= "table" or type(decoded.flags) ~= "table" then
-return false, "The share code is incomplete. Copy it again."
+return false, Strings.get("The share code is incomplete. Copy it again.")
 end
 self:keepForUndo()
 local count = self.config:apply(decoded.flags)
 self.ConfigChanged:Fire("import", nil)
-return true, `Imported {count} settings.`
+return true, Strings.get("Imported {count} settings.", { count = count })
 end
 local ERROR_HISTORY = 50
 function Window:recordError(title, message, trace)
@@ -7515,7 +7570,7 @@ end
 function Window:LoadAutoload()
 local name = self.config:getAutoload()
 if not name then
-return false, "No autoload config is set."
+return false, Strings.get("No autoload config is set.")
 end
 return self.config:load(name)
 end
@@ -7525,14 +7580,14 @@ self:Unload()
 return
 end
 self:Dialog({
-Title = "Unload the hub?",
-Content = "Everything it turned on stops. Run the script again to bring it back.",
+Title = Strings.get("Unload the hub?"),
+Content = Strings.get("Everything it turned on stops. Run the script again to bring it back."),
 Icon = "power",
 Dismissible = true,
 Buttons = {
-{ Title = "Keep" },
+{ Title = Strings.get("Keep") },
 {
-Title = "Unload",
+Title = Strings.get("Unload"),
 Variant = "Danger",
 Callback = function()
 self:Unload()
@@ -7688,6 +7743,7 @@ return Assets
 end
 modules["Core/Config"] = function()
 local Env = import("Core/Env")
+local Strings = import("Core/Strings")
 local VERSION = 1
 local INVALID_NAME_MESSAGE = "Use letters, numbers, spaces, - or _ in a config name."
 local Config = {}
@@ -7758,51 +7814,51 @@ end
 function Config:save(name)
 local safe = Env.safeName(name)
 if not safe then
-return false, INVALID_NAME_MESSAGE
+return false, Strings.get(INVALID_NAME_MESSAGE)
 end
 local encoded, text = Env.encode({ version = VERSION, flags = self:collect() })
 if not encoded then
-return false, "The config could not be encoded."
+return false, Strings.get("The config could not be encoded.")
 end
 local wrote, message = Env.write(self:path(safe), text)
 if not wrote then
 return false, message
 end
-return true, `Saved "{safe}".`
+return true, Strings.get('Saved "{name}".', { name = safe })
 end
 function Config:load(name)
 local safe = Env.safeName(name)
 if not safe then
-return false, INVALID_NAME_MESSAGE
+return false, Strings.get(INVALID_NAME_MESSAGE)
 elseif not Env.canSave then
-return false, Env.NO_FILES
+return false, Strings.get(Env.NO_FILES)
 end
 local found = self:find(safe)
 local content = found and Env.read(found)
 if not content then
-return false, `There is no config named "{safe}".`
+return false, Strings.get('There is no config named "{name}".', { name = safe })
 end
 local decoded, saved = Env.decode(content)
 if not decoded or type(saved) ~= "table" or type(saved.flags) ~= "table" then
-return false, `"{safe}" is not a valid config file.`
+return false, Strings.get('"{name}" is not a valid config file.', { name = safe })
 end
-return true, `Loaded "{safe}" ({self:apply(saved.flags)} settings).`
+return true, Strings.get('Loaded "{name}" ({count} settings).', { name = safe, count = self:apply(saved.flags) })
 end
 function Config:delete(name)
 local safe = Env.safeName(name)
 if not safe then
-return false, INVALID_NAME_MESSAGE
+return false, Strings.get(INVALID_NAME_MESSAGE)
 end
 local found = self:find(safe)
 if not found then
-return false, `There is no config named "{safe}".`
+return false, Strings.get('There is no config named "{name}".', { name = safe })
 elseif not Env.remove(found) then
-return false, "This executor cannot delete files."
+return false, Strings.get("This executor cannot delete files.")
 end
 if self:getAutoload() == safe then
 self:setAutoload(nil)
 end
-return true, `Deleted "{safe}".`
+return true, Strings.get('Deleted "{name}".', { name = safe })
 end
 function Config:exists(name)
 local safe = Env.safeName(name)
@@ -7831,13 +7887,13 @@ end
 function Config:setAutoload(name)
 local safe = if name then Env.safeName(name) else ""
 if not safe then
-return false, INVALID_NAME_MESSAGE
+return false, Strings.get(INVALID_NAME_MESSAGE)
 end
 local wrote, message = Env.write(self.autoloadPath, safe)
 if not wrote then
 return false, message
 end
-return true, if safe == "" then "Autoload is off." else `"{safe}" loads on start.`
+return true, if safe == "" then Strings.get("Autoload is off.") else Strings.get('"{name}" loads on start.', { name = safe })
 end
 return Config
 end
@@ -8401,6 +8457,7 @@ end
 modules["Core/Env"] = function()
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local Strings = import("Core/Strings")
 local function optional(value)
 return if type(value) == "function" then value else nil
 end
@@ -8459,7 +8516,7 @@ end
 end
 function Env.write(path, content)
 if not Env.canSave then
-return false, Env.NO_FILES
+return false, Strings.get(Env.NO_FILES)
 end
 local ok, message = pcall(function()
 ensureFolder(string.match(path, "^(.*)/[^/]+$"))
@@ -8522,7 +8579,7 @@ if ok and type(body) == "string" then
 return true, body, 200
 end
 end
-return false, Env.NO_HTTP, 0
+return false, Strings.get(Env.NO_HTTP), 0
 end
 function Env.has(name)
 if type(name) ~= "string" or not string.match(name, "^[%a_][%w_]*%.?[%w_]*$") then
@@ -9130,6 +9187,52 @@ table.clear(self.list)
 end
 return Signal
 end
+modules["Core/Strings"] = function()
+local Locales = import("Locales/Locales")
+local Strings = {
+language = "en",
+}
+local overrides = {}
+local pack = {}
+local seen = {}
+local function fill(text, values)
+if not values then
+return text
+end
+return (string.gsub(text, "{(%w+)}", function(name)
+local value = values[name]
+return if value ~= nil then tostring(value) else nil
+end))
+end
+function Strings.get(key, values)
+seen[key] = true
+return fill(overrides[key] or pack[key] or key, values)
+end
+function Strings.setLanguage(code)
+local chosen = Locales.resolve(code)
+Strings.language = chosen
+pack = Locales.packs[chosen] or {}
+return chosen
+end
+function Strings.set(map)
+for key, value in map do
+if type(key) == "string" then
+overrides[key] = if type(value) == "string" then value else nil
+end
+end
+end
+function Strings.list()
+local list = {}
+for key in seen do
+list[key] = Strings.get(key)
+end
+return list
+end
+function Strings.languages()
+return Locales.codes()
+end
+return Strings
+end
 modules["Core/Styles"] = function()
 local Styles = { kinds = {} }
 local function entry(kind)
@@ -9696,6 +9799,7 @@ local Effects = import("Core/Effects")
 local Icons = import("Core/Icons")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local CONFIRM_WINDOW = 3
@@ -9817,7 +9921,7 @@ else
 row.fire()
 end
 end
-local confirmText = if type(options.Confirm) == "string" then options.Confirm else "Press again to confirm"
+local confirmText = if type(options.Confirm) == "string" then options.Confirm else Strings.get("Press again to confirm")
 local function activate()
 if busy then
 return
@@ -10022,6 +10126,7 @@ local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Options = import("Elements/Options")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local Choices = {}
 local function build(container, options, mode)
@@ -10172,7 +10277,7 @@ end)
 table.insert(items, item)
 end
 if mode == "checklist" and options.SelectAll then
-addItem({ text = if type(options.SelectAll) == "string" then options.SelectAll else "Select all" }, 0, true)
+addItem({ text = if type(options.SelectAll) == "string" then options.SelectAll else Strings.get("Select all") }, 0, true)
 end
 for index, entry in entries do
 if entry.heading == nil then
@@ -10202,6 +10307,7 @@ modules["Elements/Code"] = function()
 local Create = import("Core/Create")
 local Env = import("Core/Env")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local MONOSPACE = Font.new("rbxasset://fonts/families/RobotoMono.json")
 local Code = {}
 function Code.new(container, options)
@@ -10272,9 +10378,9 @@ self.SearchText = string.lower(newTitle)
 end
 scope:connect(copy.Activated, function()
 if Env.copy(code) then
-library.notify({ Title = "Copied", Kind = "success", Duration = 2 })
+library.notify({ Title = Strings.get("Copied"), Kind = "success", Duration = 2 })
 else
-library.notify({ Title = "Can't copy", Content = "This executor has no clipboard.", Kind = "warning" })
+library.notify({ Title = Strings.get("Can't copy"), Content = Strings.get("This executor has no clipboard."), Kind = "warning" })
 end
 end)
 return handle
@@ -10638,6 +10744,7 @@ local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }
 local DatePicker = {}
@@ -10687,7 +10794,7 @@ Theme.bind(chip, "BackgroundColor3", role, true)
 Motion.tween(chip, "fast", { BackgroundColor3 = Theme.color(role) })
 end, chip)
 local function draw()
-local text = string.format("%d %s %d", value.Day, string.sub(MONTHS[value.Month], 1, 3), value.Year)
+local text = string.format("%d %s %d", value.Day, string.sub(Strings.get(MONTHS[value.Month]), 1, 3), value.Year)
 if withTime then
 text ..= string.format("  %02d:%02d", value.Hour, value.Minute)
 end
@@ -10761,7 +10868,7 @@ Parent = grid,
 local names = if mondayFirst then { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" } else { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" }
 for index, name in names do
 Create.new("TextLabel", {
-Text = name,
+Text = Strings.get(name),
 TextSize = 12,
 Weight = "bold",
 TextXAlignment = Enum.TextXAlignment.Center,
@@ -10784,7 +10891,7 @@ Create.corner(-1, button)
 days[index] = button
 end
 local function fill()
-title.Text = MONTHS[shown.Month] .. " " .. shown.Year
+title.Text = Strings.get(MONTHS[shown.Month]) .. " " .. shown.Year
 local offset = firstColumn(shown.Year, shown.Month, mondayFirst) - 1
 local count = daysIn(shown.Year, shown.Month)
 for index, button in days do
@@ -10897,6 +11004,7 @@ local Motion = import("Core/Motion")
 local Options = import("Elements/Options")
 local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local SEARCHABLE_FROM = 8
@@ -11083,7 +11191,7 @@ if options.Searchable or (options.Searchable == nil and #values > SEARCHABLE_FRO
 search = Create.new("TextBox", {
 Name = "Search",
 Size = UDim2.new(1, 0, 0, height),
-PlaceholderText = "Search",
+PlaceholderText = Strings.get("Search"),
 TextSize = 13,
 Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
 Parent = parent,
@@ -11322,6 +11430,15 @@ return handle
 end
 return Dropdown
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX3">
+<Properties>
+<string name="Name">Part03</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Graph"] = function()
 local Create = import("Core/Create")
 local Row = import("Elements/Row")
@@ -11709,15 +11826,6 @@ return handle
 end
 return Input
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX3">
-<Properties>
-<string name="Name">Part03</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Keybind"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
@@ -11725,6 +11833,7 @@ local Env = import("Core/Env")
 local Popup = import("Components/Popup")
 local Row = import("Elements/Row")
 local Signal = import("Core/Signal")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 Styles.register("Keybind", "Chip", { box = true })
@@ -11776,7 +11885,7 @@ Parent = chip,
 Create.corner(6, lip)
 end
 local function draw()
-local name = if listening then "Press a key" elseif key then SHORT[key.Name] or key.Name else "None"
+local name = if listening then Strings.get("Press a key") elseif key then SHORT[key.Name] or key.Name else Strings.get("None")
 chip.Text = if look.brackets then "[ " .. name .. " ]" else name
 if listening then
 Theme.bind(chip, "TextColor3", "accent")
@@ -12115,6 +12224,7 @@ local Drag = import("Core/Drag")
 local Motion = import("Core/Motion")
 local Options = import("Elements/Options")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local List = {}
 function List.new(container, options)
@@ -12145,7 +12255,7 @@ if options.Search then
 search = Create.new("TextBox", {
 Name = "Search",
 Size = UDim2.new(1, 0, 0, 30),
-PlaceholderText = "Filter",
+PlaceholderText = Strings.get("Filter"),
 TextSize = 13,
 ClearTextOnFocus = false,
 Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text" },
@@ -12327,6 +12437,7 @@ modules["Elements/Log"] = function()
 local Create = import("Core/Create")
 local Env = import("Core/Env")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local Log = {}
 local MONOSPACE = Font.new("rbxasset://fonts/families/RobotoMono.json")
@@ -12378,7 +12489,7 @@ Create.list(inner, "Vertical", 2)
 local empty = Create.new("TextLabel", {
 Name = "Empty",
 Size = UDim2.new(1, 0, 0, 20),
-Text = options.EmptyText or "Nothing yet",
+Text = options.EmptyText or Strings.get("Nothing yet"),
 TextSize = 12,
 LayoutOrder = 0,
 Theme = { TextColor3 = "textMuted" },
@@ -12409,7 +12520,7 @@ local chip = Create.new("TextButton", {
 Name = name,
 Size = UDim2.fromOffset(0, 24),
 AutomaticSize = Enum.AutomaticSize.X,
-Text = name,
+Text = Strings.get(name),
 TextSize = 12,
 Weight = "medium",
 LayoutOrder = index,
@@ -12515,6 +12626,7 @@ local Create = import("Core/Create")
 local Menu = import("Components/Menu")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local MenuButton = {}
 function MenuButton.new(container, options)
@@ -12536,7 +12648,7 @@ Create.new("TextLabel", {
 Name = "Label",
 Size = UDim2.fromScale(0, 1),
 AutomaticSize = Enum.AutomaticSize.X,
-Text = options.Text or "Actions",
+Text = options.Text or Strings.get("Actions"),
 TextSize = 13,
 Weight = "medium",
 Theme = { TextColor3 = "text" },
@@ -12692,6 +12804,7 @@ local Players = game:GetService("Players")
 local Create = import("Core/Create")
 local Env = import("Core/Env")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local PlayerList = {}
 function PlayerList.new(container, options)
@@ -12716,7 +12829,7 @@ if options.Search ~= false then
 search = Create.new("TextBox", {
 Name = "Search",
 Size = UDim2.new(1, 0, 0, 30),
-PlaceholderText = "Find a player",
+PlaceholderText = Strings.get("Find a player"),
 TextSize = 13,
 ClearTextOnFocus = false,
 Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text" },
@@ -12741,7 +12854,7 @@ Create.fitHeight(box, inner, math.clamp(tonumber(options.Height) or 240, 90, 520
 local empty = Create.new("TextLabel", {
 Name = "Empty",
 Size = UDim2.new(1, 0, 0, 36),
-Text = "No one else is here",
+Text = Strings.get("No one else is here"),
 TextSize = 12,
 TextXAlignment = Enum.TextXAlignment.Center,
 Theme = { TextColor3 = "textMuted" },
@@ -12765,7 +12878,7 @@ local total = 0
 for _ in rows do
 total += 1
 end
-count.Text = if total == 1 then "1 player" else `{total} players`
+count.Text = if total == 1 then Strings.get("1 player") else Strings.get("{count} players", { count = total })
 count.Visible = total > 0
 end
 local function add(player)
@@ -12987,6 +13100,7 @@ local Env = import("Core/Env")
 local Menu = import("Components/Menu")
 local Spotlight = import("Components/Spotlight")
 local Stat = import("Elements/Stat")
+local Strings = import("Core/Strings")
 local Tooltip = import("Components/Tooltip")
 local MODULES = {
 Button = import("Elements/Button"),
@@ -13085,7 +13199,7 @@ end
 if type(options.Requires) == "table" then
 local missing = Env.missing(options.Requires)
 if #missing > 0 then
-handle.MissingText = "Needs " .. table.concat(missing, ", ")
+handle.MissingText = Strings.get("Needs {names}", { names = table.concat(missing, ", ") })
 handle:Lock(handle.MissingText, "wrench")
 end
 end
@@ -13244,6 +13358,7 @@ local Effects = import("Core/Effects")
 local Icons = import("Core/Icons")
 local Popup = import("Components/Popup")
 local Signal = import("Core/Signal")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
 local MIN_TITLE = 96
@@ -13568,7 +13683,7 @@ title.Text = escape(string.sub(plain, 1, from - 1))
 .. escape(string.sub(plain, to + 1))
 end
 function handle:Lock(reason, icon, quiet)
-state.locked, state.reason, state.quiet = true, reason or "Locked", quiet == true
+state.locked, state.reason, state.quiet = true, reason or Strings.get("Locked"), quiet == true
 buildVeil()
 Icons.apply(lockIcon, icon or "lock")
 refresh()
@@ -14394,6 +14509,7 @@ modules["Elements/Status"] = function()
 local Create = import("Core/Create")
 local Effects = import("Core/Effects")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local KINDS = { success = "success", warning = "warning", danger = "danger", info = "info", muted = "textMuted" }
 local Status = {}
@@ -14423,7 +14539,7 @@ LayoutOrder = 1,
 Parent = pill,
 })
 local pulse = Effects.pulse(row.scope, halo)
-local state = { text = options.Status or "Ready", kind = options.Kind or "success" }
+local state = { text = options.Status or Strings.get("Ready"), kind = options.Kind or "success" }
 local function draw()
 local role = KINDS[state.kind] or "success"
 Theme.bind(pill, "BackgroundColor3", role)
@@ -14548,6 +14664,7 @@ local Create = import("Core/Create")
 local Hairline = import("Core/Hairline")
 local Icons = import("Core/Icons")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local ROW_HEIGHT = 28
 local Table = {}
@@ -14644,7 +14761,7 @@ Create.list(body, "Vertical", 0)
 local empty = Create.new("TextLabel", {
 Name = "Empty",
 Size = UDim2.new(1, 0, 0, ROW_HEIGHT + 8),
-Text = options.EmptyText or "Nothing to show yet",
+Text = options.EmptyText or Strings.get("Nothing to show yet"),
 TextSize = 12,
 TextXAlignment = Enum.TextXAlignment.Center,
 LayoutOrder = 3,
@@ -14729,6 +14846,7 @@ end
 modules["Elements/Tags"] = function()
 local Create = import("Core/Create")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Theme = import("Core/Theme")
 local Tags = {}
 function Tags.new(container, options)
@@ -14757,7 +14875,7 @@ Create.list(field, "Horizontal", 6, { Wraps = true, VerticalAlignment = Enum.Ver
 local box = Create.new("TextBox", {
 Name = "Entry",
 Size = UDim2.fromOffset(120, 26),
-PlaceholderText = options.Placeholder or "Type and press Enter",
+PlaceholderText = options.Placeholder or Strings.get("Type and press Enter"),
 TextSize = 13,
 LayoutOrder = 1e6,
 ClearTextOnFocus = false,
@@ -15072,6 +15190,7 @@ local Icons = import("Core/Icons")
 local Keybind = import("Elements/Keybind")
 local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local STRETCH = 6
@@ -15296,7 +15415,7 @@ Theme.bind(knob, "BackgroundColor3", knobRole, true)
 Motion.tween(knob, timing, { BackgroundColor3 = Theme.color(knobRole) })
 end
 if word then
-word.Text = if value then look.labels[1] else look.labels[2]
+word.Text = Strings.get(if value then look.labels[1] else look.labels[2])
 Theme.bind(word, "TextColor3", if value then "onAccent" else "textMuted")
 end
 if glyph then
@@ -15368,6 +15487,7 @@ local Presets = import("Themes/Presets")
 local Scope = import("Core/Scope")
 local SettingsTab = import("Components/SettingsTab")
 local Signal = import("Core/Signal")
+local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Switches = import("Components/Switches")
 local Theme = import("Core/Theme")
@@ -15406,6 +15526,7 @@ Notifications = Notifications,
 Personalise = import("Components/Personalise"),
 Scope = Scope,
 Signal = Signal,
+Strings = Strings,
 Styles = Styles,
 Theme = Theme,
 Tokens = Tokens,
@@ -15436,6 +15557,17 @@ end
 local function folderFor(options)
 return Env.safeName(options.Folder or options.Title) or "Default"
 end
+local function savedLanguage(folder, options)
+if options.SavePreferences == false then
+return nil
+end
+local content = Env.read(`Halcyon/{folder}/settings.json`)
+if not content then
+return nil
+end
+local ok, saved = Env.decode(content)
+return if ok and type(saved) == "table" and type(saved.language) == "string" then saved.language else nil
+end
 function Halcyon:CreateWindow(options)
 options = options or {}
 if type(options) ~= "table" then
@@ -15449,6 +15581,10 @@ local previous = registry.HalcyonWindows[folder]
 local granted = if previous and previous.access and previous.access.Tiers then previous.access else nil
 if previous then
 pcall(previous.Unload, previous)
+end
+Strings.setLanguage(savedLanguage(folder, options) or options.Language or "en")
+if type(options.Strings) == "table" then
+Strings.set(options.Strings)
 end
 Tokens.reset()
 Tokens.set(options)
@@ -15554,6 +15690,21 @@ end
 function Halcyon:Image(source, callback)
 return Assets.resolve(source, callback)
 end
+function Halcyon:SetLanguage(code)
+return Strings.setLanguage(code)
+end
+function Halcyon:GetLanguage()
+return Strings.language
+end
+function Halcyon:GetLanguages()
+return Strings.languages()
+end
+function Halcyon:SetStrings(map)
+Strings.set(map)
+end
+function Halcyon:GetStrings()
+return Strings.list()
+end
 function Halcyon:GetExecutor()
 return Env.executor()
 end
@@ -15567,6 +15718,1971 @@ library.popup = nil
 end
 Create.preload()
 return Halcyon
+end
+modules["Locales/French"] = function()
+return {
+["Jump to a tab or setting"] = "Aller à un onglet ou une option",
+["Esc"] = "Échap",
+['Nothing matches "{query}".'] = 'Rien ne correspond à "{query}".',
+["Undo"] = "Annuler",
+["Copy share code"] = "Copier le code",
+["Every setting as one line of text"] = "Toutes les options sur une ligne de texte",
+["Code not made"] = "Code non créé",
+["These settings could not be written as a code."] = "Impossible de transformer ces options en code.",
+["Share code copied"] = "Code copié",
+["Paste it into the box below on another device or account."] = "Collez-le dans la case ci-dessous sur un autre appareil ou compte.",
+["Share code"] = "Code de partage",
+["Paste share code"] = "Coller un code",
+["Settings imported"] = "Options importées",
+["Code not imported"] = "Code non importé",
+["Configs"] = "Configs",
+["Saving is off"] = "Sauvegarde désactivée",
+["Share codes still work."] = "Les codes de partage marchent toujours.",
+["Config name"] = "Nom de la config",
+["default"] = "par défaut",
+["Saved configs"] = "Configs enregistrées",
+["None"] = "Aucune",
+["Config saved"] = "Config enregistrée",
+["Config not saved"] = "Config non enregistrée",
+["Save"] = "Enregistrer",
+['Overwrite "{name}"?'] = 'Remplacer "{name}" ?',
+["Its saved settings are replaced with the current ones."] = "Ses options enregistrées sont remplacées par les actuelles.",
+["Keep"] = "Garder",
+["Overwrite"] = "Remplacer",
+["Load"] = "Charger",
+["Config loaded"] = "Config chargée",
+["Config not loaded"] = "Config non chargée",
+["Load on start"] = "Charger au démarrage",
+["Loads it when the hub starts"] = "Se charge à l'ouverture du hub",
+["Loads on start"] = "Se charge au démarrage",
+["Autoload not set"] = "Chargement auto non défini",
+["Delete"] = "Supprimer",
+["Config deleted"] = "Config supprimée",
+["Nothing deleted"] = "Rien de supprimé",
+["Pick a config to delete."] = "Choisissez une config à supprimer.",
+['Delete "{name}"?'] = 'Supprimer "{name}" ?',
+["This can't be undone."] = "Impossible de revenir en arrière.",
+["Config not deleted"] = "Config non supprimée",
+["Close"] = "Fermer",
+["Search"] = "Rechercher",
+["Keybinds"] = "Raccourcis",
+["The key server could not be reached."] = "Impossible de joindre le serveur de clés.",
+["Enter your key first."] = "Entrez d'abord votre clé.",
+["The key could not be checked. Try again."] = "Impossible de vérifier la clé. Réessayez.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "L'étape {service} n'est pas encore confirmée. Terminez-la puis réessayez.",
+["ad"] = "pub",
+["{title} access"] = "Accès à {title}",
+["No key needed"] = "Sans clé",
+["Via {service}"] = "Via {service}",
+["an ad"] = "une pub",
+["Paid key"] = "Clé payante",
+["Key required"] = "Clé requise",
+["Paste your key"] = "Collez votre clé",
+["Join the Discord"] = "Rejoindre le Discord",
+["Opened the invite in Discord."] = "Invitation ouverte dans Discord.",
+["Discord invite copied. Paste it into your browser."] = "Invitation Discord copiée. Collez-la dans votre navigateur.",
+["Copy the invite from the box below."] = "Copiez l'invitation dans la case ci-dessous.",
+["Finish the {service} step to unlock {tier}."] = "Terminez l'étape {service} pour débloquer {tier}.",
+["Keys for {tier} last {time}."] = "Les clés {tier} durent {time}.",
+["Your key is saved on this device."] = "Votre clé est enregistrée sur cet appareil.",
+["Open {service}"] = "Ouvrir {service}",
+["Get a key"] = "Obtenir une clé",
+["Checking"] = "Vérification",
+["Continue with {tier}"] = "Continuer avec {tier}",
+["I finished {service}"] = "J'ai fini {service}",
+["Verify key"] = "Vérifier la clé",
+["Too many attempts. Try again in {seconds} s."] = "Trop d'essais. Réessayez dans {seconds} s.",
+["Checking the key."] = "Vérification de la clé.",
+["The key link is not available right now."] = "Le lien de la clé n'est pas disponible pour le moment.",
+["Copy this link and open it in your browser."] = "Copiez ce lien et ouvrez-le dans votre navigateur.",
+["Notices"] = "Notifications",
+["Clear all"] = "Tout effacer",
+["No notices yet"] = "Aucune notification",
+["+{count} more"] = "+{count} de plus",
+["Getting ready"] = "Préparation",
+["What's new in {version}"] = "Nouveautés de la {version}",
+["Continue"] = "Continuer",
+["About"] = "À propos",
+["Version"] = "Version",
+["Discord"] = "Discord",
+["Link"] = "Lien",
+["Link copied"] = "Lien copié",
+["Can't copy"] = "Copie impossible",
+["Paste it into your browser."] = "Collez-le dans votre navigateur.",
+["Something went wrong"] = "Un problème est survenu",
+["Nothing here yet"] = "Rien ici pour l'instant",
+["Try again"] = "Réessayer",
+["Unavailable right now"] = "Indisponible pour le moment",
+["That is not a theme."] = "Ce n'est pas un thème.",
+['The theme is missing a valid "{role}" colour.'] = 'Il manque au thème une couleur "{role}" valide.',
+["That text is not a theme."] = "Ce texte n'est pas un thème.",
+["Personalise"] = "Personnaliser",
+["Font"] = "Police",
+["Text size"] = "Taille du texte",
+["Corners"] = "Coins",
+["Spacing"] = "Espacement",
+["See-through window"] = "Fenêtre transparente",
+["Notice position"] = "Position des notifications",
+["Gradient accent"] = "Accent en dégradé",
+["Colour-blind friendly"] = "Couleurs pour daltoniens",
+["Theme builder"] = "Créateur de thème",
+["Colour"] = "Couleur",
+["Value"] = "Valeur",
+["Name"] = "Nom",
+["My theme"] = "Mon thème",
+["Give the theme a name first."] = "Donnez d'abord un nom au thème.",
+['Saved "{name}".'] = '"{name}" enregistré.',
+["Copy"] = "Copier",
+["Copied. Paste it into Import to share."] = "Copié. Collez-le dans Importer pour le partager.",
+["This executor can't copy text."] = "Cet executor ne peut pas copier de texte.",
+["Import"] = "Importer",
+["Paste a theme"] = "Collez un thème",
+["Anonymous"] = "Anonyme",
+["Identity hidden"] = "Identité masquée",
+["Opened in Discord"] = "Ouvert dans Discord",
+["Discord invite copied"] = "Invitation Discord copiée",
+["Discord invite"] = "Invitation Discord",
+["Accept the invite in the Discord app."] = "Acceptez l'invitation dans l'app Discord.",
+["Paste it into your browser to join."] = "Collez-le dans votre navigateur pour rejoindre.",
+["Key expires in {time}"] = "La clé expire dans {time}",
+["Key expired"] = "Clé expirée",
+["Settings"] = "Paramètres",
+["Appearance"] = "Apparence",
+["Theme"] = "Thème",
+["Accent colour"] = "Couleur d'accent",
+["Tab layout"] = "Disposition des onglets",
+["Interface scale"] = "Taille de l'interface",
+["Reduce motion"] = "Réduire les animations",
+["Menu"] = "Menu",
+["Toggle key"] = "Touche du menu",
+["Minimise to"] = "Réduire en",
+["Anonymous mode"] = "Mode anonyme",
+["Hides your name and picture"] = "Masque votre nom et votre image",
+["Session"] = "Session",
+["Unload"] = "Décharger",
+["Got it"] = "Compris",
+["Updates"] = "Mises à jour",
+["A version or a word"] = "Une version ou un mot",
+["All"] = "Tout",
+["Show"] = "Afficher",
+["Latest"] = "Dernière",
+["Pinned"] = "Épinglée",
+["New"] = "Nouveau",
+["What's new: {title}"] = "Nouveautés : {title}",
+["Requires {tier}"] = "Nécessite {tier}",
+["Paid only"] = "Payant",
+["Unlock with a paid key"] = "Débloquez avec une clé payante",
+["Menu hidden"] = "Menu masqué",
+["Press {key} to open it again."] = "Appuyez sur {key} pour le rouvrir.",
+["The settings could not be encoded."] = "Impossible d'enregistrer les options.",
+["Settings not saved"] = "Options non enregistrées",
+["Nothing to undo."] = "Rien à annuler.",
+["Restored {count} settings."] = "{count} options restaurées.",
+["Paste a share code first."] = "Collez d'abord un code.",
+["That isn't a Halcyon share code."] = "Ce n'est pas un code Halcyon.",
+["The share code is incomplete. Copy it again."] = "Le code est incomplet. Copiez-le à nouveau.",
+["Imported {count} settings."] = "{count} options importées.",
+["No autoload config is set."] = "Aucune config ne se charge au démarrage.",
+["Unload the hub?"] = "Décharger le hub ?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Tout ce qu'il a activé s'arrête. Relancez le script pour le retrouver.",
+["The config could not be encoded."] = "Impossible d'enregistrer la config.",
+['There is no config named "{name}".'] = 'Aucune config ne s\'appelle "{name}".',
+['"{name}" is not a valid config file.'] = '"{name}" n\'est pas un fichier de config valide.',
+['Loaded "{name}" ({count} settings).'] = '"{name}" chargée ({count} options).',
+["This executor cannot delete files."] = "Cet executor ne peut pas supprimer de fichiers.",
+['Deleted "{name}".'] = '"{name}" supprimée.',
+["Autoload is off."] = "Chargement auto désactivé.",
+['"{name}" loads on start.'] = '"{name}" se charge au démarrage.',
+["Press again to confirm"] = "Appuyez encore pour confirmer",
+["Select all"] = "Tout sélectionner",
+["Copied"] = "Copié",
+["This executor has no clipboard."] = "Cet executor n'a pas de presse-papiers.",
+["Press a key"] = "Appuyez sur une touche",
+["Filter"] = "Filtrer",
+["Nothing yet"] = "Rien pour l'instant",
+["Actions"] = "Actions",
+["Find a player"] = "Chercher un joueur",
+["No one else is here"] = "Personne d'autre ici",
+["1 player"] = "1 joueur",
+["{count} players"] = "{count} joueurs",
+["Needs {names}"] = "Nécessite {names}",
+["Locked"] = "Verrouillé",
+["Ready"] = "Prêt",
+["Nothing to show yet"] = "Rien à afficher pour l'instant",
+["Type and press Enter"] = "Tapez puis appuyez sur Entrée",
+["This executor can't save files."] = "Cet executor ne peut pas enregistrer de fichiers.",
+["HTTP requests are not available here."] = "Les requêtes HTTP ne sont pas disponibles ici.",
+["That key is not valid."] = "Cette clé n'est pas valide.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Utilisez des lettres, chiffres, espaces, - ou _ dans le nom.",
+["January"] = "Janvier",
+["February"] = "Février",
+["March"] = "Mars",
+["April"] = "Avril",
+["May"] = "Mai",
+["June"] = "Juin",
+["July"] = "Juillet",
+["August"] = "Août",
+["September"] = "Septembre",
+["October"] = "Octobre",
+["November"] = "Novembre",
+["December"] = "Décembre",
+["Mo"] = "Lu",
+["Tu"] = "Ma",
+["We"] = "Me",
+["Th"] = "Je",
+["Fr"] = "Ve",
+["Sa"] = "Sa",
+["Su"] = "Di",
+["Info"] = "Info",
+["Warn"] = "Alerte",
+["Error"] = "Erreur",
+["Improved"] = "Amélioré",
+["Fixed"] = "Corrigé",
+["Removed"] = "Retiré",
+["Security"] = "Sécurité",
+["On"] = "Oui",
+["Off"] = "Non",
+["Sidebar"] = "Barre latérale",
+["Rail"] = "Rail",
+["Top"] = "Haut",
+["Dock"] = "Dock",
+["Topbar"] = "Barre du haut",
+["Pill"] = "Pilule",
+["Chip"] = "Puce",
+["Link copied. Open it in your browser to get a key."] = "Lien copié. Ouvrez-le dans votre navigateur pour obtenir une clé.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Lien copié. Ouvrez-le, terminez l'étape, puis confirmez ici.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Lien copié. Ouvrez-le, terminez l'étape, puis collez votre clé ici.",
+["Language"] = "Langue",
+["Language changed"] = "Langue modifiée",
+["Run the hub again to see every part in the new language."] = "Relancez le hub pour tout voir dans la nouvelle langue.",
+}
+end
+modules["Locales/German"] = function()
+return {
+["Jump to a tab or setting"] = "Zu Tab oder Option springen",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = 'Nichts passt zu "{query}".',
+["Undo"] = "Rückgängig",
+["Copy share code"] = "Code kopieren",
+["Every setting as one line of text"] = "Alle Optionen als eine Textzeile",
+["Code not made"] = "Code nicht erstellt",
+["These settings could not be written as a code."] = "Diese Optionen ließen sich nicht als Code schreiben.",
+["Share code copied"] = "Code kopiert",
+["Paste it into the box below on another device or account."] = "Füge ihn auf einem anderen Gerät oder Konto unten ein.",
+["Share code"] = "Teilen-Code",
+["Paste share code"] = "Code einfügen",
+["Settings imported"] = "Optionen importiert",
+["Code not imported"] = "Code nicht importiert",
+["Configs"] = "Configs",
+["Saving is off"] = "Speichern ist aus",
+["Share codes still work."] = "Teilen-Codes funktionieren trotzdem.",
+["Config name"] = "Config-Name",
+["default"] = "standard",
+["Saved configs"] = "Gespeicherte Configs",
+["None"] = "Keine",
+["Config saved"] = "Config gespeichert",
+["Config not saved"] = "Config nicht gespeichert",
+["Save"] = "Speichern",
+['Overwrite "{name}"?'] = '"{name}" überschreiben?',
+["Its saved settings are replaced with the current ones."] = "Die gespeicherten Optionen werden durch die aktuellen ersetzt.",
+["Keep"] = "Behalten",
+["Overwrite"] = "Überschreiben",
+["Load"] = "Laden",
+["Config loaded"] = "Config geladen",
+["Config not loaded"] = "Config nicht geladen",
+["Load on start"] = "Beim Start laden",
+["Loads it when the hub starts"] = "Wird beim Start des Hubs geladen",
+["Loads on start"] = "Lädt beim Start",
+["Autoload not set"] = "Autoload nicht gesetzt",
+["Delete"] = "Löschen",
+["Config deleted"] = "Config gelöscht",
+["Nothing deleted"] = "Nichts gelöscht",
+["Pick a config to delete."] = "Wähle eine Config zum Löschen.",
+['Delete "{name}"?'] = '"{name}" löschen?',
+["This can't be undone."] = "Das lässt sich nicht rückgängig machen.",
+["Config not deleted"] = "Config nicht gelöscht",
+["Close"] = "Schließen",
+["Search"] = "Suchen",
+["Keybinds"] = "Tasten",
+["The key server could not be reached."] = "Der Key-Server ist nicht erreichbar.",
+["Enter your key first."] = "Gib zuerst deinen Key ein.",
+["The key could not be checked. Try again."] = "Der Key konnte nicht geprüft werden. Versuch es noch mal.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "Der {service}-Schritt ist noch nicht bestätigt. Schließ ihn ab und versuch es erneut.",
+["ad"] = "Werbung",
+["{title} access"] = "Zugang zu {title}",
+["No key needed"] = "Kein Key nötig",
+["Via {service}"] = "Über {service}",
+["an ad"] = "Werbung",
+["Paid key"] = "Bezahlter Key",
+["Key required"] = "Key nötig",
+["Paste your key"] = "Key einfügen",
+["Join the Discord"] = "Dem Discord beitreten",
+["Opened the invite in Discord."] = "Einladung in Discord geöffnet.",
+["Discord invite copied. Paste it into your browser."] = "Discord-Einladung kopiert. Füge sie im Browser ein.",
+["Copy the invite from the box below."] = "Kopiere die Einladung aus dem Feld unten.",
+["Finish the {service} step to unlock {tier}."] = "Schließ den {service}-Schritt ab, um {tier} freizuschalten.",
+["Keys for {tier} last {time}."] = "Keys für {tier} gelten {time}.",
+["Your key is saved on this device."] = "Dein Key ist auf diesem Gerät gespeichert.",
+["Open {service}"] = "{service} öffnen",
+["Get a key"] = "Key holen",
+["Checking"] = "Prüfe",
+["Continue with {tier}"] = "Weiter mit {tier}",
+["I finished {service}"] = "{service} erledigt",
+["Verify key"] = "Key prüfen",
+["Too many attempts. Try again in {seconds} s."] = "Zu viele Versuche. Nochmal in {seconds} s.",
+["Checking the key."] = "Key wird geprüft.",
+["The key link is not available right now."] = "Der Key-Link ist gerade nicht verfügbar.",
+["Copy this link and open it in your browser."] = "Kopiere diesen Link und öffne ihn im Browser.",
+["Notices"] = "Hinweise",
+["Clear all"] = "Alle löschen",
+["No notices yet"] = "Noch keine Hinweise",
+["+{count} more"] = "+{count} weitere",
+["Getting ready"] = "Wird vorbereitet",
+["What's new in {version}"] = "Neu in {version}",
+["Continue"] = "Weiter",
+["About"] = "Info",
+["Version"] = "Version",
+["Discord"] = "Discord",
+["Link"] = "Link",
+["Link copied"] = "Link kopiert",
+["Can't copy"] = "Kopieren nicht möglich",
+["Paste it into your browser."] = "Füge ihn im Browser ein.",
+["Something went wrong"] = "Etwas ist schiefgelaufen",
+["Nothing here yet"] = "Hier ist noch nichts",
+["Try again"] = "Erneut versuchen",
+["Unavailable right now"] = "Gerade nicht verfügbar",
+["That is not a theme."] = "Das ist kein Theme.",
+['The theme is missing a valid "{role}" colour.'] = 'Dem Theme fehlt eine gültige Farbe für "{role}".',
+["That text is not a theme."] = "Dieser Text ist kein Theme.",
+["Personalise"] = "Anpassen",
+["Font"] = "Schrift",
+["Text size"] = "Textgröße",
+["Corners"] = "Ecken",
+["Spacing"] = "Abstand",
+["See-through window"] = "Durchsichtiges Fenster",
+["Notice position"] = "Position der Hinweise",
+["Gradient accent"] = "Akzent mit Verlauf",
+["Colour-blind friendly"] = "Farbenblind-freundlich",
+["Theme builder"] = "Theme-Editor",
+["Colour"] = "Farbe",
+["Value"] = "Wert",
+["Name"] = "Name",
+["My theme"] = "Mein Theme",
+["Give the theme a name first."] = "Gib dem Theme zuerst einen Namen.",
+['Saved "{name}".'] = '"{name}" gespeichert.',
+["Copy"] = "Kopieren",
+["Copied. Paste it into Import to share."] = "Kopiert. Zum Teilen unter Import einfügen.",
+["This executor can't copy text."] = "Dieser Executor kann keinen Text kopieren.",
+["Import"] = "Import",
+["Paste a theme"] = "Theme einfügen",
+["Anonymous"] = "Anonym",
+["Identity hidden"] = "Identität verborgen",
+["Opened in Discord"] = "In Discord geöffnet",
+["Discord invite copied"] = "Discord-Einladung kopiert",
+["Discord invite"] = "Discord-Einladung",
+["Accept the invite in the Discord app."] = "Nimm die Einladung in der Discord-App an.",
+["Paste it into your browser to join."] = "Füge ihn zum Beitreten im Browser ein.",
+["Key expires in {time}"] = "Key läuft ab in {time}",
+["Key expired"] = "Key abgelaufen",
+["Settings"] = "Einstellungen",
+["Appearance"] = "Aussehen",
+["Theme"] = "Theme",
+["Accent colour"] = "Akzentfarbe",
+["Tab layout"] = "Tab-Anordnung",
+["Interface scale"] = "Oberflächengröße",
+["Reduce motion"] = "Weniger Bewegung",
+["Menu"] = "Menü",
+["Toggle key"] = "Menütaste",
+["Minimise to"] = "Minimieren zu",
+["Anonymous mode"] = "Anonymer Modus",
+["Hides your name and picture"] = "Verbirgt Name und Bild",
+["Session"] = "Sitzung",
+["Unload"] = "Entladen",
+["Got it"] = "Verstanden",
+["Updates"] = "Updates",
+["A version or a word"] = "Eine Version oder ein Wort",
+["All"] = "Alle",
+["Show"] = "Zeigen",
+["Latest"] = "Neueste",
+["Pinned"] = "Angeheftet",
+["New"] = "Neu",
+["What's new: {title}"] = "Neu: {title}",
+["Requires {tier}"] = "Braucht {tier}",
+["Paid only"] = "Nur bezahlt",
+["Unlock with a paid key"] = "Mit bezahltem Key freischalten",
+["Menu hidden"] = "Menü ausgeblendet",
+["Press {key} to open it again."] = "Drück {key}, um es wieder zu öffnen.",
+["The settings could not be encoded."] = "Die Optionen konnten nicht gespeichert werden.",
+["Settings not saved"] = "Optionen nicht gespeichert",
+["Nothing to undo."] = "Nichts rückgängig zu machen.",
+["Restored {count} settings."] = "{count} Optionen wiederhergestellt.",
+["Paste a share code first."] = "Füge zuerst einen Code ein.",
+["That isn't a Halcyon share code."] = "Das ist kein Halcyon-Code.",
+["The share code is incomplete. Copy it again."] = "Der Code ist unvollständig. Kopiere ihn erneut.",
+["Imported {count} settings."] = "{count} Optionen importiert.",
+["No autoload config is set."] = "Keine Config lädt beim Start.",
+["Unload the hub?"] = "Hub entladen?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Alles, was er eingeschaltet hat, stoppt. Starte das Skript neu, um ihn zurückzuholen.",
+["The config could not be encoded."] = "Die Config konnte nicht gespeichert werden.",
+['There is no config named "{name}".'] = 'Es gibt keine Config namens "{name}".',
+['"{name}" is not a valid config file.'] = '"{name}" ist keine gültige Config-Datei.',
+['Loaded "{name}" ({count} settings).'] = '"{name}" geladen ({count} Optionen).',
+["This executor cannot delete files."] = "Dieser Executor kann keine Dateien löschen.",
+['Deleted "{name}".'] = '"{name}" gelöscht.',
+["Autoload is off."] = "Autoload ist aus.",
+['"{name}" loads on start.'] = '"{name}" lädt beim Start.',
+["Press again to confirm"] = "Zum Bestätigen erneut drücken",
+["Select all"] = "Alle auswählen",
+["Copied"] = "Kopiert",
+["This executor has no clipboard."] = "Dieser Executor hat keine Zwischenablage.",
+["Press a key"] = "Taste drücken",
+["Filter"] = "Filter",
+["Nothing yet"] = "Noch nichts",
+["Actions"] = "Aktionen",
+["Find a player"] = "Spieler suchen",
+["No one else is here"] = "Sonst ist niemand hier",
+["1 player"] = "1 Spieler",
+["{count} players"] = "{count} Spieler",
+["Needs {names}"] = "Braucht {names}",
+["Locked"] = "Gesperrt",
+["Ready"] = "Bereit",
+["Nothing to show yet"] = "Noch nichts anzuzeigen",
+["Type and press Enter"] = "Tippen und Enter drücken",
+["This executor can't save files."] = "Dieser Executor kann keine Dateien speichern.",
+["HTTP requests are not available here."] = "HTTP-Anfragen sind hier nicht verfügbar.",
+["That key is not valid."] = "Dieser Key ist ungültig.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Nutze Buchstaben, Zahlen, Leerzeichen, - oder _ im Namen.",
+["January"] = "Januar",
+["February"] = "Februar",
+["March"] = "März",
+["April"] = "April",
+["May"] = "Mai",
+["June"] = "Juni",
+["July"] = "Juli",
+["August"] = "August",
+["September"] = "September",
+["October"] = "Oktober",
+["November"] = "November",
+["December"] = "Dezember",
+["Mo"] = "Mo",
+["Tu"] = "Di",
+["We"] = "Mi",
+["Th"] = "Do",
+["Fr"] = "Fr",
+["Sa"] = "Sa",
+["Su"] = "So",
+["Info"] = "Info",
+["Warn"] = "Warnung",
+["Error"] = "Fehler",
+["Improved"] = "Verbessert",
+["Fixed"] = "Behoben",
+["Removed"] = "Entfernt",
+["Security"] = "Sicherheit",
+["On"] = "An",
+["Off"] = "Aus",
+["Sidebar"] = "Seitenleiste",
+["Rail"] = "Leiste",
+["Top"] = "Oben",
+["Dock"] = "Dock",
+["Topbar"] = "Titelleiste",
+["Pill"] = "Pille",
+["Chip"] = "Chip",
+["Link copied. Open it in your browser to get a key."] = "Link kopiert. Öffne ihn im Browser, um einen Key zu holen.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Link kopiert. Öffne ihn im Browser, schließ den Schritt ab und bestätige hier.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Link kopiert. Öffne ihn im Browser, schließ den Schritt ab und füge deinen Key hier ein.",
+["Language"] = "Sprache",
+["Language changed"] = "Sprache geändert",
+["Run the hub again to see every part in the new language."] = "Starte den Hub neu, um alles in der neuen Sprache zu sehen.",
+}
+end
+modules["Locales/Indonesian"] = function()
+return {
+["Jump to a tab or setting"] = "Buka tab atau pengaturan",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = 'Tidak ada yang cocok dengan "{query}".',
+["Undo"] = "Urungkan",
+["Copy share code"] = "Salin kode",
+["Every setting as one line of text"] = "Semua pengaturan dalam satu baris teks",
+["Code not made"] = "Kode tidak dibuat",
+["These settings could not be written as a code."] = "Pengaturan ini tidak bisa dijadikan kode.",
+["Share code copied"] = "Kode disalin",
+["Paste it into the box below on another device or account."] = "Tempel di kotak bawah pada perangkat atau akun lain.",
+["Share code"] = "Kode bagikan",
+["Paste share code"] = "Tempel kode",
+["Settings imported"] = "Pengaturan diimpor",
+["Code not imported"] = "Kode tidak diimpor",
+["Configs"] = "Config",
+["Saving is off"] = "Penyimpanan mati",
+["Share codes still work."] = "Kode bagikan tetap bisa dipakai.",
+["Config name"] = "Nama config",
+["default"] = "utama",
+["Saved configs"] = "Config tersimpan",
+["None"] = "Tidak ada",
+["Config saved"] = "Config disimpan",
+["Config not saved"] = "Config tidak disimpan",
+["Save"] = "Simpan",
+['Overwrite "{name}"?'] = 'Timpa "{name}"?',
+["Its saved settings are replaced with the current ones."] = "Pengaturan tersimpannya diganti dengan yang sekarang.",
+["Keep"] = "Biarkan",
+["Overwrite"] = "Timpa",
+["Load"] = "Muat",
+["Config loaded"] = "Config dimuat",
+["Config not loaded"] = "Config tidak dimuat",
+["Load on start"] = "Muat saat mulai",
+["Loads it when the hub starts"] = "Dimuat saat hub dibuka",
+["Loads on start"] = "Dimuat saat mulai",
+["Autoload not set"] = "Muat otomatis belum diatur",
+["Delete"] = "Hapus",
+["Config deleted"] = "Config dihapus",
+["Nothing deleted"] = "Tidak ada yang dihapus",
+["Pick a config to delete."] = "Pilih config yang mau dihapus.",
+['Delete "{name}"?'] = 'Hapus "{name}"?',
+["This can't be undone."] = "Ini tidak bisa diurungkan.",
+["Config not deleted"] = "Config tidak dihapus",
+["Close"] = "Tutup",
+["Search"] = "Cari",
+["Keybinds"] = "Tombol",
+["The key server could not be reached."] = "Server key tidak bisa dihubungi.",
+["Enter your key first."] = "Masukkan key dulu.",
+["The key could not be checked. Try again."] = "Key tidak bisa dicek. Coba lagi.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "Langkah {service} belum dikonfirmasi. Selesaikan, lalu coba lagi.",
+["ad"] = "iklan",
+["{title} access"] = "Akses {title}",
+["No key needed"] = "Tanpa key",
+["Via {service}"] = "Lewat {service}",
+["an ad"] = "iklan",
+["Paid key"] = "Key berbayar",
+["Key required"] = "Perlu key",
+["Paste your key"] = "Tempel key kamu",
+["Join the Discord"] = "Gabung Discord",
+["Opened the invite in Discord."] = "Undangan dibuka di Discord.",
+["Discord invite copied. Paste it into your browser."] = "Undangan Discord disalin. Tempel di browser.",
+["Copy the invite from the box below."] = "Salin undangan dari kotak di bawah.",
+["Finish the {service} step to unlock {tier}."] = "Selesaikan langkah {service} untuk membuka {tier}.",
+["Keys for {tier} last {time}."] = "Key {tier} berlaku {time}.",
+["Your key is saved on this device."] = "Key kamu tersimpan di perangkat ini.",
+["Open {service}"] = "Buka {service}",
+["Get a key"] = "Ambil key",
+["Checking"] = "Mengecek",
+["Continue with {tier}"] = "Lanjut dengan {tier}",
+["I finished {service}"] = "{service} sudah selesai",
+["Verify key"] = "Cek key",
+["Too many attempts. Try again in {seconds} s."] = "Terlalu banyak percobaan. Coba lagi dalam {seconds} dtk.",
+["Checking the key."] = "Mengecek key.",
+["The key link is not available right now."] = "Link key sedang tidak tersedia.",
+["Copy this link and open it in your browser."] = "Salin link ini dan buka di browser.",
+["Notices"] = "Notifikasi",
+["Clear all"] = "Hapus semua",
+["No notices yet"] = "Belum ada notifikasi",
+["+{count} more"] = "+{count} lagi",
+["Getting ready"] = "Menyiapkan",
+["What's new in {version}"] = "Yang baru di {version}",
+["Continue"] = "Lanjut",
+["About"] = "Tentang",
+["Version"] = "Versi",
+["Discord"] = "Discord",
+["Link"] = "Link",
+["Link copied"] = "Link disalin",
+["Can't copy"] = "Tidak bisa menyalin",
+["Paste it into your browser."] = "Tempel di browser.",
+["Something went wrong"] = "Terjadi kesalahan",
+["Nothing here yet"] = "Belum ada apa-apa",
+["Try again"] = "Coba lagi",
+["Unavailable right now"] = "Sedang tidak tersedia",
+["That is not a theme."] = "Itu bukan tema.",
+['The theme is missing a valid "{role}" colour.'] = 'Tema tidak punya warna "{role}" yang valid.',
+["That text is not a theme."] = "Teks itu bukan tema.",
+["Personalise"] = "Personalisasi",
+["Font"] = "Font",
+["Text size"] = "Ukuran teks",
+["Corners"] = "Sudut",
+["Spacing"] = "Jarak",
+["See-through window"] = "Jendela tembus pandang",
+["Notice position"] = "Posisi notifikasi",
+["Gradient accent"] = "Aksen gradasi",
+["Colour-blind friendly"] = "Ramah buta warna",
+["Theme builder"] = "Pembuat tema",
+["Colour"] = "Warna",
+["Value"] = "Nilai",
+["Name"] = "Nama",
+["My theme"] = "Tema saya",
+["Give the theme a name first."] = "Beri nama tema dulu.",
+['Saved "{name}".'] = '"{name}" disimpan.',
+["Copy"] = "Salin",
+["Copied. Paste it into Import to share."] = "Disalin. Tempel di Impor untuk berbagi.",
+["This executor can't copy text."] = "Executor ini tidak bisa menyalin teks.",
+["Import"] = "Impor",
+["Paste a theme"] = "Tempel tema",
+["Anonymous"] = "Anonim",
+["Identity hidden"] = "Identitas disembunyikan",
+["Opened in Discord"] = "Dibuka di Discord",
+["Discord invite copied"] = "Undangan Discord disalin",
+["Discord invite"] = "Undangan Discord",
+["Accept the invite in the Discord app."] = "Terima undangan di aplikasi Discord.",
+["Paste it into your browser to join."] = "Tempel di browser untuk bergabung.",
+["Key expires in {time}"] = "Key habis dalam {time}",
+["Key expired"] = "Key kedaluwarsa",
+["Settings"] = "Pengaturan",
+["Appearance"] = "Tampilan",
+["Theme"] = "Tema",
+["Accent colour"] = "Warna aksen",
+["Tab layout"] = "Tata letak tab",
+["Interface scale"] = "Skala antarmuka",
+["Reduce motion"] = "Kurangi animasi",
+["Menu"] = "Menu",
+["Toggle key"] = "Tombol menu",
+["Minimise to"] = "Perkecil jadi",
+["Anonymous mode"] = "Mode anonim",
+["Hides your name and picture"] = "Sembunyikan nama dan foto",
+["Session"] = "Sesi",
+["Unload"] = "Tutup hub",
+["Got it"] = "Oke",
+["Updates"] = "Pembaruan",
+["A version or a word"] = "Versi atau kata",
+["All"] = "Semua",
+["Show"] = "Tampilkan",
+["Latest"] = "Terbaru",
+["Pinned"] = "Disematkan",
+["New"] = "Baru",
+["What's new: {title}"] = "Yang baru: {title}",
+["Requires {tier}"] = "Perlu {tier}",
+["Paid only"] = "Khusus berbayar",
+["Unlock with a paid key"] = "Buka dengan key berbayar",
+["Menu hidden"] = "Menu disembunyikan",
+["Press {key} to open it again."] = "Tekan {key} untuk membukanya lagi.",
+["The settings could not be encoded."] = "Pengaturan tidak bisa disimpan.",
+["Settings not saved"] = "Pengaturan tidak disimpan",
+["Nothing to undo."] = "Tidak ada yang bisa diurungkan.",
+["Restored {count} settings."] = "{count} pengaturan dipulihkan.",
+["Paste a share code first."] = "Tempel kode dulu.",
+["That isn't a Halcyon share code."] = "Itu bukan kode Halcyon.",
+["The share code is incomplete. Copy it again."] = "Kodenya tidak lengkap. Salin lagi.",
+["Imported {count} settings."] = "{count} pengaturan diimpor.",
+["No autoload config is set."] = "Belum ada config muat otomatis.",
+["Unload the hub?"] = "Tutup hub?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Semua yang dinyalakan akan berhenti. Jalankan script lagi untuk membukanya.",
+["The config could not be encoded."] = "Config tidak bisa disimpan.",
+['There is no config named "{name}".'] = 'Tidak ada config bernama "{name}".',
+['"{name}" is not a valid config file.'] = '"{name}" bukan file config yang valid.',
+['Loaded "{name}" ({count} settings).'] = '"{name}" dimuat ({count} pengaturan).',
+["This executor cannot delete files."] = "Executor ini tidak bisa menghapus file.",
+['Deleted "{name}".'] = '"{name}" dihapus.',
+["Autoload is off."] = "Muat otomatis mati.",
+['"{name}" loads on start.'] = '"{name}" dimuat saat mulai.',
+["Press again to confirm"] = "Tekan lagi untuk konfirmasi",
+["Select all"] = "Pilih semua",
+["Copied"] = "Disalin",
+["This executor has no clipboard."] = "Executor ini tidak punya clipboard.",
+["Press a key"] = "Tekan tombol",
+["Filter"] = "Saring",
+["Nothing yet"] = "Belum ada",
+["Actions"] = "Aksi",
+["Find a player"] = "Cari pemain",
+["No one else is here"] = "Tidak ada orang lain",
+["1 player"] = "1 pemain",
+["{count} players"] = "{count} pemain",
+["Needs {names}"] = "Perlu {names}",
+["Locked"] = "Terkunci",
+["Ready"] = "Siap",
+["Nothing to show yet"] = "Belum ada yang ditampilkan",
+["Type and press Enter"] = "Ketik lalu tekan Enter",
+["This executor can't save files."] = "Executor ini tidak bisa menyimpan file.",
+["HTTP requests are not available here."] = "Permintaan HTTP tidak tersedia di sini.",
+["That key is not valid."] = "Key itu tidak valid.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Pakai huruf, angka, spasi, - atau _ untuk nama config.",
+["January"] = "Januari",
+["February"] = "Februari",
+["March"] = "Maret",
+["April"] = "April",
+["May"] = "Mei",
+["June"] = "Juni",
+["July"] = "Juli",
+["August"] = "Agustus",
+["September"] = "September",
+["October"] = "Oktober",
+["November"] = "November",
+["December"] = "Desember",
+["Mo"] = "Sn",
+["Tu"] = "Sl",
+["We"] = "Rb",
+["Th"] = "Km",
+["Fr"] = "Jm",
+["Sa"] = "Sb",
+["Su"] = "Mg",
+["Info"] = "Info",
+["Warn"] = "Peringatan",
+["Error"] = "Galat",
+["Improved"] = "Diperbaiki",
+["Fixed"] = "Dibetulkan",
+["Removed"] = "Dihapus",
+["Security"] = "Keamanan",
+["On"] = "Ya",
+["Off"] = "Tidak",
+["Sidebar"] = "Bilah samping",
+["Rail"] = "Bilah ramping",
+["Top"] = "Atas",
+["Dock"] = "Bilah bawah",
+["Topbar"] = "Bilah judul",
+["Pill"] = "Pil",
+["Chip"] = "Label",
+["Link copied. Open it in your browser to get a key."] = "Link disalin. Buka di browser untuk ambil key.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Link disalin. Buka di browser, selesaikan langkahnya, lalu konfirmasi di sini.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Link disalin. Buka di browser, selesaikan langkahnya, lalu tempel key di sini.",
+["Language"] = "Bahasa",
+["Language changed"] = "Bahasa diganti",
+["Run the hub again to see every part in the new language."] = "Jalankan hub lagi untuk melihat semuanya dalam bahasa baru.",
+}
+end
+modules["Locales/Locales"] = function()
+local LocalizationService = game:GetService("LocalizationService")
+local Locales = {
+packs = {
+["pt-br"] = import("Locales/Portuguese"),
+es = import("Locales/Spanish"),
+vi = import("Locales/Vietnamese"),
+id = import("Locales/Indonesian"),
+ru = import("Locales/Russian"),
+tr = import("Locales/Turkish"),
+fr = import("Locales/French"),
+de = import("Locales/German"),
+},
+names = {
+en = "English",
+["pt-br"] = "Português (Brasil)",
+es = "Español",
+vi = "Tiếng Việt",
+id = "Bahasa Indonesia",
+ru = "Русский",
+tr = "Türkçe",
+fr = "Français",
+de = "Deutsch",
+},
+}
+local ORDER = { "en", "pt-br", "es", "vi", "id", "ru", "tr", "fr", "de" }
+function Locales.resolve(code)
+if code == nil or code == "auto" then
+local ok, locale = pcall(function()
+return LocalizationService.RobloxLocaleId
+end)
+code = if ok and type(locale) == "string" then locale else "en"
+end
+code = string.gsub(string.lower(tostring(code)), "_", "-")
+if code == "en" or Locales.packs[code] then
+return code
+end
+local base = string.match(code, "^%a+") or "en"
+if base == "pt" then
+return "pt-br"
+end
+return if Locales.packs[base] then base else "en"
+end
+function Locales.codes()
+local list = {}
+for _, code in ORDER do
+table.insert(list, { Code = code, Name = Locales.names[code] })
+end
+return list
+end
+return Locales
+end
+modules["Locales/Portuguese"] = function()
+return {
+["Jump to a tab or setting"] = "Ir para uma aba ou opção",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = 'Nada corresponde a "{query}".',
+["Undo"] = "Desfazer",
+["Copy share code"] = "Copiar código",
+["Every setting as one line of text"] = "Todas as opções em uma linha de texto",
+["Code not made"] = "Código não criado",
+["These settings could not be written as a code."] = "Não foi possível transformar estas opções em código.",
+["Share code copied"] = "Código copiado",
+["Paste it into the box below on another device or account."] = "Cole na caixa abaixo em outro aparelho ou conta.",
+["Share code"] = "Código de compartilhamento",
+["Paste share code"] = "Colar código",
+["Settings imported"] = "Opções importadas",
+["Code not imported"] = "Código não importado",
+["Configs"] = "Configs",
+["Saving is off"] = "Salvar está desligado",
+["Share codes still work."] = "Códigos de compartilhamento ainda funcionam.",
+["Config name"] = "Nome da config",
+["default"] = "padrão",
+["Saved configs"] = "Configs salvas",
+["None"] = "Nenhuma",
+["Config saved"] = "Config salva",
+["Config not saved"] = "Config não salva",
+["Save"] = "Salvar",
+['Overwrite "{name}"?'] = 'Substituir "{name}"?',
+["Its saved settings are replaced with the current ones."] = "As opções salvas serão trocadas pelas atuais.",
+["Keep"] = "Manter",
+["Overwrite"] = "Substituir",
+["Load"] = "Carregar",
+["Config loaded"] = "Config carregada",
+["Config not loaded"] = "Config não carregada",
+["Load on start"] = "Carregar ao iniciar",
+["Loads it when the hub starts"] = "Carrega quando o hub abre",
+["Loads on start"] = "Carrega ao iniciar",
+["Autoload not set"] = "Carregamento automático não definido",
+["Delete"] = "Excluir",
+["Config deleted"] = "Config excluída",
+["Nothing deleted"] = "Nada excluído",
+["Pick a config to delete."] = "Escolha uma config para excluir.",
+['Delete "{name}"?'] = 'Excluir "{name}"?',
+["This can't be undone."] = "Isso não pode ser desfeito.",
+["Config not deleted"] = "Config não excluída",
+["Close"] = "Fechar",
+["Search"] = "Buscar",
+["Keybinds"] = "Teclas",
+["The key server could not be reached."] = "Não foi possível falar com o servidor de keys.",
+["Enter your key first."] = "Digite sua key primeiro.",
+["The key could not be checked. Try again."] = "Não foi possível verificar a key. Tente de novo.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "A etapa do {service} ainda não foi confirmada. Termine e tente de novo.",
+["ad"] = "anúncio",
+["{title} access"] = "Acesso ao {title}",
+["No key needed"] = "Sem key",
+["Via {service}"] = "Pelo {service}",
+["an ad"] = "um anúncio",
+["Paid key"] = "Key paga",
+["Key required"] = "Precisa de key",
+["Paste your key"] = "Cole sua key",
+["Join the Discord"] = "Entrar no Discord",
+["Opened the invite in Discord."] = "Convite aberto no Discord.",
+["Discord invite copied. Paste it into your browser."] = "Convite do Discord copiado. Cole no navegador.",
+["Copy the invite from the box below."] = "Copie o convite da caixa abaixo.",
+["Finish the {service} step to unlock {tier}."] = "Termine a etapa do {service} para liberar {tier}.",
+["Keys for {tier} last {time}."] = "Keys de {tier} duram {time}.",
+["Your key is saved on this device."] = "Sua key fica salva neste aparelho.",
+["Open {service}"] = "Abrir {service}",
+["Get a key"] = "Pegar uma key",
+["Checking"] = "Verificando",
+["Continue with {tier}"] = "Continuar com {tier}",
+["I finished {service}"] = "Terminei o {service}",
+["Verify key"] = "Verificar key",
+["Too many attempts. Try again in {seconds} s."] = "Tentativas demais. Tente de novo em {seconds} s.",
+["Checking the key."] = "Verificando a key.",
+["The key link is not available right now."] = "O link da key não está disponível agora.",
+["Copy this link and open it in your browser."] = "Copie este link e abra no navegador.",
+["Notices"] = "Avisos",
+["Clear all"] = "Limpar tudo",
+["No notices yet"] = "Nenhum aviso ainda",
+["+{count} more"] = "+{count} a mais",
+["Getting ready"] = "Preparando",
+["What's new in {version}"] = "Novidades da {version}",
+["Continue"] = "Continuar",
+["About"] = "Sobre",
+["Version"] = "Versão",
+["Discord"] = "Discord",
+["Link"] = "Link",
+["Link copied"] = "Link copiado",
+["Can't copy"] = "Não foi possível copiar",
+["Paste it into your browser."] = "Cole no navegador.",
+["Something went wrong"] = "Algo deu errado",
+["Nothing here yet"] = "Nada aqui ainda",
+["Try again"] = "Tentar de novo",
+["Unavailable right now"] = "Indisponível agora",
+["That is not a theme."] = "Isso não é um tema.",
+['The theme is missing a valid "{role}" colour.'] = 'Falta uma cor "{role}" válida no tema.',
+["That text is not a theme."] = "Esse texto não é um tema.",
+["Personalise"] = "Personalizar",
+["Font"] = "Fonte",
+["Text size"] = "Tamanho do texto",
+["Corners"] = "Cantos",
+["Spacing"] = "Espaçamento",
+["See-through window"] = "Janela transparente",
+["Notice position"] = "Posição dos avisos",
+["Gradient accent"] = "Destaque em degradê",
+["Colour-blind friendly"] = "Cores para daltonismo",
+["Theme builder"] = "Criador de tema",
+["Colour"] = "Cor",
+["Value"] = "Valor",
+["Name"] = "Nome",
+["My theme"] = "Meu tema",
+["Give the theme a name first."] = "Dê um nome ao tema primeiro.",
+['Saved "{name}".'] = 'Salvo "{name}".',
+["Copy"] = "Copiar",
+["Copied. Paste it into Import to share."] = "Copiado. Cole em Importar para compartilhar.",
+["This executor can't copy text."] = "Este executor não copia texto.",
+["Import"] = "Importar",
+["Paste a theme"] = "Cole um tema",
+["Anonymous"] = "Anônimo",
+["Identity hidden"] = "Identidade oculta",
+["Opened in Discord"] = "Aberto no Discord",
+["Discord invite copied"] = "Convite do Discord copiado",
+["Discord invite"] = "Convite do Discord",
+["Accept the invite in the Discord app."] = "Aceite o convite no app do Discord.",
+["Paste it into your browser to join."] = "Cole no navegador para entrar.",
+["Key expires in {time}"] = "A key expira em {time}",
+["Key expired"] = "Key expirada",
+["Settings"] = "Opções",
+["Appearance"] = "Aparência",
+["Theme"] = "Tema",
+["Accent colour"] = "Cor de destaque",
+["Tab layout"] = "Layout das abas",
+["Interface scale"] = "Escala da interface",
+["Reduce motion"] = "Reduzir animações",
+["Menu"] = "Menu",
+["Toggle key"] = "Tecla do menu",
+["Minimise to"] = "Minimizar para",
+["Anonymous mode"] = "Modo anônimo",
+["Hides your name and picture"] = "Esconde seu nome e foto",
+["Session"] = "Sessão",
+["Unload"] = "Descarregar",
+["Got it"] = "Entendi",
+["Updates"] = "Atualizações",
+["A version or a word"] = "Uma versão ou palavra",
+["All"] = "Tudo",
+["Show"] = "Mostrar",
+["Latest"] = "Mais recente",
+["Pinned"] = "Fixado",
+["New"] = "Novo",
+["What's new: {title}"] = "Novidades: {title}",
+["Requires {tier}"] = "Requer {tier}",
+["Paid only"] = "Só pago",
+["Unlock with a paid key"] = "Libere com uma key paga",
+["Menu hidden"] = "Menu escondido",
+["Press {key} to open it again."] = "Aperte {key} para abrir de novo.",
+["The settings could not be encoded."] = "Não foi possível gravar as opções.",
+["Settings not saved"] = "Opções não salvas",
+["Nothing to undo."] = "Nada para desfazer.",
+["Restored {count} settings."] = "{count} opções restauradas.",
+["Paste a share code first."] = "Cole um código primeiro.",
+["That isn't a Halcyon share code."] = "Isso não é um código do Halcyon.",
+["The share code is incomplete. Copy it again."] = "O código está incompleto. Copie de novo.",
+["Imported {count} settings."] = "{count} opções importadas.",
+["No autoload config is set."] = "Nenhuma config carrega ao iniciar.",
+["Unload the hub?"] = "Descarregar o hub?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Tudo o que ele ligou para. Rode o script de novo para voltar.",
+["The config could not be encoded."] = "Não foi possível gravar a config.",
+['There is no config named "{name}".'] = 'Não existe config chamada "{name}".',
+['"{name}" is not a valid config file.'] = '"{name}" não é um arquivo de config válido.',
+['Loaded "{name}" ({count} settings).'] = 'Carregada "{name}" ({count} opções).',
+["This executor cannot delete files."] = "Este executor não apaga arquivos.",
+['Deleted "{name}".'] = 'Excluída "{name}".',
+["Autoload is off."] = "Carregamento automático desligado.",
+['"{name}" loads on start.'] = '"{name}" carrega ao iniciar.',
+["Press again to confirm"] = "Aperte de novo para confirmar",
+["Select all"] = "Selecionar tudo",
+["Copied"] = "Copiado",
+["This executor has no clipboard."] = "Este executor não tem área de transferência.",
+["Press a key"] = "Aperte uma tecla",
+["Filter"] = "Filtrar",
+["Nothing yet"] = "Nada ainda",
+["Actions"] = "Ações",
+["Find a player"] = "Achar um jogador",
+["No one else is here"] = "Não tem mais ninguém aqui",
+["1 player"] = "1 jogador",
+["{count} players"] = "{count} jogadores",
+["Needs {names}"] = "Precisa de {names}",
+["Locked"] = "Bloqueado",
+["Ready"] = "Pronto",
+["Nothing to show yet"] = "Nada para mostrar ainda",
+["Type and press Enter"] = "Digite e aperte Enter",
+["This executor can't save files."] = "Este executor não salva arquivos.",
+["HTTP requests are not available here."] = "Requisições HTTP não estão disponíveis aqui.",
+["That key is not valid."] = "Essa key não é válida.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Use letras, números, espaços, - ou _ no nome da config.",
+["January"] = "Janeiro",
+["February"] = "Fevereiro",
+["March"] = "Março",
+["April"] = "Abril",
+["May"] = "Maio",
+["June"] = "Junho",
+["July"] = "Julho",
+["August"] = "Agosto",
+["September"] = "Setembro",
+["October"] = "Outubro",
+["November"] = "Novembro",
+["December"] = "Dezembro",
+["Mo"] = "Se",
+["Tu"] = "Te",
+["We"] = "Qa",
+["Th"] = "Qi",
+["Fr"] = "Sx",
+["Sa"] = "Sá",
+["Su"] = "Do",
+["Info"] = "Info",
+["Warn"] = "Alerta",
+["Error"] = "Erro",
+["Improved"] = "Melhorado",
+["Fixed"] = "Corrigido",
+["Removed"] = "Removido",
+["Security"] = "Segurança",
+["On"] = "Sim",
+["Off"] = "Não",
+["Sidebar"] = "Barra lateral",
+["Rail"] = "Trilho",
+["Top"] = "Topo",
+["Dock"] = "Dock",
+["Topbar"] = "Barra do topo",
+["Pill"] = "Pílula",
+["Chip"] = "Chip",
+["Link copied. Open it in your browser to get a key."] = "Link copiado. Abra no navegador para pegar uma key.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Link copiado. Abra no navegador, termine a etapa e confirme aqui.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Link copiado. Abra no navegador, termine a etapa e cole sua key aqui.",
+["Language"] = "Idioma",
+["Language changed"] = "Idioma alterado",
+["Run the hub again to see every part in the new language."] = "Rode o hub de novo para ver tudo no novo idioma.",
+}
+end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX4">
+<Properties>
+<string name="Name">Part04</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
+modules["Locales/Russian"] = function()
+return {
+["Jump to a tab or setting"] = "Перейти к вкладке или опции",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = 'Ничего не найдено по "{query}".',
+["Undo"] = "Отменить",
+["Copy share code"] = "Скопировать код",
+["Every setting as one line of text"] = "Все настройки одной строкой",
+["Code not made"] = "Код не создан",
+["These settings could not be written as a code."] = "Не удалось превратить эти настройки в код.",
+["Share code copied"] = "Код скопирован",
+["Paste it into the box below on another device or account."] = "Вставьте его в поле ниже на другом устройстве или аккаунте.",
+["Share code"] = "Код настроек",
+["Paste share code"] = "Вставить код",
+["Settings imported"] = "Настройки импортированы",
+["Code not imported"] = "Код не импортирован",
+["Configs"] = "Конфиги",
+["Saving is off"] = "Сохранение недоступно",
+["Share codes still work."] = "Коды настроек всё равно работают.",
+["Config name"] = "Имя конфига",
+["default"] = "основной",
+["Saved configs"] = "Сохранённые конфиги",
+["None"] = "Нет",
+["Config saved"] = "Конфиг сохранён",
+["Config not saved"] = "Конфиг не сохранён",
+["Save"] = "Сохранить",
+['Overwrite "{name}"?'] = 'Перезаписать "{name}"?',
+["Its saved settings are replaced with the current ones."] = "Сохранённые настройки заменятся текущими.",
+["Keep"] = "Оставить",
+["Overwrite"] = "Перезаписать",
+["Load"] = "Загрузить",
+["Config loaded"] = "Конфиг загружен",
+["Config not loaded"] = "Конфиг не загружен",
+["Load on start"] = "Загружать при запуске",
+["Loads it when the hub starts"] = "Загружается при запуске хаба",
+["Loads on start"] = "Загружается при запуске",
+["Autoload not set"] = "Автозагрузка не задана",
+["Delete"] = "Удалить",
+["Config deleted"] = "Конфиг удалён",
+["Nothing deleted"] = "Ничего не удалено",
+["Pick a config to delete."] = "Выберите конфиг для удаления.",
+['Delete "{name}"?'] = 'Удалить "{name}"?',
+["This can't be undone."] = "Это нельзя отменить.",
+["Config not deleted"] = "Конфиг не удалён",
+["Close"] = "Закрыть",
+["Search"] = "Поиск",
+["Keybinds"] = "Клавиши",
+["The key server could not be reached."] = "Сервер ключей недоступен.",
+["Enter your key first."] = "Сначала введите ключ.",
+["The key could not be checked. Try again."] = "Не удалось проверить ключ. Попробуйте ещё раз.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "Шаг {service} ещё не подтверждён. Завершите его и попробуйте снова.",
+["ad"] = "реклама",
+["{title} access"] = "Доступ к {title}",
+["No key needed"] = "Без ключа",
+["Via {service}"] = "Через {service}",
+["an ad"] = "рекламу",
+["Paid key"] = "Платный ключ",
+["Key required"] = "Нужен ключ",
+["Paste your key"] = "Вставьте ключ",
+["Join the Discord"] = "Зайти в Discord",
+["Opened the invite in Discord."] = "Приглашение открыто в Discord.",
+["Discord invite copied. Paste it into your browser."] = "Приглашение в Discord скопировано. Вставьте его в браузер.",
+["Copy the invite from the box below."] = "Скопируйте приглашение из поля ниже.",
+["Finish the {service} step to unlock {tier}."] = "Завершите шаг {service}, чтобы открыть {tier}.",
+["Keys for {tier} last {time}."] = "Ключи {tier} действуют {time}.",
+["Your key is saved on this device."] = "Ключ сохранён на этом устройстве.",
+["Open {service}"] = "Открыть {service}",
+["Get a key"] = "Получить ключ",
+["Checking"] = "Проверка",
+["Continue with {tier}"] = "Продолжить с {tier}",
+["I finished {service}"] = "Я прошёл {service}",
+["Verify key"] = "Проверить ключ",
+["Too many attempts. Try again in {seconds} s."] = "Слишком много попыток. Повторите через {seconds} с.",
+["Checking the key."] = "Проверяем ключ.",
+["The key link is not available right now."] = "Ссылка на ключ сейчас недоступна.",
+["Copy this link and open it in your browser."] = "Скопируйте ссылку и откройте её в браузере.",
+["Notices"] = "Уведомления",
+["Clear all"] = "Очистить",
+["No notices yet"] = "Уведомлений пока нет",
+["+{count} more"] = "ещё {count}",
+["Getting ready"] = "Подготовка",
+["What's new in {version}"] = "Что нового в {version}",
+["Continue"] = "Продолжить",
+["About"] = "О хабе",
+["Version"] = "Версия",
+["Discord"] = "Discord",
+["Link"] = "Ссылка",
+["Link copied"] = "Ссылка скопирована",
+["Can't copy"] = "Не удалось скопировать",
+["Paste it into your browser."] = "Вставьте её в браузер.",
+["Something went wrong"] = "Что-то пошло не так",
+["Nothing here yet"] = "Здесь пока пусто",
+["Try again"] = "Повторить",
+["Unavailable right now"] = "Сейчас недоступно",
+["That is not a theme."] = "Это не тема.",
+['The theme is missing a valid "{role}" colour.'] = 'В теме нет правильного цвета "{role}".',
+["That text is not a theme."] = "Этот текст не является темой.",
+["Personalise"] = "Оформление",
+["Font"] = "Шрифт",
+["Text size"] = "Размер текста",
+["Corners"] = "Углы",
+["Spacing"] = "Отступы",
+["See-through window"] = "Прозрачное окно",
+["Notice position"] = "Место уведомлений",
+["Gradient accent"] = "Градиентный акцент",
+["Colour-blind friendly"] = "Цвета для дальтоников",
+["Theme builder"] = "Конструктор темы",
+["Colour"] = "Цвет",
+["Value"] = "Значение",
+["Name"] = "Имя",
+["My theme"] = "Моя тема",
+["Give the theme a name first."] = "Сначала назовите тему.",
+['Saved "{name}".'] = '"{name}" сохранена.',
+["Copy"] = "Копировать",
+["Copied. Paste it into Import to share."] = "Скопировано. Вставьте в Импорт, чтобы поделиться.",
+["This executor can't copy text."] = "Этот экзекутор не умеет копировать текст.",
+["Import"] = "Импорт",
+["Paste a theme"] = "Вставьте тему",
+["Anonymous"] = "Аноним",
+["Identity hidden"] = "Имя скрыто",
+["Opened in Discord"] = "Открыто в Discord",
+["Discord invite copied"] = "Приглашение в Discord скопировано",
+["Discord invite"] = "Приглашение в Discord",
+["Accept the invite in the Discord app."] = "Примите приглашение в приложении Discord.",
+["Paste it into your browser to join."] = "Вставьте в браузер, чтобы зайти.",
+["Key expires in {time}"] = "Ключ истечёт через {time}",
+["Key expired"] = "Ключ истёк",
+["Settings"] = "Настройки",
+["Appearance"] = "Вид",
+["Theme"] = "Тема",
+["Accent colour"] = "Цвет акцента",
+["Tab layout"] = "Расположение вкладок",
+["Interface scale"] = "Масштаб интерфейса",
+["Reduce motion"] = "Меньше анимации",
+["Menu"] = "Меню",
+["Toggle key"] = "Клавиша меню",
+["Minimise to"] = "Сворачивать в",
+["Anonymous mode"] = "Анонимный режим",
+["Hides your name and picture"] = "Скрывает имя и аватар",
+["Session"] = "Сеанс",
+["Unload"] = "Выгрузить",
+["Got it"] = "Понятно",
+["Updates"] = "Обновления",
+["A version or a word"] = "Версия или слово",
+["All"] = "Все",
+["Show"] = "Показать",
+["Latest"] = "Новое",
+["Pinned"] = "Закреплено",
+["New"] = "Новое",
+["What's new: {title}"] = "Что нового: {title}",
+["Requires {tier}"] = "Нужен {tier}",
+["Paid only"] = "Только платно",
+["Unlock with a paid key"] = "Откройте платным ключом",
+["Menu hidden"] = "Меню скрыто",
+["Press {key} to open it again."] = "Нажмите {key}, чтобы открыть снова.",
+["The settings could not be encoded."] = "Не удалось сохранить настройки.",
+["Settings not saved"] = "Настройки не сохранены",
+["Nothing to undo."] = "Нечего отменять.",
+["Restored {count} settings."] = "Восстановлено настроек: {count}.",
+["Paste a share code first."] = "Сначала вставьте код.",
+["That isn't a Halcyon share code."] = "Это не код Halcyon.",
+["The share code is incomplete. Copy it again."] = "Код неполный. Скопируйте его ещё раз.",
+["Imported {count} settings."] = "Импортировано настроек: {count}.",
+["No autoload config is set."] = "Конфиг для автозагрузки не выбран.",
+["Unload the hub?"] = "Выгрузить хаб?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Всё, что он включил, остановится. Запустите скрипт снова, чтобы вернуть его.",
+["The config could not be encoded."] = "Не удалось сохранить конфиг.",
+['There is no config named "{name}".'] = 'Конфига "{name}" нет.',
+['"{name}" is not a valid config file.'] = '"{name}" не является файлом конфига.',
+['Loaded "{name}" ({count} settings).'] = '"{name}" загружен (настроек: {count}).',
+["This executor cannot delete files."] = "Этот экзекутор не умеет удалять файлы.",
+['Deleted "{name}".'] = '"{name}" удалён.',
+["Autoload is off."] = "Автозагрузка выключена.",
+['"{name}" loads on start.'] = '"{name}" загружается при запуске.',
+["Press again to confirm"] = "Нажмите ещё раз для подтверждения",
+["Select all"] = "Выбрать все",
+["Copied"] = "Скопировано",
+["This executor has no clipboard."] = "У этого экзекутора нет буфера обмена.",
+["Press a key"] = "Нажмите клавишу",
+["Filter"] = "Фильтр",
+["Nothing yet"] = "Пока пусто",
+["Actions"] = "Действия",
+["Find a player"] = "Найти игрока",
+["No one else is here"] = "Больше никого нет",
+["1 player"] = "1 игрок",
+["{count} players"] = "Игроков: {count}",
+["Needs {names}"] = "Нужно: {names}",
+["Locked"] = "Закрыто",
+["Ready"] = "Готово",
+["Nothing to show yet"] = "Пока нечего показать",
+["Type and press Enter"] = "Введите и нажмите Enter",
+["This executor can't save files."] = "Этот экзекутор не умеет сохранять файлы.",
+["HTTP requests are not available here."] = "HTTP-запросы здесь недоступны.",
+["That key is not valid."] = "Ключ недействителен.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "В имени конфига используйте буквы, цифры, пробелы, - или _.",
+["January"] = "Январь",
+["February"] = "Февраль",
+["March"] = "Март",
+["April"] = "Апрель",
+["May"] = "Май",
+["June"] = "Июнь",
+["July"] = "Июль",
+["August"] = "Август",
+["September"] = "Сентябрь",
+["October"] = "Октябрь",
+["November"] = "Ноябрь",
+["December"] = "Декабрь",
+["Mo"] = "Пн",
+["Tu"] = "Вт",
+["We"] = "Ср",
+["Th"] = "Чт",
+["Fr"] = "Пт",
+["Sa"] = "Сб",
+["Su"] = "Вс",
+["Info"] = "Инфо",
+["Warn"] = "Внимание",
+["Error"] = "Ошибка",
+["Improved"] = "Улучшено",
+["Fixed"] = "Исправлено",
+["Removed"] = "Удалено",
+["Security"] = "Безопасность",
+["On"] = "Вкл",
+["Off"] = "Выкл",
+["Sidebar"] = "Боковая панель",
+["Rail"] = "Узкая панель",
+["Top"] = "Сверху",
+["Dock"] = "Док",
+["Topbar"] = "Заголовок",
+["Pill"] = "Капсула",
+["Chip"] = "Значок",
+["Link copied. Open it in your browser to get a key."] = "Ссылка скопирована. Откройте её в браузере, чтобы получить ключ.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Ссылка скопирована. Откройте её в браузере, пройдите шаг и подтвердите здесь.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Ссылка скопирована. Откройте её в браузере, пройдите шаг и вставьте ключ сюда.",
+["Language"] = "Язык",
+["Language changed"] = "Язык изменён",
+["Run the hub again to see every part in the new language."] = "Перезапустите хаб, чтобы всё было на новом языке.",
+}
+end
+modules["Locales/Spanish"] = function()
+return {
+["Jump to a tab or setting"] = "Ir a una pestaña u opción",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = 'Nada coincide con "{query}".',
+["Undo"] = "Deshacer",
+["Copy share code"] = "Copiar código",
+["Every setting as one line of text"] = "Todas las opciones en una línea de texto",
+["Code not made"] = "Código no creado",
+["These settings could not be written as a code."] = "No se pudieron convertir estas opciones en código.",
+["Share code copied"] = "Código copiado",
+["Paste it into the box below on another device or account."] = "Pégalo en la casilla de abajo en otro dispositivo o cuenta.",
+["Share code"] = "Código para compartir",
+["Paste share code"] = "Pegar código",
+["Settings imported"] = "Opciones importadas",
+["Code not imported"] = "Código no importado",
+["Configs"] = "Configs",
+["Saving is off"] = "Guardar está desactivado",
+["Share codes still work."] = "Los códigos para compartir siguen funcionando.",
+["Config name"] = "Nombre de la config",
+["default"] = "predeterminada",
+["Saved configs"] = "Configs guardadas",
+["None"] = "Ninguna",
+["Config saved"] = "Config guardada",
+["Config not saved"] = "Config no guardada",
+["Save"] = "Guardar",
+['Overwrite "{name}"?'] = '¿Sobrescribir "{name}"?',
+["Its saved settings are replaced with the current ones."] = "Sus opciones guardadas se cambian por las actuales.",
+["Keep"] = "Conservar",
+["Overwrite"] = "Sobrescribir",
+["Load"] = "Cargar",
+["Config loaded"] = "Config cargada",
+["Config not loaded"] = "Config no cargada",
+["Load on start"] = "Cargar al iniciar",
+["Loads it when the hub starts"] = "Se carga cuando abre el hub",
+["Loads on start"] = "Se carga al iniciar",
+["Autoload not set"] = "Carga automática no definida",
+["Delete"] = "Eliminar",
+["Config deleted"] = "Config eliminada",
+["Nothing deleted"] = "Nada eliminado",
+["Pick a config to delete."] = "Elige una config para eliminar.",
+['Delete "{name}"?'] = '¿Eliminar "{name}"?',
+["This can't be undone."] = "Esto no se puede deshacer.",
+["Config not deleted"] = "Config no eliminada",
+["Close"] = "Cerrar",
+["Search"] = "Buscar",
+["Keybinds"] = "Teclas",
+["The key server could not be reached."] = "No se pudo contactar con el servidor de keys.",
+["Enter your key first."] = "Primero escribe tu key.",
+["The key could not be checked. Try again."] = "No se pudo comprobar la key. Inténtalo de nuevo.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "El paso de {service} aún no está confirmado. Termínalo y vuelve a intentarlo.",
+["ad"] = "anuncio",
+["{title} access"] = "Acceso a {title}",
+["No key needed"] = "Sin key",
+["Via {service}"] = "Con {service}",
+["an ad"] = "un anuncio",
+["Paid key"] = "Key de pago",
+["Key required"] = "Necesita key",
+["Paste your key"] = "Pega tu key",
+["Join the Discord"] = "Únete al Discord",
+["Opened the invite in Discord."] = "Invitación abierta en Discord.",
+["Discord invite copied. Paste it into your browser."] = "Invitación de Discord copiada. Pégala en el navegador.",
+["Copy the invite from the box below."] = "Copia la invitación de la casilla de abajo.",
+["Finish the {service} step to unlock {tier}."] = "Termina el paso de {service} para desbloquear {tier}.",
+["Keys for {tier} last {time}."] = "Las keys de {tier} duran {time}.",
+["Your key is saved on this device."] = "Tu key queda guardada en este dispositivo.",
+["Open {service}"] = "Abrir {service}",
+["Get a key"] = "Conseguir una key",
+["Checking"] = "Comprobando",
+["Continue with {tier}"] = "Seguir con {tier}",
+["I finished {service}"] = "Terminé {service}",
+["Verify key"] = "Comprobar key",
+["Too many attempts. Try again in {seconds} s."] = "Demasiados intentos. Vuelve a intentarlo en {seconds} s.",
+["Checking the key."] = "Comprobando la key.",
+["The key link is not available right now."] = "El enlace de la key no está disponible ahora.",
+["Copy this link and open it in your browser."] = "Copia este enlace y ábrelo en el navegador.",
+["Notices"] = "Avisos",
+["Clear all"] = "Borrar todo",
+["No notices yet"] = "Aún no hay avisos",
+["+{count} more"] = "+{count} más",
+["Getting ready"] = "Preparando",
+["What's new in {version}"] = "Novedades de {version}",
+["Continue"] = "Continuar",
+["About"] = "Acerca de",
+["Version"] = "Versión",
+["Discord"] = "Discord",
+["Link"] = "Enlace",
+["Link copied"] = "Enlace copiado",
+["Can't copy"] = "No se puede copiar",
+["Paste it into your browser."] = "Pégalo en el navegador.",
+["Something went wrong"] = "Algo salió mal",
+["Nothing here yet"] = "Aún no hay nada aquí",
+["Try again"] = "Reintentar",
+["Unavailable right now"] = "No disponible ahora",
+["That is not a theme."] = "Eso no es un tema.",
+['The theme is missing a valid "{role}" colour.'] = 'Al tema le falta un color "{role}" válido.',
+["That text is not a theme."] = "Ese texto no es un tema.",
+["Personalise"] = "Personalizar",
+["Font"] = "Fuente",
+["Text size"] = "Tamaño del texto",
+["Corners"] = "Esquinas",
+["Spacing"] = "Espaciado",
+["See-through window"] = "Ventana transparente",
+["Notice position"] = "Posición de avisos",
+["Gradient accent"] = "Acento degradado",
+["Colour-blind friendly"] = "Colores para daltonismo",
+["Theme builder"] = "Creador de temas",
+["Colour"] = "Color",
+["Value"] = "Valor",
+["Name"] = "Nombre",
+["My theme"] = "Mi tema",
+["Give the theme a name first."] = "Primero ponle un nombre al tema.",
+['Saved "{name}".'] = 'Guardado "{name}".',
+["Copy"] = "Copiar",
+["Copied. Paste it into Import to share."] = "Copiado. Pégalo en Importar para compartirlo.",
+["This executor can't copy text."] = "Este executor no puede copiar texto.",
+["Import"] = "Importar",
+["Paste a theme"] = "Pega un tema",
+["Anonymous"] = "Anónimo",
+["Identity hidden"] = "Identidad oculta",
+["Opened in Discord"] = "Abierto en Discord",
+["Discord invite copied"] = "Invitación de Discord copiada",
+["Discord invite"] = "Invitación de Discord",
+["Accept the invite in the Discord app."] = "Acepta la invitación en la app de Discord.",
+["Paste it into your browser to join."] = "Pégalo en el navegador para unirte.",
+["Key expires in {time}"] = "La key caduca en {time}",
+["Key expired"] = "Key caducada",
+["Settings"] = "Ajustes",
+["Appearance"] = "Apariencia",
+["Theme"] = "Tema",
+["Accent colour"] = "Color de acento",
+["Tab layout"] = "Diseño de pestañas",
+["Interface scale"] = "Escala de la interfaz",
+["Reduce motion"] = "Reducir animaciones",
+["Menu"] = "Menú",
+["Toggle key"] = "Tecla del menú",
+["Minimise to"] = "Minimizar a",
+["Anonymous mode"] = "Modo anónimo",
+["Hides your name and picture"] = "Oculta tu nombre y foto",
+["Session"] = "Sesión",
+["Unload"] = "Descargar",
+["Got it"] = "Entendido",
+["Updates"] = "Actualizaciones",
+["A version or a word"] = "Una versión o palabra",
+["All"] = "Todo",
+["Show"] = "Mostrar",
+["Latest"] = "Última",
+["Pinned"] = "Fijada",
+["New"] = "Nuevo",
+["What's new: {title}"] = "Novedades: {title}",
+["Requires {tier}"] = "Requiere {tier}",
+["Paid only"] = "Solo de pago",
+["Unlock with a paid key"] = "Desbloquea con una key de pago",
+["Menu hidden"] = "Menú oculto",
+["Press {key} to open it again."] = "Pulsa {key} para volver a abrirlo.",
+["The settings could not be encoded."] = "No se pudieron guardar las opciones.",
+["Settings not saved"] = "Opciones no guardadas",
+["Nothing to undo."] = "Nada que deshacer.",
+["Restored {count} settings."] = "{count} opciones restauradas.",
+["Paste a share code first."] = "Primero pega un código.",
+["That isn't a Halcyon share code."] = "Eso no es un código de Halcyon.",
+["The share code is incomplete. Copy it again."] = "El código está incompleto. Cópialo de nuevo.",
+["Imported {count} settings."] = "{count} opciones importadas.",
+["No autoload config is set."] = "Ninguna config se carga al iniciar.",
+["Unload the hub?"] = "¿Descargar el hub?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Todo lo que activó se detiene. Ejecuta el script otra vez para recuperarlo.",
+["The config could not be encoded."] = "No se pudo guardar la config.",
+['There is no config named "{name}".'] = 'No hay ninguna config llamada "{name}".',
+['"{name}" is not a valid config file.'] = '"{name}" no es un archivo de config válido.',
+['Loaded "{name}" ({count} settings).'] = 'Cargada "{name}" ({count} opciones).',
+["This executor cannot delete files."] = "Este executor no puede borrar archivos.",
+['Deleted "{name}".'] = 'Eliminada "{name}".',
+["Autoload is off."] = "La carga automática está desactivada.",
+['"{name}" loads on start.'] = '"{name}" se carga al iniciar.',
+["Press again to confirm"] = "Pulsa otra vez para confirmar",
+["Select all"] = "Seleccionar todo",
+["Copied"] = "Copiado",
+["This executor has no clipboard."] = "Este executor no tiene portapapeles.",
+["Press a key"] = "Pulsa una tecla",
+["Filter"] = "Filtrar",
+["Nothing yet"] = "Nada aún",
+["Actions"] = "Acciones",
+["Find a player"] = "Buscar jugador",
+["No one else is here"] = "No hay nadie más aquí",
+["1 player"] = "1 jugador",
+["{count} players"] = "{count} jugadores",
+["Needs {names}"] = "Necesita {names}",
+["Locked"] = "Bloqueado",
+["Ready"] = "Listo",
+["Nothing to show yet"] = "Aún no hay nada que mostrar",
+["Type and press Enter"] = "Escribe y pulsa Enter",
+["This executor can't save files."] = "Este executor no puede guardar archivos.",
+["HTTP requests are not available here."] = "Las peticiones HTTP no están disponibles aquí.",
+["That key is not valid."] = "Esa key no es válida.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Usa letras, números, espacios, - o _ en el nombre de la config.",
+["January"] = "Enero",
+["February"] = "Febrero",
+["March"] = "Marzo",
+["April"] = "Abril",
+["May"] = "Mayo",
+["June"] = "Junio",
+["July"] = "Julio",
+["August"] = "Agosto",
+["September"] = "Septiembre",
+["October"] = "Octubre",
+["November"] = "Noviembre",
+["December"] = "Diciembre",
+["Mo"] = "Lu",
+["Tu"] = "Ma",
+["We"] = "Mi",
+["Th"] = "Ju",
+["Fr"] = "Vi",
+["Sa"] = "Sá",
+["Su"] = "Do",
+["Info"] = "Info",
+["Warn"] = "Aviso",
+["Error"] = "Error",
+["Improved"] = "Mejorado",
+["Fixed"] = "Corregido",
+["Removed"] = "Eliminado",
+["Security"] = "Seguridad",
+["On"] = "Sí",
+["Off"] = "No",
+["Sidebar"] = "Barra lateral",
+["Rail"] = "Riel",
+["Top"] = "Arriba",
+["Dock"] = "Dock",
+["Topbar"] = "Barra superior",
+["Pill"] = "Píldora",
+["Chip"] = "Chip",
+["Link copied. Open it in your browser to get a key."] = "Enlace copiado. Ábrelo en el navegador para conseguir una key.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Enlace copiado. Ábrelo en el navegador, termina el paso y confirma aquí.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Enlace copiado. Ábrelo en el navegador, termina el paso y pega tu key aquí.",
+["Language"] = "Idioma",
+["Language changed"] = "Idioma cambiado",
+["Run the hub again to see every part in the new language."] = "Ejecuta el hub otra vez para verlo todo en el nuevo idioma.",
+}
+end
+modules["Locales/Turkish"] = function()
+return {
+["Jump to a tab or setting"] = "Bir sekmeye ya da ayara git",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = '"{query}" ile eşleşen bir şey yok.',
+["Undo"] = "Geri al",
+["Copy share code"] = "Kodu kopyala",
+["Every setting as one line of text"] = "Tüm ayarlar tek satır metin olarak",
+["Code not made"] = "Kod oluşturulmadı",
+["These settings could not be written as a code."] = "Bu ayarlar koda dönüştürülemedi.",
+["Share code copied"] = "Kod kopyalandı",
+["Paste it into the box below on another device or account."] = "Başka bir cihazda ya da hesapta aşağıdaki kutuya yapıştır.",
+["Share code"] = "Paylaşım kodu",
+["Paste share code"] = "Kodu yapıştır",
+["Settings imported"] = "Ayarlar içe aktarıldı",
+["Code not imported"] = "Kod içe aktarılmadı",
+["Configs"] = "Configler",
+["Saving is off"] = "Kaydetme kapalı",
+["Share codes still work."] = "Paylaşım kodları yine de çalışır.",
+["Config name"] = "Config adı",
+["default"] = "varsayılan",
+["Saved configs"] = "Kayıtlı configler",
+["None"] = "Yok",
+["Config saved"] = "Config kaydedildi",
+["Config not saved"] = "Config kaydedilmedi",
+["Save"] = "Kaydet",
+['Overwrite "{name}"?'] = '"{name}" üzerine yazılsın mı?',
+["Its saved settings are replaced with the current ones."] = "Kayıtlı ayarları şimdikilerle değiştirilir.",
+["Keep"] = "Kalsın",
+["Overwrite"] = "Üzerine yaz",
+["Load"] = "Yükle",
+["Config loaded"] = "Config yüklendi",
+["Config not loaded"] = "Config yüklenmedi",
+["Load on start"] = "Açılışta yükle",
+["Loads it when the hub starts"] = "Hub açılınca yüklenir",
+["Loads on start"] = "Açılışta yüklenir",
+["Autoload not set"] = "Otomatik yükleme ayarlanmadı",
+["Delete"] = "Sil",
+["Config deleted"] = "Config silindi",
+["Nothing deleted"] = "Hiçbir şey silinmedi",
+["Pick a config to delete."] = "Silmek için bir config seç.",
+['Delete "{name}"?'] = '"{name}" silinsin mi?',
+["This can't be undone."] = "Bu geri alınamaz.",
+["Config not deleted"] = "Config silinmedi",
+["Close"] = "Kapat",
+["Search"] = "Ara",
+["Keybinds"] = "Tuşlar",
+["The key server could not be reached."] = "Key sunucusuna ulaşılamadı.",
+["Enter your key first."] = "Önce key'ini gir.",
+["The key could not be checked. Try again."] = "Key kontrol edilemedi. Tekrar dene.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "{service} adımı henüz onaylanmadı. Bitir ve tekrar dene.",
+["ad"] = "reklam",
+["{title} access"] = "{title} erişimi",
+["No key needed"] = "Key gerekmez",
+["Via {service}"] = "{service} ile",
+["an ad"] = "bir reklam",
+["Paid key"] = "Ücretli key",
+["Key required"] = "Key gerekli",
+["Paste your key"] = "Key'ini yapıştır",
+["Join the Discord"] = "Discord'a katıl",
+["Opened the invite in Discord."] = "Davet Discord'da açıldı.",
+["Discord invite copied. Paste it into your browser."] = "Discord daveti kopyalandı. Tarayıcına yapıştır.",
+["Copy the invite from the box below."] = "Daveti aşağıdaki kutudan kopyala.",
+["Finish the {service} step to unlock {tier}."] = "{tier} için {service} adımını bitir.",
+["Keys for {tier} last {time}."] = "{tier} key'leri {time} geçerli.",
+["Your key is saved on this device."] = "Key'in bu cihaza kaydedildi.",
+["Open {service}"] = "{service} aç",
+["Get a key"] = "Key al",
+["Checking"] = "Kontrol ediliyor",
+["Continue with {tier}"] = "{tier} ile devam et",
+["I finished {service}"] = "{service} bitti",
+["Verify key"] = "Key'i doğrula",
+["Too many attempts. Try again in {seconds} s."] = "Çok fazla deneme. {seconds} sn sonra tekrar dene.",
+["Checking the key."] = "Key kontrol ediliyor.",
+["The key link is not available right now."] = "Key bağlantısı şu an kullanılamıyor.",
+["Copy this link and open it in your browser."] = "Bu bağlantıyı kopyala ve tarayıcında aç.",
+["Notices"] = "Bildirimler",
+["Clear all"] = "Tümünü temizle",
+["No notices yet"] = "Henüz bildirim yok",
+["+{count} more"] = "+{count} daha",
+["Getting ready"] = "Hazırlanıyor",
+["What's new in {version}"] = "{version} sürümünde yenilikler",
+["Continue"] = "Devam",
+["About"] = "Hakkında",
+["Version"] = "Sürüm",
+["Discord"] = "Discord",
+["Link"] = "Bağlantı",
+["Link copied"] = "Bağlantı kopyalandı",
+["Can't copy"] = "Kopyalanamıyor",
+["Paste it into your browser."] = "Tarayıcına yapıştır.",
+["Something went wrong"] = "Bir şeyler ters gitti",
+["Nothing here yet"] = "Burada henüz bir şey yok",
+["Try again"] = "Tekrar dene",
+["Unavailable right now"] = "Şu an kullanılamıyor",
+["That is not a theme."] = "Bu bir tema değil.",
+['The theme is missing a valid "{role}" colour.'] = 'Temada geçerli bir "{role}" rengi yok.',
+["That text is not a theme."] = "Bu metin bir tema değil.",
+["Personalise"] = "Kişiselleştir",
+["Font"] = "Yazı tipi",
+["Text size"] = "Yazı boyutu",
+["Corners"] = "Köşeler",
+["Spacing"] = "Boşluk",
+["See-through window"] = "Saydam pencere",
+["Notice position"] = "Bildirim konumu",
+["Gradient accent"] = "Geçişli vurgu",
+["Colour-blind friendly"] = "Renk körlüğüne uygun",
+["Theme builder"] = "Tema oluşturucu",
+["Colour"] = "Renk",
+["Value"] = "Değer",
+["Name"] = "Ad",
+["My theme"] = "Temam",
+["Give the theme a name first."] = "Önce temaya bir ad ver.",
+['Saved "{name}".'] = '"{name}" kaydedildi.',
+["Copy"] = "Kopyala",
+["Copied. Paste it into Import to share."] = "Kopyalandı. Paylaşmak için İçe aktar'a yapıştır.",
+["This executor can't copy text."] = "Bu executor metin kopyalayamıyor.",
+["Import"] = "İçe aktar",
+["Paste a theme"] = "Bir tema yapıştır",
+["Anonymous"] = "Anonim",
+["Identity hidden"] = "Kimlik gizli",
+["Opened in Discord"] = "Discord'da açıldı",
+["Discord invite copied"] = "Discord daveti kopyalandı",
+["Discord invite"] = "Discord daveti",
+["Accept the invite in the Discord app."] = "Daveti Discord uygulamasında kabul et.",
+["Paste it into your browser to join."] = "Katılmak için tarayıcına yapıştır.",
+["Key expires in {time}"] = "Key {time} sonra bitiyor",
+["Key expired"] = "Key süresi doldu",
+["Settings"] = "Ayarlar",
+["Appearance"] = "Görünüm",
+["Theme"] = "Tema",
+["Accent colour"] = "Vurgu rengi",
+["Tab layout"] = "Sekme düzeni",
+["Interface scale"] = "Arayüz boyutu",
+["Reduce motion"] = "Animasyonu azalt",
+["Menu"] = "Menü",
+["Toggle key"] = "Menü tuşu",
+["Minimise to"] = "Küçültme biçimi",
+["Anonymous mode"] = "Anonim mod",
+["Hides your name and picture"] = "Adını ve resmini gizler",
+["Session"] = "Oturum",
+["Unload"] = "Kaldır",
+["Got it"] = "Anladım",
+["Updates"] = "Güncellemeler",
+["A version or a word"] = "Bir sürüm ya da kelime",
+["All"] = "Tümü",
+["Show"] = "Göster",
+["Latest"] = "En yeni",
+["Pinned"] = "Sabit",
+["New"] = "Yeni",
+["What's new: {title}"] = "Yenilikler: {title}",
+["Requires {tier}"] = "{tier} gerekir",
+["Paid only"] = "Sadece ücretli",
+["Unlock with a paid key"] = "Ücretli key ile aç",
+["Menu hidden"] = "Menü gizlendi",
+["Press {key} to open it again."] = "Tekrar açmak için {key} tuşuna bas.",
+["The settings could not be encoded."] = "Ayarlar kaydedilemedi.",
+["Settings not saved"] = "Ayarlar kaydedilmedi",
+["Nothing to undo."] = "Geri alınacak bir şey yok.",
+["Restored {count} settings."] = "{count} ayar geri yüklendi.",
+["Paste a share code first."] = "Önce bir kod yapıştır.",
+["That isn't a Halcyon share code."] = "Bu bir Halcyon kodu değil.",
+["The share code is incomplete. Copy it again."] = "Kod eksik. Tekrar kopyala.",
+["Imported {count} settings."] = "{count} ayar içe aktarıldı.",
+["No autoload config is set."] = "Açılışta yüklenen bir config yok.",
+["Unload the hub?"] = "Hub kaldırılsın mı?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Açtığı her şey durur. Geri getirmek için scripti tekrar çalıştır.",
+["The config could not be encoded."] = "Config kaydedilemedi.",
+['There is no config named "{name}".'] = '"{name}" adında bir config yok.',
+['"{name}" is not a valid config file.'] = '"{name}" geçerli bir config dosyası değil.',
+['Loaded "{name}" ({count} settings).'] = '"{name}" yüklendi ({count} ayar).',
+["This executor cannot delete files."] = "Bu executor dosya silemiyor.",
+['Deleted "{name}".'] = '"{name}" silindi.',
+["Autoload is off."] = "Otomatik yükleme kapalı.",
+['"{name}" loads on start.'] = '"{name}" açılışta yüklenir.',
+["Press again to confirm"] = "Onaylamak için tekrar bas",
+["Select all"] = "Tümünü seç",
+["Copied"] = "Kopyalandı",
+["This executor has no clipboard."] = "Bu executor'da pano yok.",
+["Press a key"] = "Bir tuşa bas",
+["Filter"] = "Filtrele",
+["Nothing yet"] = "Henüz bir şey yok",
+["Actions"] = "İşlemler",
+["Find a player"] = "Oyuncu bul",
+["No one else is here"] = "Burada başka kimse yok",
+["1 player"] = "1 oyuncu",
+["{count} players"] = "{count} oyuncu",
+["Needs {names}"] = "{names} gerekli",
+["Locked"] = "Kilitli",
+["Ready"] = "Hazır",
+["Nothing to show yet"] = "Gösterilecek bir şey yok",
+["Type and press Enter"] = "Yaz ve Enter'a bas",
+["This executor can't save files."] = "Bu executor dosya kaydedemiyor.",
+["HTTP requests are not available here."] = "HTTP istekleri burada kullanılamıyor.",
+["That key is not valid."] = "Bu key geçersiz.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Config adında harf, rakam, boşluk, - veya _ kullan.",
+["January"] = "Ocak",
+["February"] = "Şubat",
+["March"] = "Mart",
+["April"] = "Nisan",
+["May"] = "Mayıs",
+["June"] = "Haziran",
+["July"] = "Temmuz",
+["August"] = "Ağustos",
+["September"] = "Eylül",
+["October"] = "Ekim",
+["November"] = "Kasım",
+["December"] = "Aralık",
+["Mo"] = "Pt",
+["Tu"] = "Sa",
+["We"] = "Ça",
+["Th"] = "Pe",
+["Fr"] = "Cu",
+["Sa"] = "Ct",
+["Su"] = "Pz",
+["Info"] = "Bilgi",
+["Warn"] = "Uyarı",
+["Error"] = "Hata",
+["Improved"] = "İyileştirildi",
+["Fixed"] = "Düzeltildi",
+["Removed"] = "Kaldırıldı",
+["Security"] = "Güvenlik",
+["On"] = "Açık",
+["Off"] = "Kapalı",
+["Sidebar"] = "Kenar çubuğu",
+["Rail"] = "Dar çubuk",
+["Top"] = "Üst",
+["Dock"] = "Alt çubuk",
+["Topbar"] = "Başlık çubuğu",
+["Pill"] = "Hap",
+["Chip"] = "Rozet",
+["Link copied. Open it in your browser to get a key."] = "Bağlantı kopyalandı. Key almak için tarayıcında aç.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Bağlantı kopyalandı. Tarayıcında aç, adımı bitir ve burada onayla.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Bağlantı kopyalandı. Tarayıcında aç, adımı bitir ve key'ini buraya yapıştır.",
+["Language"] = "Dil",
+["Language changed"] = "Dil değişti",
+["Run the hub again to see every part in the new language."] = "Her şeyi yeni dilde görmek için hub'ı yeniden çalıştır.",
+}
+end
+modules["Locales/Vietnamese"] = function()
+return {
+["Jump to a tab or setting"] = "Đi tới tab hoặc tùy chọn",
+["Esc"] = "Esc",
+['Nothing matches "{query}".'] = 'Không có kết quả cho "{query}".',
+["Undo"] = "Hoàn tác",
+["Copy share code"] = "Sao chép mã",
+["Every setting as one line of text"] = "Mọi tùy chọn trong một dòng chữ",
+["Code not made"] = "Chưa tạo được mã",
+["These settings could not be written as a code."] = "Không thể chuyển các tùy chọn này thành mã.",
+["Share code copied"] = "Đã sao chép mã",
+["Paste it into the box below on another device or account."] = "Dán vào ô bên dưới trên thiết bị hoặc tài khoản khác.",
+["Share code"] = "Mã chia sẻ",
+["Paste share code"] = "Dán mã",
+["Settings imported"] = "Đã nhập tùy chọn",
+["Code not imported"] = "Chưa nhập được mã",
+["Configs"] = "Config",
+["Saving is off"] = "Không thể lưu",
+["Share codes still work."] = "Mã chia sẻ vẫn dùng được.",
+["Config name"] = "Tên config",
+["default"] = "mặc định",
+["Saved configs"] = "Config đã lưu",
+["None"] = "Không có",
+["Config saved"] = "Đã lưu config",
+["Config not saved"] = "Chưa lưu config",
+["Save"] = "Lưu",
+['Overwrite "{name}"?'] = 'Ghi đè "{name}"?',
+["Its saved settings are replaced with the current ones."] = "Tùy chọn đã lưu sẽ được thay bằng tùy chọn hiện tại.",
+["Keep"] = "Giữ lại",
+["Overwrite"] = "Ghi đè",
+["Load"] = "Tải",
+["Config loaded"] = "Đã tải config",
+["Config not loaded"] = "Chưa tải config",
+["Load on start"] = "Tải khi mở",
+["Loads it when the hub starts"] = "Tự tải khi hub mở",
+["Loads on start"] = "Tải khi mở",
+["Autoload not set"] = "Chưa đặt tự tải",
+["Delete"] = "Xóa",
+["Config deleted"] = "Đã xóa config",
+["Nothing deleted"] = "Không xóa gì",
+["Pick a config to delete."] = "Chọn một config để xóa.",
+['Delete "{name}"?'] = 'Xóa "{name}"?',
+["This can't be undone."] = "Không thể hoàn tác.",
+["Config not deleted"] = "Chưa xóa config",
+["Close"] = "Đóng",
+["Search"] = "Tìm",
+["Keybinds"] = "Phím tắt",
+["The key server could not be reached."] = "Không kết nối được máy chủ key.",
+["Enter your key first."] = "Hãy nhập key trước.",
+["The key could not be checked. Try again."] = "Không kiểm tra được key. Thử lại.",
+["The {service} step is not confirmed yet. Finish it, then try again."] = "Bước {service} chưa được xác nhận. Hãy hoàn thành rồi thử lại.",
+["ad"] = "quảng cáo",
+["{title} access"] = "Truy cập {title}",
+["No key needed"] = "Không cần key",
+["Via {service}"] = "Qua {service}",
+["an ad"] = "quảng cáo",
+["Paid key"] = "Key trả phí",
+["Key required"] = "Cần key",
+["Paste your key"] = "Dán key của bạn",
+["Join the Discord"] = "Vào Discord",
+["Opened the invite in Discord."] = "Đã mở lời mời trong Discord.",
+["Discord invite copied. Paste it into your browser."] = "Đã sao chép lời mời Discord. Dán vào trình duyệt.",
+["Copy the invite from the box below."] = "Sao chép lời mời từ ô bên dưới.",
+["Finish the {service} step to unlock {tier}."] = "Hoàn thành bước {service} để mở {tier}.",
+["Keys for {tier} last {time}."] = "Key {tier} dùng được {time}.",
+["Your key is saved on this device."] = "Key đã được lưu trên thiết bị này.",
+["Open {service}"] = "Mở {service}",
+["Get a key"] = "Lấy key",
+["Checking"] = "Đang kiểm tra",
+["Continue with {tier}"] = "Tiếp tục với {tier}",
+["I finished {service}"] = "Đã xong {service}",
+["Verify key"] = "Kiểm tra key",
+["Too many attempts. Try again in {seconds} s."] = "Thử quá nhiều lần. Thử lại sau {seconds} giây.",
+["Checking the key."] = "Đang kiểm tra key.",
+["The key link is not available right now."] = "Liên kết key hiện không dùng được.",
+["Copy this link and open it in your browser."] = "Sao chép liên kết này và mở trong trình duyệt.",
+["Notices"] = "Thông báo",
+["Clear all"] = "Xóa hết",
+["No notices yet"] = "Chưa có thông báo",
+["+{count} more"] = "+{count} nữa",
+["Getting ready"] = "Đang chuẩn bị",
+["What's new in {version}"] = "Có gì mới ở {version}",
+["Continue"] = "Tiếp tục",
+["About"] = "Giới thiệu",
+["Version"] = "Phiên bản",
+["Discord"] = "Discord",
+["Link"] = "Liên kết",
+["Link copied"] = "Đã sao chép liên kết",
+["Can't copy"] = "Không sao chép được",
+["Paste it into your browser."] = "Dán vào trình duyệt.",
+["Something went wrong"] = "Đã xảy ra lỗi",
+["Nothing here yet"] = "Chưa có gì ở đây",
+["Try again"] = "Thử lại",
+["Unavailable right now"] = "Hiện không dùng được",
+["That is not a theme."] = "Đó không phải là giao diện.",
+['The theme is missing a valid "{role}" colour.'] = 'Giao diện thiếu màu "{role}" hợp lệ.',
+["That text is not a theme."] = "Đoạn chữ đó không phải là giao diện.",
+["Personalise"] = "Tùy chỉnh",
+["Font"] = "Phông chữ",
+["Text size"] = "Cỡ chữ",
+["Corners"] = "Góc bo",
+["Spacing"] = "Khoảng cách",
+["See-through window"] = "Cửa sổ trong suốt",
+["Notice position"] = "Vị trí thông báo",
+["Gradient accent"] = "Màu nhấn chuyển sắc",
+["Colour-blind friendly"] = "Màu cho người mù màu",
+["Theme builder"] = "Tạo giao diện",
+["Colour"] = "Màu",
+["Value"] = "Giá trị",
+["Name"] = "Tên",
+["My theme"] = "Giao diện của tôi",
+["Give the theme a name first."] = "Hãy đặt tên cho giao diện trước.",
+['Saved "{name}".'] = 'Đã lưu "{name}".',
+["Copy"] = "Sao chép",
+["Copied. Paste it into Import to share."] = "Đã sao chép. Dán vào Nhập để chia sẻ.",
+["This executor can't copy text."] = "Executor này không sao chép được chữ.",
+["Import"] = "Nhập",
+["Paste a theme"] = "Dán giao diện",
+["Anonymous"] = "Ẩn danh",
+["Identity hidden"] = "Đã ẩn danh tính",
+["Opened in Discord"] = "Đã mở trong Discord",
+["Discord invite copied"] = "Đã sao chép lời mời Discord",
+["Discord invite"] = "Lời mời Discord",
+["Accept the invite in the Discord app."] = "Chấp nhận lời mời trong ứng dụng Discord.",
+["Paste it into your browser to join."] = "Dán vào trình duyệt để tham gia.",
+["Key expires in {time}"] = "Key hết hạn sau {time}",
+["Key expired"] = "Key đã hết hạn",
+["Settings"] = "Cài đặt",
+["Appearance"] = "Giao diện",
+["Theme"] = "Chủ đề",
+["Accent colour"] = "Màu nhấn",
+["Tab layout"] = "Bố cục tab",
+["Interface scale"] = "Kích thước giao diện",
+["Reduce motion"] = "Giảm chuyển động",
+["Menu"] = "Menu",
+["Toggle key"] = "Phím mở menu",
+["Minimise to"] = "Thu nhỏ thành",
+["Anonymous mode"] = "Chế độ ẩn danh",
+["Hides your name and picture"] = "Ẩn tên và ảnh của bạn",
+["Session"] = "Phiên",
+["Unload"] = "Gỡ hub",
+["Got it"] = "Đã hiểu",
+["Updates"] = "Cập nhật",
+["A version or a word"] = "Một phiên bản hoặc từ khóa",
+["All"] = "Tất cả",
+["Show"] = "Hiện",
+["Latest"] = "Mới nhất",
+["Pinned"] = "Đã ghim",
+["New"] = "Mới",
+["What's new: {title}"] = "Có gì mới: {title}",
+["Requires {tier}"] = "Cần {tier}",
+["Paid only"] = "Chỉ trả phí",
+["Unlock with a paid key"] = "Mở bằng key trả phí",
+["Menu hidden"] = "Đã ẩn menu",
+["Press {key} to open it again."] = "Nhấn {key} để mở lại.",
+["The settings could not be encoded."] = "Không lưu được tùy chọn.",
+["Settings not saved"] = "Chưa lưu tùy chọn",
+["Nothing to undo."] = "Không có gì để hoàn tác.",
+["Restored {count} settings."] = "Đã khôi phục {count} tùy chọn.",
+["Paste a share code first."] = "Hãy dán mã trước.",
+["That isn't a Halcyon share code."] = "Đó không phải mã Halcyon.",
+["The share code is incomplete. Copy it again."] = "Mã bị thiếu. Hãy sao chép lại.",
+["Imported {count} settings."] = "Đã nhập {count} tùy chọn.",
+["No autoload config is set."] = "Chưa có config tự tải.",
+["Unload the hub?"] = "Gỡ hub?",
+["Everything it turned on stops. Run the script again to bring it back."] = "Mọi thứ hub đã bật sẽ dừng. Chạy lại script để mở lại.",
+["The config could not be encoded."] = "Không lưu được config.",
+['There is no config named "{name}".'] = 'Không có config tên "{name}".',
+['"{name}" is not a valid config file.'] = '"{name}" không phải tệp config hợp lệ.',
+['Loaded "{name}" ({count} settings).'] = 'Đã tải "{name}" ({count} tùy chọn).',
+["This executor cannot delete files."] = "Executor này không xóa được tệp.",
+['Deleted "{name}".'] = 'Đã xóa "{name}".',
+["Autoload is off."] = "Đã tắt tự tải.",
+['"{name}" loads on start.'] = '"{name}" tự tải khi mở.',
+["Press again to confirm"] = "Nhấn lần nữa để xác nhận",
+["Select all"] = "Chọn tất cả",
+["Copied"] = "Đã sao chép",
+["This executor has no clipboard."] = "Executor này không có bộ nhớ tạm.",
+["Press a key"] = "Nhấn một phím",
+["Filter"] = "Lọc",
+["Nothing yet"] = "Chưa có gì",
+["Actions"] = "Thao tác",
+["Find a player"] = "Tìm người chơi",
+["No one else is here"] = "Không còn ai khác",
+["1 player"] = "1 người chơi",
+["{count} players"] = "{count} người chơi",
+["Needs {names}"] = "Cần {names}",
+["Locked"] = "Đã khóa",
+["Ready"] = "Sẵn sàng",
+["Nothing to show yet"] = "Chưa có gì để hiện",
+["Type and press Enter"] = "Gõ rồi nhấn Enter",
+["This executor can't save files."] = "Executor này không lưu được tệp.",
+["HTTP requests are not available here."] = "Không dùng được yêu cầu HTTP ở đây.",
+["That key is not valid."] = "Key không hợp lệ.",
+["Use letters, numbers, spaces, - or _ in a config name."] = "Tên config chỉ gồm chữ, số, dấu cách, - hoặc _.",
+["January"] = "Tháng 1",
+["February"] = "Tháng 2",
+["March"] = "Tháng 3",
+["April"] = "Tháng 4",
+["May"] = "Tháng 5",
+["June"] = "Tháng 6",
+["July"] = "Tháng 7",
+["August"] = "Tháng 8",
+["September"] = "Tháng 9",
+["October"] = "Tháng 10",
+["November"] = "Tháng 11",
+["December"] = "Tháng 12",
+["Mo"] = "T2",
+["Tu"] = "T3",
+["We"] = "T4",
+["Th"] = "T5",
+["Fr"] = "T6",
+["Sa"] = "T7",
+["Su"] = "CN",
+["Info"] = "Thông tin",
+["Warn"] = "Cảnh báo",
+["Error"] = "Lỗi",
+["Improved"] = "Cải thiện",
+["Fixed"] = "Đã sửa",
+["Removed"] = "Đã bỏ",
+["Security"] = "Bảo mật",
+["On"] = "Bật",
+["Off"] = "Tắt",
+["Sidebar"] = "Thanh bên",
+["Rail"] = "Thanh hẹp",
+["Top"] = "Trên cùng",
+["Dock"] = "Thanh dưới",
+["Topbar"] = "Thanh tiêu đề",
+["Pill"] = "Viên thuốc",
+["Chip"] = "Nhãn",
+["Link copied. Open it in your browser to get a key."] = "Đã sao chép liên kết. Mở trong trình duyệt để lấy key.",
+["Link copied. Open it in your browser and finish the step, then confirm here."] = "Đã sao chép liên kết. Mở trong trình duyệt, làm xong bước đó rồi xác nhận ở đây.",
+["Link copied. Open it in your browser and finish the step, then paste your key here."] = "Đã sao chép liên kết. Mở trong trình duyệt, làm xong bước đó rồi dán key vào đây.",
+["Language"] = "Ngôn ngữ",
+["Language changed"] = "Đã đổi ngôn ngữ",
+["Run the hub again to see every part in the new language."] = "Chạy lại hub để thấy mọi thứ bằng ngôn ngữ mới.",
+}
 end
 modules["Themes/Palettes"] = function()
 local hex = Color3.fromHex

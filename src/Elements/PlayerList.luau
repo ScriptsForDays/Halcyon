@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local Create = require("../Core/Create")
 local Env = require("../Core/Env")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local PlayerList = {}
@@ -36,7 +37,7 @@ function PlayerList.new(container, options)
 		search = Create.new("TextBox", {
 			Name = "Search",
 			Size = UDim2.new(1, 0, 0, 30),
-			PlaceholderText = "Find a player",
+			PlaceholderText = Strings.get("Find a player"),
 			TextSize = 13,
 			ClearTextOnFocus = false,
 			Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text" },
@@ -61,7 +62,7 @@ function PlayerList.new(container, options)
 	local empty = Create.new("TextLabel", {
 		Name = "Empty",
 		Size = UDim2.new(1, 0, 0, 36),
-		Text = "No one else is here",
+		Text = Strings.get("No one else is here"),
 		TextSize = 12,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		Theme = { TextColor3 = "textMuted" },
@@ -86,7 +87,7 @@ function PlayerList.new(container, options)
 		for _ in rows do
 			total += 1
 		end
-		count.Text = if total == 1 then "1 player" else `{total} players`
+		count.Text = if total == 1 then Strings.get("1 player") else Strings.get("{count} players", { count = total })
 		-- With nobody to list, the empty line below says so on its own.
 		count.Visible = total > 0
 	end

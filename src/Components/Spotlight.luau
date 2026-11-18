@@ -6,6 +6,7 @@ local Create = require("../Core/Create")
 local Effects = require("../Core/Effects")
 local Mount = require("../Core/Mount")
 local Motion = require("../Core/Motion")
+local Strings = require("../Core/Strings")
 
 local GAP, MARGIN = 8, 8
 
@@ -102,7 +103,7 @@ function Spotlight.attach(window, handle, options)
 			Name = "GotIt",
 			Size = UDim2.fromOffset(0, if library.touch then 40 else 28),
 			AutomaticSize = Enum.AutomaticSize.X,
-			Text = options.Button or "Got it",
+			Text = options.Button or Strings.get("Got it"),
 			TextSize = 12,
 			Weight = "bold",
 			LayoutOrder = 2,

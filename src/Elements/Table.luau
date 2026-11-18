@@ -2,6 +2,7 @@ local Create = require("../Core/Create")
 local Hairline = require("../Core/Hairline")
 local Icons = require("../Core/Icons")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local ROW_HEIGHT = 28
@@ -112,7 +113,7 @@ function Table.new(container, options)
 	local empty = Create.new("TextLabel", {
 		Name = "Empty",
 		Size = UDim2.new(1, 0, 0, ROW_HEIGHT + 8),
-		Text = options.EmptyText or "Nothing to show yet",
+		Text = options.EmptyText or Strings.get("Nothing to show yet"),
 		TextSize = 12,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		LayoutOrder = 3,

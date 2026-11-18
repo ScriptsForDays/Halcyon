@@ -1,6 +1,7 @@
 local Create = require("../Core/Create")
 local Env = require("../Core/Env")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local Log = {}
@@ -62,7 +63,7 @@ function Log.new(container, options)
 	local empty = Create.new("TextLabel", {
 		Name = "Empty",
 		Size = UDim2.new(1, 0, 0, 20),
-		Text = options.EmptyText or "Nothing yet",
+		Text = options.EmptyText or Strings.get("Nothing yet"),
 		TextSize = 12,
 		LayoutOrder = 0,
 		Theme = { TextColor3 = "textMuted" },
@@ -97,7 +98,7 @@ function Log.new(container, options)
 			Name = name,
 			Size = UDim2.fromOffset(0, 24),
 			AutomaticSize = Enum.AutomaticSize.X,
-			Text = name,
+			Text = Strings.get(name),
 			TextSize = 12,
 			Weight = "medium",
 			LayoutOrder = index,

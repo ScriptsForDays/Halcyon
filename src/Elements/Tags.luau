@@ -1,5 +1,6 @@
 local Create = require("../Core/Create")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local Tags = {}
@@ -35,7 +36,7 @@ function Tags.new(container, options)
 	local box = Create.new("TextBox", {
 		Name = "Entry",
 		Size = UDim2.fromOffset(120, 26),
-		PlaceholderText = options.Placeholder or "Type and press Enter",
+		PlaceholderText = options.Placeholder or Strings.get("Type and press Enter"),
 		TextSize = 13,
 		LayoutOrder = 1e6,
 		ClearTextOnFocus = false,

@@ -6,6 +6,7 @@ local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Notifications = require("./Notifications")
 local Popup = require("./Popup")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local ICONS = { info = "info", success = "circle-check", warning = "triangle-alert", danger = "circle-alert" }
@@ -84,7 +85,7 @@ local function open(window, anchor, refreshBadge)
 	Create.new("TextLabel", {
 		Name = "Title",
 		Size = UDim2.fromScale(0.6, 1),
-		Text = "Notices",
+		Text = Strings.get("Notices"),
 		TextSize = 14,
 		Weight = "bold",
 		Theme = { TextColor3 = "text" },
@@ -96,7 +97,7 @@ local function open(window, anchor, refreshBadge)
 		AutomaticSize = Enum.AutomaticSize.X,
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.fromScale(1, 0),
-		Text = "Clear all",
+		Text = Strings.get("Clear all"),
 		TextSize = 12,
 		Weight = "medium",
 		Theme = { TextColor3 = "textMuted" },
@@ -124,7 +125,7 @@ local function open(window, anchor, refreshBadge)
 			Create.new("TextLabel", {
 				Name = "Empty",
 				Size = UDim2.new(1, 0, 0, 56),
-				Text = "No notices yet",
+				Text = Strings.get("No notices yet"),
 				TextSize = 13,
 				TextXAlignment = Enum.TextXAlignment.Center,
 				Theme = { TextColor3 = "textMuted" },

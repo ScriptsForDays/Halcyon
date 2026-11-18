@@ -6,6 +6,7 @@ local Create = require("../Core/Create")
 local Dialog = require("./Dialog")
 local Env = require("../Core/Env")
 local Motion = require("../Core/Motion")
+local Strings = require("../Core/Strings")
 
 local TAGS = {
 	New = "accent",
@@ -71,7 +72,7 @@ function Panels.loading(window, options)
 	local icon = Create.icon(options.Icon or window.Icon or "layers", 32, "accent", card)
 	icon.ZIndex = 52
 	line(card, options.Title or window.Title, 16, "text", "bold", 1)
-	local status = line(card, options.Text or "Getting ready", 13, "textMuted", "regular", 2)
+	local status = line(card, options.Text or Strings.get("Getting ready"), 13, "textMuted", "regular", 2)
 	local rail = Create.new("Frame", { Name = "Rail", Size = UDim2.new(1, 0, 0, 4), LayoutOrder = 3, ZIndex = 52, Theme = { BackgroundColor3 = "raised" }, Parent = card })
 	Create.corner(-1, rail)
 	local fill = Create.new("Frame", { Name = "Fill", Size = UDim2.fromScale(0, 1), ZIndex = 53, Theme = { BackgroundColor3 = "accent" }, Parent = rail })
@@ -113,7 +114,7 @@ function Panels.changelog(window, options)
 		return nil
 	end
 	local shell = Dialog.shell(window.library, { Width = 400, Dismissible = true })
-	Dialog.heading(shell.card, options.Title or `What's new in {version}`, options.Icon or "bell")
+	Dialog.heading(shell.card, options.Title or Strings.get("What's new in {version}", { version = version }), options.Icon or "bell")
 	local list = Create.new("Frame", { Name = "Entries", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 1, Parent = shell.card })
 	Create.list(list, "Vertical", 8)
 	for index, entry in options.Entries or {} do
@@ -148,7 +149,7 @@ function Panels.changelog(window, options)
 	end
 	local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0, 38), LayoutOrder = 2, Parent = shell.card })
 	Create.list(actions, "Horizontal", 8, { HorizontalAlignment = Enum.HorizontalAlignment.Right })
-	local close = Dialog.button(shell.scope, actions, { Title = options.Button or "Continue", Variant = "Primary" })
+	local close = Dialog.button(shell.scope, actions, { Title = options.Button or Strings.get("Continue"), Variant = "Primary" })
 	shell.scope:connect(close.Activated, shell.Close)
 	window.changelogSeen = version
 	window:savePreferences()
@@ -160,28 +161,28 @@ end
 -- (an invite link), Links ({ { Title, Url } }), Side.
 function Panels.about(window, tab, options)
 	options = options or {}
-	local section = tab:Section({ Title = options.Title or "About", Icon = "info", Side = options.Side })
+	local section = tab:Section({ Title = options.Title or Strings.get("About"), Icon = "info", Side = options.Side })
 	section:Paragraph({ Title = window.Title, Content = options.Description or window.Subtitle or "", Icon = window.Icon })
 	if window.options.Version then
-		section:Status({ Title = "Version", Status = tostring(window.options.Version), Kind = "info" })
+		section:Status({ Title = Strings.get("Version"), Status = tostring(window.options.Version), Kind = "info" })
 	end
 	for _, credit in options.Credits or {} do
 		section:Label({ Title = `<b>{credit.Name or ""}</b>  {credit.Role or ""}` })
 	end
 	local links = table.clone(options.Links or {})
 	if options.Discord then
-		table.insert(links, 1, { Title = "Discord", Url = options.Discord, Icon = "message-circle" })
+		table.insert(links, 1, { Title = Strings.get("Discord"), Url = options.Discord, Icon = "message-circle" })
 	end
 	for _, link in links do
 		section:Button({
-			Title = link.Title or "Link",
+			Title = link.Title or Strings.get("Link"),
 			Description = tostring(link.Url),
 			TrailingIcon = "copy",
 			Callback = function()
 				local copied = Env.copy(tostring(link.Url))
 				window:Notify({
-					Title = if copied then "Link copied" else "Can't copy",
-					Content = if copied then "Paste it into your browser." else tostring(link.Url),
+					Title = if copied then Strings.get("Link copied") else Strings.get("Can't copy"),
+					Content = if copied then Strings.get("Paste it into your browser.") else tostring(link.Url),
 					Kind = if copied then "success" else "info",
 					Style = "Compact",
 				})
@@ -219,7 +220,7 @@ function Panels.state(tab, options)
 	glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
 	local title = Create.new("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 20),
-		Text = options.Title or (if failed then "Something went wrong" else "Nothing here yet"),
+		Text = options.Title or (if failed then Strings.get("Something went wrong") else Strings.get("Nothing here yet")),
 		TextSize = 15,
 		Weight = "bold",
 		TextXAlignment = Enum.TextXAlignment.Center,
@@ -240,7 +241,7 @@ function Panels.state(tab, options)
 		Parent = frame,
 	})
 	if options.Button then
-		local button = Dialog.button(scope, frame, { Title = options.Button.Title or "Try again", Variant = if failed then "Default" else "Primary", LayoutOrder = 3 })
+		local button = Dialog.button(scope, frame, { Title = options.Button.Title or Strings.get("Try again"), Variant = if failed then "Default" else "Primary", LayoutOrder = 3 })
 		scope:connect(button.Activated, function()
 			Env.call(options.Button.Title or "State", options.Button.Callback)
 		end)
@@ -273,7 +274,7 @@ function Panels.lock(window, options)
 	Create.corner(-1, disc)
 	local glyph = Create.icon(options.Icon or "wrench", 26, "warning", disc)
 	glyph.AnchorPoint, glyph.Position, glyph.ZIndex = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), 53
-	line(card, options.Title or "Unavailable right now", 16, "text", "bold", 1)
+	line(card, options.Title or Strings.get("Unavailable right now"), 16, "text", "bold", 1)
 	line(card, options.Text or "", 13, "textMuted", "regular", 2)
 	if options.Button then
 		local button = Dialog.button(scope, card, { Title = options.Button.Title or "OK", Variant = "Primary", LayoutOrder = 3 })

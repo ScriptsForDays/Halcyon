@@ -14,6 +14,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "./bundle.mjs";
+import { checkStrings } from "./check-strings.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TESTS = join(ROOT, "tests");
@@ -56,6 +57,15 @@ for (const suite of suites) {
 	} catch (error) {
 		failed = true;
 		process.stdout.write(`${suite}: FAILED\n${error.stdout || ""}${error.stderr || ""}\n`);
+	}
+}
+
+// The translation packs cover every built-in text and nothing stale.
+if (!only) {
+	const problems = checkStrings();
+	process.stdout.write(problems.length === 0 ? "translations: complete\n" : `translations: FAILED\n  ${problems.join("\n  ")}\n`);
+	if (problems.length > 0) {
+		failed = true;
 	}
 }
 

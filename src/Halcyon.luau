@@ -27,6 +27,7 @@ local Presets = require("./Themes/Presets")
 local Scope = require("./Core/Scope")
 local SettingsTab = require("./Components/SettingsTab")
 local Signal = require("./Core/Signal")
+local Strings = require("./Core/Strings")
 local Styles = require("./Core/Styles")
 local Switches = require("./Components/Switches")
 local Theme = require("./Core/Theme")
@@ -72,6 +73,7 @@ local Halcyon = {
 		Personalise = require("./Components/Personalise"),
 		Scope = Scope,
 		Signal = Signal,
+		Strings = Strings,
 		Styles = Styles,
 		Theme = Theme,
 		Tokens = Tokens,
@@ -115,6 +117,19 @@ local function folderFor(options)
 	return Env.safeName(options.Folder or options.Title) or "Default"
 end
 
+-- The language the player chose in this hub's Settings tab, if any.
+local function savedLanguage(folder, options)
+	if options.SavePreferences == false then
+		return nil
+	end
+	local content = Env.read(`Halcyon/{folder}/settings.json`)
+	if not content then
+		return nil
+	end
+	local ok, saved = Env.decode(content)
+	return if ok and type(saved) == "table" and type(saved.language) == "string" then saved.language else nil
+end
+
 -- Creates the window. With a KeySystem this yields until a key is accepted
 -- and returns nil if the player closes the prompt, so check the result.
 function Halcyon:CreateWindow(options)
@@ -137,6 +152,13 @@ function Halcyon:CreateWindow(options)
 	local granted = if previous and previous.access and previous.access.Tiers then previous.access else nil
 	if previous then
 		pcall(previous.Unload, previous)
+	end
+
+	-- The language comes first: the key prompt is the first thing drawn. A
+	-- language the player picked in Settings wins over the hub's choice.
+	Strings.setLanguage(savedLanguage(folder, options) or options.Language or "en")
+	if type(options.Strings) == "table" then
+		Strings.set(options.Strings)
 	end
 
 	-- Radius, Density and TextSize apply to everything built from here on.
@@ -282,6 +304,33 @@ end
 -- `callback(id, problem)`. Needs getcustomasset for URLs and files.
 function Halcyon:Image(source, callback)
 	return Assets.resolve(source, callback)
+end
+
+-- Translation. Codes: "en", "pt-br", "es", "vi", "id", "ru", "tr", "fr",
+-- "de", or "auto" for the player's Roblox language. Text is read when a part
+-- is built, so set these before CreateWindow (or use its Language option).
+function Halcyon:SetLanguage(code)
+	return Strings.setLanguage(code)
+end
+
+function Halcyon:GetLanguage()
+	return Strings.language
+end
+
+-- { { Code, Name } } for every built-in language.
+function Halcyon:GetLanguages()
+	return Strings.languages()
+end
+
+-- Replaces Halcyon's own wording, keyed by the English text:
+-- Halcyon:SetStrings({ ["Unload the hub?"] = "Close everything?" })
+function Halcyon:SetStrings(map)
+	Strings.set(map)
+end
+
+-- Every built-in text used so far, English key -> what is shown.
+function Halcyon:GetStrings()
+	return Strings.list()
 end
 
 function Halcyon:GetExecutor()

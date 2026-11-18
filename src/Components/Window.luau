@@ -26,6 +26,7 @@ local Profile = require("./Profile")
 local Registry = require("../Elements/Registry")
 local Signal = require("../Core/Signal")
 local Resize = require("../Core/Resize")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Switches = require("./Switches")
 local Tab = require("./Tab")
@@ -186,15 +187,18 @@ function Window.new(library, options, access)
 	end
 	self.access = access
 	-- The wording on a locked row's badge. "{tier}" becomes the tier's name.
-	self.lockText = options.LockText or "Requires {tier}"
-	self.paidLockText = options.PaidLockText or "Paid only"
+	self.lockText = options.LockText or Strings.get("Requires {tier}")
+	self.paidLockText = options.PaidLockText or Strings.get("Paid only")
 	-- The second line on a locked section's overlay.
 	self.lockHint = options.LockHint
-	self.paidLockHint = options.PaidLockHint or "Unlock with a paid key"
+	self.paidLockHint = options.PaidLockHint or Strings.get("Unlock with a paid key")
 	self.lockedSections = {}
 
 	-- Saved preferences win over the script's defaults: they are the player's choice.
 	local saved = if options.SavePreferences == false then {} else readPreferences(self.preferencesPath)
+	-- Only a language the player picked is saved; the hub's own choice is
+	-- applied again on every run.
+	self.languagePicked = if type(saved.language) == "string" then saved.language else nil
 	-- The player's own look: themes they made, then what applies at build
 	-- time; the rest is restored once the window exists.
 	self.personal, self.customThemes = {}, {}
@@ -1116,7 +1120,7 @@ function Window:fitTopbarSearch()
 	-- Folded, the box covers the whole button so a press anywhere on it focuses it.
 	box.Position = UDim2.fromOffset(if folded then 0 else 32, 0)
 	box.Size = if folded then UDim2.fromScale(1, 1) else UDim2.new(1, -38, 1, 0)
-	box.PlaceholderText = if folded then "" else "Search"
+	box.PlaceholderText = if folded then "" else Strings.get("Search")
 end
 
 -- The width of a side navigation style, or nil for the strips. The hub's
@@ -1393,7 +1397,7 @@ function Window:applySearch(query)
 		self:SelectTab(first)
 	end
 	self.empty.Visible = self.query ~= "" and first == nil
-	self.empty.Text = `Nothing matches "{self.query}".`
+	self.empty.Text = Strings.get('Nothing matches "{query}".', { query = self.query })
 	if self.selected then
 		self.selected.page.Visible = not self.empty.Visible
 	end
@@ -1600,7 +1604,7 @@ function Window:Hide()
 	end)
 	if not self.openButton.Visible and not self.hinted and self.toggleKey then
 		self.hinted = true
-		self:Notify({ Title = "Menu hidden", Content = `Press {self.toggleKey.Name} to open it again.` })
+		self:Notify({ Title = Strings.get("Menu hidden"), Content = Strings.get("Press {key} to open it again.", { key = self.toggleKey.Name }) })
 	end
 end
 
@@ -1778,14 +1782,15 @@ function Window:writePreferences()
 		reducedMotion = Motion.reduced,
 		anonymous = self.profile.Anonymous,
 		toggleKey = if self.toggleKey then self.toggleKey.Name else "",
+		language = self.languagePicked,
 	})
-	local wrote, message = false, "The settings could not be encoded."
+	local wrote, message = false, Strings.get("The settings could not be encoded.")
 	if encoded then
 		wrote, message = Env.write(self.preferencesPath, text)
 	end
 	if not wrote and not self.preferencesWarned then
 		self.preferencesWarned = true
-		self:Notify({ Title = "Settings not saved", Content = message, Kind = "warning" })
+		self:Notify({ Title = Strings.get("Settings not saved"), Content = message, Kind = "warning" })
 	end
 end
 
@@ -1846,6 +1851,20 @@ function Window:LoadConfig(name)
 	return announce(self, "load", name, self.config:load(name))
 end
 
+-- Switches the language for everything built from now on and remembers the
+-- player's pick. Parts already on screen keep their text until the hub runs
+-- again. Returns the code used.
+function Window:SetLanguage(code)
+	local chosen = Strings.setLanguage(code)
+	self.languagePicked = chosen
+	-- Written now rather than batched: the pick only matters on the next
+	-- run, and the player may unload straight after making it.
+	if self.options.SavePreferences ~= false and Env.canSave then
+		self:writePreferences()
+	end
+	return chosen
+end
+
 -- Values ----------------------------------------------------------------------
 
 -- Every flagged element's value, by flag.
@@ -1899,11 +1918,11 @@ end
 function Window:Undo()
 	local values = self.undoValues
 	if not values then
-		return false, "Nothing to undo."
+		return false, Strings.get("Nothing to undo.")
 	end
 	self.undoValues = nil
 	local count = self.config:apply(values)
-	return true, `Restored {count} settings.`
+	return true, Strings.get("Restored {count} settings.", { count = count })
 end
 
 -- Share codes -------------------------------------------------------------------
@@ -1920,20 +1939,20 @@ end
 -- Applies a code from ExportConfig. Returns ok, message.
 function Window:ImportConfig(code)
 	if type(code) ~= "string" then
-		return false, "Paste a share code first."
+		return false, Strings.get("Paste a share code first.")
 	end
 	code = string.match(code, "^%s*(.-)%s*$")
 	if string.sub(code, 1, #SHARE_PREFIX) ~= SHARE_PREFIX then
-		return false, "That isn't a Halcyon share code."
+		return false, Strings.get("That isn't a Halcyon share code.")
 	end
 	local ok, decoded = Env.decode(string.sub(code, #SHARE_PREFIX + 1))
 	if not ok or type(decoded) ~= "table" or type(decoded.flags) ~= "table" then
-		return false, "The share code is incomplete. Copy it again."
+		return false, Strings.get("The share code is incomplete. Copy it again.")
 	end
 	self:keepForUndo()
 	local count = self.config:apply(decoded.flags)
 	self.ConfigChanged:Fire("import", nil)
-	return true, `Imported {count} settings.`
+	return true, Strings.get("Imported {count} settings.", { count = count })
 end
 
 -- Callback errors ------------------------------------------------------------------
@@ -1984,7 +2003,7 @@ end
 function Window:LoadAutoload()
 	local name = self.config:getAutoload()
 	if not name then
-		return false, "No autoload config is set."
+		return false, Strings.get("No autoload config is set.")
 	end
 	return self.config:load(name)
 end
@@ -1997,14 +2016,14 @@ function Window:RequestUnload()
 		return
 	end
 	self:Dialog({
-		Title = "Unload the hub?",
-		Content = "Everything it turned on stops. Run the script again to bring it back.",
+		Title = Strings.get("Unload the hub?"),
+		Content = Strings.get("Everything it turned on stops. Run the script again to bring it back."),
 		Icon = "power",
 		Dismissible = true,
 		Buttons = {
-			{ Title = "Keep" },
+			{ Title = Strings.get("Keep") },
 			{
-				Title = "Unload",
+				Title = Strings.get("Unload"),
 				Variant = "Danger",
 				Callback = function()
 					self:Unload()

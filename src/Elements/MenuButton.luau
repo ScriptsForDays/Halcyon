@@ -2,6 +2,7 @@ local Create = require("../Core/Create")
 local Menu = require("../Components/Menu")
 local Motion = require("../Core/Motion")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local MenuButton = {}
@@ -29,7 +30,7 @@ function MenuButton.new(container, options)
 		Name = "Label",
 		Size = UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
-		Text = options.Text or "Actions",
+		Text = options.Text or Strings.get("Actions"),
 		TextSize = 13,
 		Weight = "medium",
 		Theme = { TextColor3 = "text" },

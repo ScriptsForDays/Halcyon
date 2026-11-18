@@ -13,6 +13,7 @@ local DiscordButton = require("./DiscordButton")
 local Env = require("../Core/Env")
 local Hairline = require("../Core/Hairline")
 local Motion = require("../Core/Motion")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local VERSION = 1
@@ -79,7 +80,7 @@ local function remoteCheck(remote, key)
 		return valid == true, detail
 	end
 	if not ok then
-		return false, if status == 0 then "The key server could not be reached." else nil
+		return false, if status == 0 then Strings.get("The key server could not be reached.") else nil
 	end
 	local decoded, reply = Env.decode(response)
 	if not decoded or type(reply) ~= "table" then
@@ -110,7 +111,7 @@ function KeySystem.check(options, selected, key)
 	local keyed = not (ad and ad.RequiresKey == false)
 	key = trim(key)
 	if key == "" and keyed then
-		return nil, "Enter your key first."
+		return nil, Strings.get("Enter your key first.")
 	end
 	if key ~= "" then
 		for index = #tiers, 1, -1 do
@@ -168,14 +169,14 @@ function KeySystem.check(options, selected, key)
 	end)
 	if not ok then
 		warn(`[Halcyon] Key validator failed: {unlocked}`)
-		return nil, "The key could not be checked. Try again."
+		return nil, Strings.get("The key could not be checked. Try again.")
 	elseif unlocked then
 		return unlocked, nil, detail
 	end
 	if not message and ad and not keyed then
-		message = `The {ad.Name or "ad"} step is not confirmed yet. Finish it, then try again.`
+		message = Strings.get("The {service} step is not confirmed yet. Finish it, then try again.", { service = ad.Name or Strings.get("ad") })
 	end
-	return nil, message or INVALID_KEY_MESSAGE
+	return nil, message or Strings.get(INVALID_KEY_MESSAGE)
 end
 
 local function savedPath(folder)
@@ -299,7 +300,7 @@ function KeySystem.prompt(library, options, context)
 		TextWrapped = true,
 		TextSize = 17,
 		Weight = "bold",
-		Text = options.Title or `{context.title} access`,
+		Text = options.Title or Strings.get("{title} access", { title = context.title }),
 		Theme = { TextColor3 = "text" },
 		Parent = titles,
 	})
@@ -339,7 +340,7 @@ function KeySystem.prompt(library, options, context)
 			local ad = adService(tier)
 			local tag = tier.Tag
 			if not tag then
-				tag = if tier.NoKey then "No key needed" elseif ad then `Via {ad.Name or "an ad"}` elseif paid then "Paid key" else "Key required"
+				tag = if tier.NoKey then Strings.get("No key needed") elseif ad then Strings.get("Via {service}", { service = ad.Name or Strings.get("an ad") }) elseif paid then Strings.get("Paid key") else Strings.get("Key required")
 				if tier.Duration and showExpiry then
 					tag ..= ` · {Env.duration(tier.Duration)}`
 				end
@@ -416,7 +417,7 @@ function KeySystem.prompt(library, options, context)
 		Name = "Key",
 		Position = UDim2.fromOffset(40, 0),
 		Size = UDim2.new(1, -52, 1, 0),
-		PlaceholderText = "Paste your key",
+		PlaceholderText = Strings.get("Paste your key"),
 		TextSize = 14,
 		ClipsDescendants = true,
 		Theme = { TextColor3 = "text" },
@@ -480,16 +481,16 @@ function KeySystem.prompt(library, options, context)
 	if discord then
 		local line = Create.new("Frame", { Name = "Community", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = 9, Parent = card })
 		Create.list(line, "Horizontal", 10, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
-		local settings = { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1, Label = discord.Label or "Join the Discord" }
+		local settings = { Link = discord.Link, Icon = discord.Icon, Size = 36, LayoutOrder = 1, Label = discord.Label or Strings.get("Join the Discord") }
 		DiscordButton.new(scope, line, settings, function(how, link)
 			if how == "opened" then
-				setStatus("Opened the invite in Discord.", "success")
+				setStatus(Strings.get("Opened the invite in Discord."), "success")
 			elseif how == "copied" then
-				setStatus("Discord invite copied. Paste it into your browser.", "success")
+				setStatus(Strings.get("Discord invite copied. Paste it into your browser."), "success")
 			else
 				linkBox.Text = link
 				linkBox.Visible = true
-				setStatus("Copy the invite from the box below.", "info")
+				setStatus(Strings.get("Copy the invite from the box below."), "info")
 			end
 		end)
 	end
@@ -508,18 +509,18 @@ function KeySystem.prompt(library, options, context)
 		local ad = adService(tier)
 		local service = if ad then ad.Name or "the ad" else nil
 		local keyed = not (ad and ad.RequiresKey == false)
-		local hint = tier.Description or (if ad then `Finish the {service} step to unlock {tier.Name}.` else nil)
+		local hint = tier.Description or (if ad then Strings.get("Finish the {service} step to unlock {tier}.", { service = service, tier = tier.Name }) else nil)
 		description.Text = hint or ""
 		description.Visible = hint ~= nil
 		input.Visible = not tier.NoKey and keyed
 		field.Visible = input.Visible
-		local lasts = if tier.Duration and showExpiry and input.Visible then `Keys for {tier.Name} last {Env.duration(tier.Duration)}.` else nil
-		local kept = if options.SaveKey ~= false and input.Visible then "Your key is saved on this device." else nil
+		local lasts = if tier.Duration and showExpiry and input.Visible then Strings.get("Keys for {tier} last {time}.", { tier = tier.Name, time = Env.duration(tier.Duration) }) else nil
+		local kept = if options.SaveKey ~= false and input.Visible then Strings.get("Your key is saved on this device.") else nil
 		footer.Text = if lasts and kept then `{lasts} {kept}` else lasts or kept or ""
 		footer.Visible = footer.Text ~= ""
 		getKey.Visible = not tier.NoKey and (tier.Link ~= nil or tier.GetLink ~= nil or (ad ~= nil and (ad.Link ~= nil or ad.GetLink ~= nil)))
-		getKey.Text = tier.LinkLabel or (if ad then `Open {service}` else "Get a key")
-		verify.Text = if busy then "Checking" elseif tier.NoKey then `Continue with {tier.Name}` elseif not keyed then `I finished {service}` else "Verify key"
+		getKey.Text = tier.LinkLabel or (if ad then Strings.get("Open {service}", { service = service }) else Strings.get("Get a key"))
+		verify.Text = if busy then Strings.get("Checking") elseif tier.NoKey then Strings.get("Continue with {tier}", { tier = tier.Name }) elseif not keyed then Strings.get("I finished {service}", { service = service }) else Strings.get("Verify key")
 		linkBox.Visible = false
 	end
 
@@ -538,7 +539,7 @@ function KeySystem.prompt(library, options, context)
 		locked = true
 		scope:add(task.spawn(function()
 			for remaining = cooldown, 1, -1 do
-				setStatus(`Too many attempts. Try again in {remaining} s.`, "danger")
+				setStatus(Strings.get("Too many attempts. Try again in {seconds} s.", { seconds = remaining }), "danger")
 				task.wait(1)
 			end
 			locked, attempts = false, 0
@@ -557,7 +558,7 @@ function KeySystem.prompt(library, options, context)
 		end
 		local key = trim(input.Text)
 		busy = true
-		setStatus("Checking the key.", "textMuted")
+		setStatus(Strings.get("Checking the key."), "textMuted")
 		refresh()
 		local index, message, detail = KeySystem.check(options, selected, key)
 		busy = false
@@ -604,14 +605,17 @@ function KeySystem.prompt(library, options, context)
 			link = if ok then made else nil
 		end
 		if type(link) ~= "string" then
-			setStatus("The key link is not available right now.", "danger")
+			setStatus(Strings.get("The key link is not available right now."), "danger")
 		elseif Env.copy(link) then
-			local after = if not ad then "to get a key" elseif ad.RequiresKey == false then "and finish the step, then confirm here" else "and finish the step, then paste your key here"
-			setStatus(`Link copied. Open it in your browser {after}.`, "success")
+			local sentence = if not ad
+				then "Link copied. Open it in your browser to get a key."
+				elseif ad.RequiresKey == false then "Link copied. Open it in your browser and finish the step, then confirm here."
+				else "Link copied. Open it in your browser and finish the step, then paste your key here."
+			setStatus(Strings.get(sentence), "success")
 		else
 			linkBox.Text = link
 			linkBox.Visible = true
-			setStatus("Copy this link and open it in your browser.", "textMuted")
+			setStatus(Strings.get("Copy this link and open it in your browser."), "textMuted")
 		end
 	end)
 

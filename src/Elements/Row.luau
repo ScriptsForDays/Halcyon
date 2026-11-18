@@ -7,6 +7,7 @@ local Effects = require("../Core/Effects")
 local Icons = require("../Core/Icons")
 local Popup = require("../Components/Popup")
 local Signal = require("../Core/Signal")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 local Tokens = require("../Core/Tokens")
 
@@ -397,7 +398,7 @@ function Row.new(container, options, layout)
 	-- `reason` is the wording on the badge and `icon` replaces its lock.
 	-- A `quiet` lock shows no badge: the section's overlay speaks for the row.
 	function handle:Lock(reason, icon, quiet)
-		state.locked, state.reason, state.quiet = true, reason or "Locked", quiet == true
+		state.locked, state.reason, state.quiet = true, reason or Strings.get("Locked"), quiet == true
 		buildVeil()
 		Icons.apply(lockIcon, icon or "lock")
 		refresh()

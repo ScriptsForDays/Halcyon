@@ -1,6 +1,7 @@
 local Create = require("../Core/Create")
 local Effects = require("../Core/Effects")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local KINDS = { success = "success", warning = "warning", danger = "danger", info = "info", muted = "textMuted" }
@@ -39,7 +40,7 @@ function Status.new(container, options)
 	})
 	local pulse = Effects.pulse(row.scope, halo)
 
-	local state = { text = options.Status or "Ready", kind = options.Kind or "success" }
+	local state = { text = options.Status or Strings.get("Ready"), kind = options.Kind or "success" }
 	local function draw()
 		local role = KINDS[state.kind] or "success"
 		Theme.bind(pill, "BackgroundColor3", role)

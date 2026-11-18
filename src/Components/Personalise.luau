@@ -6,6 +6,7 @@
 local Create = require("../Core/Create")
 local Env = require("../Core/Env")
 local Notifications = require("./Notifications")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 local Tokens = require("../Core/Tokens")
 
@@ -154,13 +155,13 @@ end
 -- Reads a plain palette back. Returns the Color3 table, or nil and why not.
 function Personalise.decodeTheme(plain)
 	if type(plain) ~= "table" or type(plain.Name) ~= "string" then
-		return nil, "That is not a theme."
+		return nil, Strings.get("That is not a theme.")
 	end
 	local palette = { Name = string.sub(plain.Name, 1, 32) }
 	for _, role in Theme.Roles do
 		local hex = plain[role]
 		if type(hex) ~= "string" or not string.match(hex, "^#?%x%x%x%x%x%x$") then
-			return nil, `The theme is missing a valid "{role}" colour.`
+			return nil, Strings.get('The theme is missing a valid "{role}" colour.', { role = role })
 		end
 		palette[role] = Color3.fromHex(hex)
 	end
@@ -191,7 +192,7 @@ end
 function Personalise.importTheme(window, text)
 	local ok, plain = Env.decode(tostring(text or ""))
 	if not ok then
-		return false, "That text is not a theme."
+		return false, Strings.get("That text is not a theme.")
 	end
 	local palette, problem = Personalise.decodeTheme(plain)
 	if not palette then
@@ -209,12 +210,12 @@ end
 function Personalise.section(window, tab, options)
 	options = options or {}
 	local personal = window.personal
-	local section = tab:Section({ Title = options.Title or "Personalise", Icon = "paintbrush", Side = options.Side })
+	local section = tab:Section({ Title = options.Title or Strings.get("Personalise"), Icon = "paintbrush", Side = options.Side })
 	window.personalRows = window.personalRows or {}
 	local rows = window.personalRows
 	if options.Font ~= false then
 		rows.Font = section:Dropdown({
-			Title = "Font",
+			Title = Strings.get("Font"),
 			Values = Personalise.Fonts,
 			Default = personal.Font or "Inter",
 			Callback = function(name)
@@ -224,7 +225,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.TextSize ~= false then
 		rows.TextSize = section:Segmented({
-			Title = "Text size",
+			Title = Strings.get("Text size"),
 			Values = Tokens.TextSize,
 			Default = Tokens.names.text,
 			Callback = function(name)
@@ -234,7 +235,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.Corners ~= false then
 		rows.Radius = section:Segmented({
-			Title = "Corners",
+			Title = Strings.get("Corners"),
 			Values = Tokens.Radius,
 			Default = Tokens.names.radius,
 			Callback = function(name)
@@ -244,7 +245,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.Density ~= false then
 		rows.Density = section:Segmented({
-			Title = "Spacing",
+			Title = Strings.get("Spacing"),
 			Values = Tokens.Density,
 			Default = Tokens.names.density,
 			Callback = function(name)
@@ -254,7 +255,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.Transparency ~= false then
 		rows.Transparency = section:Slider({
-			Title = "See-through window",
+			Title = Strings.get("See-through window"),
 			Min = 0,
 			Max = 60,
 			Step = 5,
@@ -267,7 +268,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.NoticePosition ~= false then
 		rows.NoticePosition = section:Dropdown({
-			Title = "Notice position",
+			Title = Strings.get("Notice position"),
 			Values = POSITIONS,
 			Default = personal.NoticePosition or Notifications.Defaults.Position,
 			Callback = function(position)
@@ -277,7 +278,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.AccentGradient ~= false then
 		rows.AccentGradient = section:Toggle({
-			Title = "Gradient accent",
+			Title = Strings.get("Gradient accent"),
 			Default = personal.AccentGradient == true,
 			Callback = function(on)
 				Personalise.set(window, "AccentGradient", on)
@@ -286,7 +287,7 @@ function Personalise.section(window, tab, options)
 	end
 	if options.SafeStatus ~= false then
 		rows.SafeStatus = section:Toggle({
-			Title = "Colour-blind friendly",
+			Title = Strings.get("Colour-blind friendly"),
 			Default = personal.SafeStatus == true,
 			Callback = function(on)
 				Personalise.set(window, "SafeStatus", on)
@@ -300,7 +301,7 @@ end
 -- save the result under a name, or share it as text.
 function Personalise.builder(window, tab, options)
 	options = options or {}
-	local section = tab:Section({ Title = options.Title or "Theme builder", Icon = "palette", Side = options.Side })
+	local section = tab:Section({ Title = options.Title or Strings.get("Theme builder"), Icon = "palette", Side = options.Side })
 	local draft = table.clone(Theme.current)
 	draft.Name = "Custom"
 	local role = "accent"
@@ -314,7 +315,7 @@ function Personalise.builder(window, tab, options)
 
 	local picker
 	section:Dropdown({
-		Title = "Colour",
+		Title = Strings.get("Colour"),
 		Values = Theme.Roles,
 		Default = role,
 		Callback = function(name)
@@ -323,7 +324,7 @@ function Personalise.builder(window, tab, options)
 		end,
 	})
 	picker = section:ColorPicker({
-		Title = "Value",
+		Title = Strings.get("Value"),
 		Default = draft[role],
 		Palette = true,
 		Callback = function(color)
@@ -331,7 +332,7 @@ function Personalise.builder(window, tab, options)
 			preview()
 		end,
 	})
-	local name = section:Input({ Title = "Name", Placeholder = "My theme", MaxLength = 32 })
+	local name = section:Input({ Title = Strings.get("Name"), Placeholder = Strings.get("My theme"), MaxLength = 32 })
 	-- Says how a save, copy or import went; hidden until one happens.
 	local status = section:Label({ Title = "", Visible = false })
 	local setStatus = status.SetTitle
@@ -342,12 +343,12 @@ function Personalise.builder(window, tab, options)
 	section:Buttons({
 		Buttons = {
 			{
-				Title = "Save",
+				Title = Strings.get("Save"),
 				Icon = "save",
 				Callback = function()
 					local chosen = name:Get()
 					if chosen == "" then
-						status:SetTitle("Give the theme a name first.")
+						status:SetTitle(Strings.get("Give the theme a name first."))
 						return
 					end
 					local saving = table.clone(draft)
@@ -356,24 +357,24 @@ function Personalise.builder(window, tab, options)
 					if ok then
 						Theme.set(chosen)
 					end
-					status:SetTitle(if ok then message or `Saved "{chosen}".` else message)
+					status:SetTitle(if ok then message or Strings.get('Saved "{name}".', { name = chosen }) else message)
 				end,
 			},
 			{
-				Title = "Copy",
+				Title = Strings.get("Copy"),
 				Icon = "copy",
 				Variant = "Outline",
 				Callback = function()
 					local text = Personalise.exportTheme(Theme.current.Name)
 					local copied = text ~= nil and Env.copy(text)
-					status:SetTitle(if copied then "Copied. Paste it into Import to share." else "This executor can't copy text.")
+					status:SetTitle(if copied then Strings.get("Copied. Paste it into Import to share.") else Strings.get("This executor can't copy text."))
 				end,
 			},
 		},
 	})
 	section:Input({
-		Title = "Import",
-		Placeholder = "Paste a theme",
+		Title = Strings.get("Import"),
+		Placeholder = Strings.get("Paste a theme"),
 		Callback = function(text)
 			if text == "" then
 				return

@@ -16,6 +16,7 @@ local Icons = require("../Core/Icons")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Signal = require("../Core/Signal")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -181,7 +182,7 @@ local function toastStack(library)
 	function state.count()
 		local waiting = #state.queue
 		more.Visible = waiting > 0
-		more.Text = `+{waiting} more`
+		more.Text = Strings.get("+{count} more", { count = waiting })
 	end
 	library.scope:connect(overlay.gui:GetPropertyChangedSignal("AbsoluteSize"), state.place)
 	library.scope:add(function()

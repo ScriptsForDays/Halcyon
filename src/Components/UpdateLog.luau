@@ -5,6 +5,7 @@
 local Create = require("../Core/Create")
 local Panels = require("./Panels")
 local Row = require("../Elements/Row")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 
 local KINDS = { "New", "Improved", "Fixed", "Removed", "Security" }
@@ -154,7 +155,7 @@ end
 function UpdateLog.build(window, settings)
 	local look = Styles.pick("UpdateLog", settings.Style, window)
 	local tab = window:Tab({
-		Title = settings.Title or "Updates",
+		Title = settings.Title or Strings.get("Updates"),
 		Icon = settings.Icon or "clock",
 		Group = settings.Group,
 		Description = settings.Description,
@@ -191,8 +192,8 @@ function UpdateLog.build(window, settings)
 	end
 	if settings.Search ~= false then
 		tools:Input({
-			Title = "Search",
-			Placeholder = "A version or a word",
+			Title = Strings.get("Search"),
+			Placeholder = Strings.get("A version or a word"),
 			LeadingIcon = "search",
 			Clearable = true,
 			Live = true,
@@ -203,12 +204,12 @@ function UpdateLog.build(window, settings)
 		})
 	end
 	if settings.Filters ~= false then
-		local values = { "All" }
+		local values = { { Text = Strings.get("All"), Value = "All" } }
 		for _, kind in KINDS do
-			table.insert(values, kind)
+			table.insert(values, { Text = Strings.get(kind), Value = kind })
 		end
 		chips = tools:Chips({
-			Title = "Show",
+			Title = Strings.get("Show"),
 			Values = values,
 			Default = "All",
 			Callback = function(kind)
@@ -249,7 +250,7 @@ function UpdateLog.build(window, settings)
 				IconColor = if latest then "accent" else nil,
 				Style = look.section,
 				Description = if #subtitle > 0 then table.concat(subtitle, "  \u{2014}  ") else nil,
-				Badge = if latest then "Latest" elseif update.Pinned then "Pinned" else nil,
+				Badge = if latest then Strings.get("Latest") elseif update.Pinned then Strings.get("Pinned") else nil,
 				Collapsed = not latest and settings.ExpandAll ~= true,
 			})
 			if update.Image then
@@ -276,7 +277,7 @@ function UpdateLog.build(window, settings)
 		local newest = log.updates[1]
 		local version = newest and tostring(newest.Version or "")
 		if version and version ~= "" and window.updateSeen ~= version and window.selected ~= tab then
-			tab:SetBadge("New")
+			tab:SetBadge(Strings.get("New"))
 		else
 			tab:SetBadge(nil)
 		end
@@ -318,7 +319,7 @@ function UpdateLog.build(window, settings)
 				for _, entry in entriesOf(newest) do
 					table.insert(entries, entry)
 				end
-				pcall(Panels.changelog, window, { Version = newest.Version, Title = newest.Title and `What's new: {newest.Title}`, Entries = entries })
+				pcall(Panels.changelog, window, { Version = newest.Version, Title = newest.Title and Strings.get("What's new: {title}", { title = newest.Title }), Entries = entries })
 			end
 		end)
 	end

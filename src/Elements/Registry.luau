@@ -7,6 +7,7 @@ local Env = require("../Core/Env")
 local Menu = require("../Components/Menu")
 local Spotlight = require("../Components/Spotlight")
 local Stat = require("./Stat")
+local Strings = require("../Core/Strings")
 local Tooltip = require("../Components/Tooltip")
 
 local MODULES = {
@@ -126,7 +127,7 @@ local function create(container, kind, options)
 	if type(options.Requires) == "table" then
 		local missing = Env.missing(options.Requires)
 		if #missing > 0 then
-			handle.MissingText = "Needs " .. table.concat(missing, ", ")
+			handle.MissingText = Strings.get("Needs {names}", { names = table.concat(missing, ", ") })
 			handle:Lock(handle.MissingText, "wrench")
 		end
 	end

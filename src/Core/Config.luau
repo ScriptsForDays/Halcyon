@@ -2,6 +2,7 @@
 -- Encode and read back through Decode, so colours and keys survive JSON.
 
 local Env = require("./Env")
+local Strings = require("./Strings")
 
 local VERSION = 1
 local INVALID_NAME_MESSAGE = "Use letters, numbers, spaces, - or _ in a config name."
@@ -90,53 +91,53 @@ end
 function Config:save(name)
 	local safe = Env.safeName(name)
 	if not safe then
-		return false, INVALID_NAME_MESSAGE
+		return false, Strings.get(INVALID_NAME_MESSAGE)
 	end
 	local encoded, text = Env.encode({ version = VERSION, flags = self:collect() })
 	if not encoded then
-		return false, "The config could not be encoded."
+		return false, Strings.get("The config could not be encoded.")
 	end
 	local wrote, message = Env.write(self:path(safe), text)
 	if not wrote then
 		return false, message
 	end
-	return true, `Saved "{safe}".`
+	return true, Strings.get('Saved "{name}".', { name = safe })
 end
 
 function Config:load(name)
 	local safe = Env.safeName(name)
 	if not safe then
-		return false, INVALID_NAME_MESSAGE
+		return false, Strings.get(INVALID_NAME_MESSAGE)
 	elseif not Env.canSave then
-		return false, Env.NO_FILES
+		return false, Strings.get(Env.NO_FILES)
 	end
 	local found = self:find(safe)
 	local content = found and Env.read(found)
 	if not content then
-		return false, `There is no config named "{safe}".`
+		return false, Strings.get('There is no config named "{name}".', { name = safe })
 	end
 	local decoded, saved = Env.decode(content)
 	if not decoded or type(saved) ~= "table" or type(saved.flags) ~= "table" then
-		return false, `"{safe}" is not a valid config file.`
+		return false, Strings.get('"{name}" is not a valid config file.', { name = safe })
 	end
-	return true, `Loaded "{safe}" ({self:apply(saved.flags)} settings).`
+	return true, Strings.get('Loaded "{name}" ({count} settings).', { name = safe, count = self:apply(saved.flags) })
 end
 
 function Config:delete(name)
 	local safe = Env.safeName(name)
 	if not safe then
-		return false, INVALID_NAME_MESSAGE
+		return false, Strings.get(INVALID_NAME_MESSAGE)
 	end
 	local found = self:find(safe)
 	if not found then
-		return false, `There is no config named "{safe}".`
+		return false, Strings.get('There is no config named "{name}".', { name = safe })
 	elseif not Env.remove(found) then
-		return false, "This executor cannot delete files."
+		return false, Strings.get("This executor cannot delete files.")
 	end
 	if self:getAutoload() == safe then
 		self:setAutoload(nil)
 	end
-	return true, `Deleted "{safe}".`
+	return true, Strings.get('Deleted "{name}".', { name = safe })
 end
 
 function Config:exists(name)
@@ -169,13 +170,13 @@ end
 function Config:setAutoload(name)
 	local safe = if name then Env.safeName(name) else ""
 	if not safe then
-		return false, INVALID_NAME_MESSAGE
+		return false, Strings.get(INVALID_NAME_MESSAGE)
 	end
 	local wrote, message = Env.write(self.autoloadPath, safe)
 	if not wrote then
 		return false, message
 	end
-	return true, if safe == "" then "Autoload is off." else `"{safe}" loads on start.`
+	return true, if safe == "" then Strings.get("Autoload is off.") else Strings.get('"{name}" loads on start.', { name = safe })
 end
 
 return Config

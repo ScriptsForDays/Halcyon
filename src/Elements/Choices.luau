@@ -10,6 +10,7 @@ local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Options = require("./Options")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local Choices = {}
@@ -171,7 +172,7 @@ local function build(container, options, mode)
 	end
 
 	if mode == "checklist" and options.SelectAll then
-		addItem({ text = if type(options.SelectAll) == "string" then options.SelectAll else "Select all" }, 0, true)
+		addItem({ text = if type(options.SelectAll) == "string" then options.SelectAll else Strings.get("Select all") }, 0, true)
 	end
 	for index, entry in entries do
 		if entry.heading == nil then

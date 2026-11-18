@@ -8,6 +8,7 @@ local Effects = require("../Core/Effects")
 local Env = require("../Core/Env")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local VARIANTS = {
@@ -159,7 +160,7 @@ function Dialog.open(library, options)
 
 	local actions = Create.new("Frame", { Name = "Actions", Size = UDim2.new(1, 0, 0, 38), LayoutOrder = 2, Parent = shell.card })
 	Create.list(actions, "Horizontal", 8, { HorizontalAlignment = Enum.HorizontalAlignment.Right })
-	for index, settings in options.Buttons or { { Title = "Close" } } do
+	for index, settings in options.Buttons or { { Title = Strings.get("Close") } } do
 		local button = Dialog.button(shell.scope, actions, { Title = settings.Title, Variant = settings.Variant, LayoutOrder = index })
 		-- Delay holds a button back for a few seconds, counting down on it,
 		-- so a destructive choice cannot be pressed by reflex.

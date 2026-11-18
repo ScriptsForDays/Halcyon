@@ -2,6 +2,7 @@ local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Popup = require("../Components/Popup")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }
@@ -65,7 +66,7 @@ function DatePicker.new(container, options)
 	end, chip)
 
 	local function draw()
-		local text = string.format("%d %s %d", value.Day, string.sub(MONTHS[value.Month], 1, 3), value.Year)
+		local text = string.format("%d %s %d", value.Day, string.sub(Strings.get(MONTHS[value.Month]), 1, 3), value.Year)
 		if withTime then
 			text ..= string.format("  %02d:%02d", value.Hour, value.Minute)
 		end
@@ -146,7 +147,7 @@ function DatePicker.new(container, options)
 		local names = if mondayFirst then { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" } else { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" }
 		for index, name in names do
 			Create.new("TextLabel", {
-				Text = name,
+				Text = Strings.get(name),
 				TextSize = 12,
 				Weight = "bold",
 				TextXAlignment = Enum.TextXAlignment.Center,
@@ -170,7 +171,7 @@ function DatePicker.new(container, options)
 		end
 
 		local function fill()
-			title.Text = MONTHS[shown.Month] .. " " .. shown.Year
+			title.Text = Strings.get(MONTHS[shown.Month]) .. " " .. shown.Year
 			local offset = firstColumn(shown.Year, shown.Month, mondayFirst) - 1
 			local count = daysIn(shown.Year, shown.Month)
 			for index, button in days do

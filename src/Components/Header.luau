@@ -14,6 +14,7 @@ local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Hairline = require("../Core/Hairline")
 local Icons = require("../Core/Icons")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -118,7 +119,7 @@ function Header.searchBox(window, scope, parent, size)
 		Name = "Query",
 		Position = UDim2.fromOffset(32, 0),
 		Size = UDim2.new(1, -38, 1, 0),
-		PlaceholderText = "Search",
+		PlaceholderText = Strings.get("Search"),
 		TextSize = 13,
 		ClipsDescendants = true,
 		Text = window.searchText or "",

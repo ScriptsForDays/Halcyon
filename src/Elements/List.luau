@@ -3,6 +3,7 @@ local Drag = require("../Core/Drag")
 local Motion = require("../Core/Motion")
 local Options = require("./Options")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 local Theme = require("../Core/Theme")
 
 local List = {}
@@ -42,7 +43,7 @@ function List.new(container, options)
 		search = Create.new("TextBox", {
 			Name = "Search",
 			Size = UDim2.new(1, 0, 0, 30),
-			PlaceholderText = "Filter",
+			PlaceholderText = Strings.get("Filter"),
 			TextSize = 13,
 			ClearTextOnFocus = false,
 			Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text" },

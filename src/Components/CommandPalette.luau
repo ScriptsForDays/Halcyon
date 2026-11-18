@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
+local Strings = require("../Core/Strings")
 
 local WIDTH, RESULTS = 460, 8
 
@@ -138,7 +139,7 @@ function CommandPalette.open(window)
 	local box = Create.new("TextBox", {
 		Name = "Query",
 		Size = UDim2.fromScale(0, 1),
-		PlaceholderText = "Jump to a tab or setting",
+		PlaceholderText = Strings.get("Jump to a tab or setting"),
 		TextSize = 14,
 		LayoutOrder = 1,
 		Theme = { TextColor3 = "text" },
@@ -147,7 +148,7 @@ function CommandPalette.open(window)
 	local hint = Create.new("TextLabel", {
 		Size = UDim2.fromOffset(0, 20),
 		AutomaticSize = Enum.AutomaticSize.X,
-		Text = "Esc",
+		Text = Strings.get("Esc"),
 		TextSize = 12,
 		Weight = "bold",
 		LayoutOrder = 2,
@@ -241,7 +242,7 @@ function CommandPalette.open(window)
 			local empty = Create.new("TextLabel", {
 				Name = "Result",
 				Size = UDim2.new(1, 0, 0, 40),
-				Text = `Nothing matches "{box.Text}"`,
+				Text = Strings.get('Nothing matches "{query}".', { query = box.Text }),
 				TextSize = 13,
 				TextXAlignment = Enum.TextXAlignment.Center,
 				Theme = { TextColor3 = "textMuted" },

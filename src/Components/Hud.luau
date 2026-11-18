@@ -9,6 +9,7 @@ local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Env = require("../Core/Env")
 local Profile = require("./Profile")
+local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 
@@ -158,7 +159,7 @@ function Hud.keybindList(window, options)
 	Create.list(panel, "Vertical", 6)
 	Create.new("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 16),
-		Text = options.Title or "Keybinds",
+		Text = options.Title or Strings.get("Keybinds"),
 		TextSize = 12,
 		Weight = "bold",
 		Theme = { TextColor3 = "textMuted" },

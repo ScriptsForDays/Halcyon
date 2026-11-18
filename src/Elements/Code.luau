@@ -1,6 +1,7 @@
 local Create = require("../Core/Create")
 local Env = require("../Core/Env")
 local Row = require("./Row")
+local Strings = require("../Core/Strings")
 
 local MONOSPACE = Font.new("rbxasset://fonts/families/RobotoMono.json")
 
@@ -83,9 +84,9 @@ function Code.new(container, options)
 
 	scope:connect(copy.Activated, function()
 		if Env.copy(code) then
-			library.notify({ Title = "Copied", Kind = "success", Duration = 2 })
+			library.notify({ Title = Strings.get("Copied"), Kind = "success", Duration = 2 })
 		else
-			library.notify({ Title = "Can't copy", Content = "This executor has no clipboard.", Kind = "warning" })
+			library.notify({ Title = Strings.get("Can't copy"), Content = Strings.get("This executor has no clipboard."), Kind = "warning" })
 		end
 	end)
 

@@ -4,6 +4,8 @@
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
+local Strings = require("./Strings")
+
 local function optional(value)
 	return if type(value) == "function" then value else nil
 end
@@ -74,7 +76,7 @@ end
 
 function Env.write(path, content)
 	if not Env.canSave then
-		return false, Env.NO_FILES
+		return false, Strings.get(Env.NO_FILES)
 	end
 	local ok, message = pcall(function()
 		ensureFolder(string.match(path, "^(.*)/[^/]+$"))
@@ -146,7 +148,7 @@ function Env.http(options)
 			return true, body, 200
 		end
 	end
-	return false, Env.NO_HTTP, 0
+	return false, Strings.get(Env.NO_HTTP), 0
 end
 
 -- Whether the executor provides `name`, such as "hookfunction" or
