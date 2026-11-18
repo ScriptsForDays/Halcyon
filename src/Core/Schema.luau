@@ -7,7 +7,7 @@
 -- when LLM.txt doesn't mention one, so this list can't drift.
 --
 -- Type text uses the names declared at the top of the generated file:
--- Image, Condition, MenuItem, Callback.
+-- Image, Condition, MenuItem, Callback, Background.
 
 local Schema = {}
 
@@ -342,6 +342,7 @@ Schema.section = {
 	Switch = "{ Default: boolean?, Flag: string?, Callback: Callback? }",
 	MaxHeight = "number",
 	PopOut = "boolean",
+	Background = "Background",
 	Tier = "string",
 	PaidOnly = "boolean",
 	LockText = "string",
@@ -426,6 +427,7 @@ Schema.window = {
 	SafeStatusColors = "boolean",
 	Transparency = "number",
 	BackgroundImage = "Image",
+	Background = "Background",
 	BackgroundImageTransparency = "number",
 	Shadow = "boolean",
 	ShadowImage = "Image",

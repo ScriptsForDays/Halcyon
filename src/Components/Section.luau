@@ -20,6 +20,7 @@ local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 local Tokens = require("../Core/Tokens")
 local PopOut = require("./PopOut")
+local Background = require("../Core/Background")
 
 -- fill: the section's own colour; stroke: its outline; surface: the colour
 -- rows sit on (veils match it); flat: no container at all.
@@ -210,6 +211,9 @@ function Section.new(tab, options)
 		self:buildLock()
 	end
 	Registry.install(self)
+	if options.Background then
+		self:SetBackground(options.Background)
+	end
 	if options.PopOut then
 		PopOut.attach(self)
 	end
@@ -685,6 +689,40 @@ function Section:PopOut(open)
 	else
 		PopOut.close(self)
 	end
+end
+
+-- A moving background inside the section's card (see Core/Background);
+-- nil or false removes it. It pauses while the section's page is hidden.
+function Section:SetBackground(spec)
+	if self.movingBackground then
+		self.movingBackground.Destroy()
+		self.movingBackground = nil
+	end
+	-- In the body, which has no layout of its own, so the background isn't
+	-- laid out as a row; the header keeps the card's plain colour.
+	local controller = Background.new(self.body, spec, {
+		Intensity = 0.3,
+		Radius = 10,
+		Scale = function()
+			return self.window.scale
+		end,
+	})
+	if not controller then
+		return
+	end
+	self.movingBackground = controller
+	local page = self.tab.page
+	local function follow()
+		controller.SetVisible(page.Visible)
+	end
+	local connection = page:GetPropertyChangedSignal("Visible"):Connect(follow)
+	follow()
+	local destroy = controller.Destroy
+	function controller.Destroy()
+		connection:Disconnect()
+		destroy()
+	end
+	self.scope:add(controller.Destroy)
 end
 
 function Section:IsPoppedOut()

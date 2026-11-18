@@ -4526,6 +4526,7 @@ local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
 local PopOut = import("Components/PopOut")
+local Background = import("Core/Background")
 Styles.register("Section", "Card", { fill = "card", stroke = "stroke", surface = "card" })
 Styles.register("Section", "Outlined", { stroke = "stroke", surface = "background" })
 Styles.register("Section", "Flat", { flat = true, surface = "background" })
@@ -4688,6 +4689,9 @@ if self.tier then
 self:buildLock()
 end
 Registry.install(self)
+if options.Background then
+self:SetBackground(options.Background)
+end
 if options.PopOut then
 PopOut.attach(self)
 end
@@ -5104,6 +5108,35 @@ PopOut.open(self)
 else
 PopOut.close(self)
 end
+end
+function Section:SetBackground(spec)
+if self.movingBackground then
+self.movingBackground.Destroy()
+self.movingBackground = nil
+end
+local controller = Background.new(self.body, spec, {
+Intensity = 0.3,
+Radius = 10,
+Scale = function()
+return self.window.scale
+end,
+})
+if not controller then
+return
+end
+self.movingBackground = controller
+local page = self.tab.page
+local function follow()
+controller.SetVisible(page.Visible)
+end
+local connection = page:GetPropertyChangedSignal("Visible"):Connect(follow)
+follow()
+local destroy = controller.Destroy
+function controller.Destroy()
+connection:Disconnect()
+destroy()
+end
+self.scope:add(controller.Destroy)
 end
 function Section:IsPoppedOut()
 return self.popped == true
@@ -7100,6 +7133,7 @@ local Schema = import("Core/Schema")
 local Favourites = import("Components/Favourites")
 local TabOrder = import("Components/TabOrder")
 local SearchFocus = import("Components/SearchFocus")
+local Background = import("Core/Background")
 local NARROW = 560
 local COLUMNS = 520
 local LANES = { Sidebar = 196, Rail = 60 }
@@ -7548,6 +7582,35 @@ Icons.apply(image, options.BackgroundImage)
 self.backdrop = image
 end
 self:SetTransparency(tonumber(options.Transparency) or look.transparency or 0)
+if options.Background then
+self:SetBackground(options.Background)
+end
+end
+function Window:SetBackground(spec)
+if self.movingBackground then
+self.movingBackground.Destroy()
+self.movingBackground = nil
+end
+local controller = Background.new(self.root, spec, {
+Intensity = 0.45,
+Radius = 12,
+Scale = function()
+return self.scale
+end,
+})
+if not controller then
+return
+end
+self.movingBackground = controller
+local connection = self.root:GetPropertyChangedSignal("Visible"):Connect(function()
+controller.SetVisible(self.root.Visible)
+end)
+local destroy = controller.Destroy
+function controller.Destroy()
+connection:Disconnect()
+destroy()
+end
+self.scope:add(controller.Destroy)
 end
 function Window:SetTransparency(value)
 self.transparency = math.clamp(tonumber(value) or 0, 0, 0.6)
@@ -9088,6 +9151,204 @@ table.clear(Assets.waiting)
 getAsset = Env.getcustomasset
 end
 return Assets
+end
+modules["Core/Background"] = function()
+local TweenService = game:GetService("TweenService")
+local Create = import("Core/Create")
+local Icons = import("Core/Icons")
+local Motion = import("Core/Motion")
+local Theme = import("Core/Theme")
+local Background = {}
+local KINDS = { Aurora = true, Gradient = true, Mesh = true, Pattern = true, Image = true }
+local BLOB = "rbxassetid://8992230677"
+local PATTERN_BANDS = 15
+local function colourOf(entry)
+if typeof(entry) == "Color3" then
+return entry
+end
+return Theme.color(if type(entry) == "string" then entry else "accent")
+end
+local function sequence(colours)
+local keypoints = {}
+for index, colour in colours do
+table.insert(keypoints, ColorSequenceKeypoint.new(if #colours == 1 then 0 else (index - 1) / (#colours - 1), colour))
+end
+if #keypoints == 1 then
+table.insert(keypoints, ColorSequenceKeypoint.new(1, colours[1]))
+end
+return ColorSequence.new(keypoints)
+end
+function Background.new(parent, spec, defaults)
+if spec == nil or spec == false then
+return nil
+end
+if type(spec) == "string" then
+spec = { Kind = spec }
+end
+if type(spec) ~= "table" then
+return nil
+end
+defaults = defaults or {}
+local kind = if KINDS[spec.Kind] then spec.Kind else "Aurora"
+local speed = math.clamp(tonumber(spec.Speed) or 1, 0.1, 5)
+local intensity = math.clamp(tonumber(spec.Intensity) or defaults.Intensity or 0.5, 0, 1)
+local colours = if type(spec.Colors) == "table" and #spec.Colors > 0 then spec.Colors else { "accent", "info", "accentHover" }
+local frame = Create.new("CanvasGroup", {
+Name = "MovingBackground",
+Size = UDim2.fromScale(1, 1),
+ZIndex = 0,
+GroupTransparency = 1 - intensity,
+Parent = parent,
+})
+Create.corner(defaults.Radius or 12, frame)
+local painters, connections = {}, {}
+local fixed, sized = {}, {}
+local running = false
+local function loop(list, target, seconds, goals, style)
+local timing = TweenInfo.new(seconds / speed, style or Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, style ~= Enum.EasingStyle.Linear)
+local tween = TweenService:Create(target, timing, goals)
+table.insert(list, tween)
+if running then
+tween:Play()
+end
+return tween
+end
+local pieces = {}
+local function placePieces()
+for _, tween in sized do
+tween:Cancel()
+end
+table.clear(sized)
+local scale = if defaults.Scale then defaults.Scale() else 1
+local box = frame.AbsoluteSize / math.max(scale, 0.01)
+box = Vector2.new(math.floor(box.X), math.floor(box.Y))
+if box.X <= 0 or box.Y <= 0 then
+return
+end
+for _, piece in pieces do
+local size = Vector2.new(math.min(math.floor(box.X * piece.size.X), box.X), math.min(math.floor(box.Y * piece.size.Y), box.Y))
+local function at(share)
+local x = math.clamp(math.floor(box.X * share.X - size.X / 2), 0, box.X - size.X)
+local y = math.clamp(math.floor(box.Y * share.Y - size.Y / 2), 0, box.Y - size.Y)
+return UDim2.fromOffset(x, y)
+end
+piece.instance.Size = UDim2.fromOffset(size.X, size.Y)
+piece.instance.Position = at(piece.from)
+if piece.to then
+loop(sized, piece.instance, piece.time, { Position = at(piece.to) })
+end
+end
+end
+if kind == "Gradient" or kind == "Pattern" then
+frame.BackgroundTransparency = 0
+local gradient = Create.new("UIGradient", { Parent = frame })
+if kind == "Gradient" then
+frame.BackgroundColor3 = Color3.new(1, 1, 1)
+table.insert(painters, function()
+local list = {}
+for _, entry in colours do
+table.insert(list, colourOf(entry))
+end
+gradient.Color = sequence(list)
+end)
+loop(fixed, gradient, 22, { Rotation = 360 }, Enum.EasingStyle.Linear)
+else
+local keypoints = {}
+for band = 0, PATTERN_BANDS do
+table.insert(keypoints, NumberSequenceKeypoint.new(band / PATTERN_BANDS, if band % 2 == 0 then 0.55 else 1))
+end
+gradient.Rotation = 45
+gradient.Transparency = NumberSequence.new(keypoints)
+table.insert(painters, function()
+frame.BackgroundColor3 = colourOf(colours[1])
+end)
+loop(fixed, gradient, 6, { Offset = Vector2.new(2 / PATTERN_BANDS, 0) }, Enum.EasingStyle.Linear)
+end
+elseif kind == "Aurora" then
+local paths = {
+{ from = Vector2.new(0.25, 0.35), to = Vector2.new(0.55, 0.6), time = 16 },
+{ from = Vector2.new(0.8, 0.65), to = Vector2.new(0.45, 0.35), time = 21 },
+{ from = Vector2.new(0.5, 0.5), to = Vector2.new(0.75, 0.3), time = 26 },
+}
+for index, path in paths do
+local blob = Create.new("ImageLabel", { Name = "Blob", Image = BLOB, ImageTransparency = 0.1, Parent = frame })
+table.insert(painters, function()
+blob.ImageColor3 = colourOf(colours[(index - 1) % #colours + 1])
+end)
+table.insert(pieces, { instance = blob, size = Vector2.new(0.65, 1), from = path.from, to = path.to, time = path.time })
+end
+elseif kind == "Mesh" then
+for layer = 1, 2 do
+local fill = Create.new("Frame", {
+Name = "Blend",
+BackgroundColor3 = Color3.new(1, 1, 1),
+BackgroundTransparency = if layer == 2 then 0.45 else 0,
+Parent = frame,
+})
+local gradient = Create.new("UIGradient", { Rotation = if layer == 2 then 180 else 0, Parent = fill })
+table.insert(painters, function()
+local list = {}
+for _, entry in colours do
+table.insert(list, colourOf(entry))
+end
+if layer == 2 then
+list = { list[#list], list[1] }
+end
+gradient.Color = sequence(list)
+end)
+loop(fixed, gradient, if layer == 2 then 28 else 22, { Rotation = if layer == 2 then -180 else 360 }, Enum.EasingStyle.Linear)
+table.insert(pieces, { instance = fill, size = Vector2.one, from = Vector2.new(0.5, 0.5) })
+end
+elseif kind == "Image" then
+local picture = Create.new("ImageLabel", { Name = "Picture", ScaleType = Enum.ScaleType.Crop, ImageTransparency = 0.1, Parent = frame })
+Icons.apply(picture, spec.Image)
+loop(fixed, picture, 9, { ImageTransparency = 0.35 })
+table.insert(pieces, { instance = picture, size = Vector2.one, from = Vector2.new(0.5, 0.5) })
+end
+local function paint()
+for _, painter in painters do
+painter()
+end
+end
+paint()
+table.insert(connections, Theme.Changed:Connect(paint))
+if #pieces > 0 then
+placePieces()
+table.insert(connections, frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(placePieces))
+end
+local controller = { frame = frame, Kind = kind }
+function controller.SetVisible(visible)
+frame.Visible = visible ~= false
+local play = visible ~= false and not Motion.reduced
+if play == running then
+return
+end
+running = play
+for _, list in { fixed, sized } do
+for _, tween in list do
+if play then
+tween:Play()
+else
+tween:Pause()
+end
+end
+end
+end
+function controller.Destroy()
+for _, list in { fixed, sized } do
+for _, tween in list do
+tween:Cancel()
+end
+end
+for _, connection in connections do
+connection:Disconnect()
+end
+frame:Destroy()
+end
+controller.SetVisible(true)
+return controller
+end
+return Background
 end
 modules["Core/Config"] = function()
 local Env = import("Core/Env")
@@ -10751,6 +11012,7 @@ Tabs = "{ string }",
 Switch = "{ Default: boolean?, Flag: string?, Callback: Callback? }",
 MaxHeight = "number",
 PopOut = "boolean",
+Background = "Background",
 Tier = "string",
 PaidOnly = "boolean",
 LockText = "string",
@@ -10830,6 +11092,7 @@ AccentGradient = "boolean | Color3",
 SafeStatusColors = "boolean",
 Transparency = "number",
 BackgroundImage = "Image",
+Background = "Background",
 BackgroundImageTransparency = "number",
 Shadow = "boolean",
 ShadowImage = "Image",

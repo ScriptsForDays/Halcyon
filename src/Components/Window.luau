@@ -36,6 +36,7 @@ local Schema = require("../Core/Schema")
 local Favourites = require("./Favourites")
 local TabOrder = require("./TabOrder")
 local SearchFocus = require("./SearchFocus")
+local Background = require("../Core/Background")
 
 -- Below this window width the side navigation becomes a strip of tabs.
 local NARROW = 560
@@ -610,6 +611,39 @@ function Window:buildSurface()
 		self.backdrop = image
 	end
 	self:SetTransparency(tonumber(options.Transparency) or look.transparency or 0)
+	if options.Background then
+		self:SetBackground(options.Background)
+	end
+end
+
+-- A moving background behind the window's content (see Core/Background);
+-- nil or false removes it.
+function Window:SetBackground(spec)
+	if self.movingBackground then
+		self.movingBackground.Destroy()
+		self.movingBackground = nil
+	end
+	local controller = Background.new(self.root, spec, {
+		Intensity = 0.45,
+		Radius = 12,
+		Scale = function()
+			return self.scale
+		end,
+	})
+	if not controller then
+		return
+	end
+	self.movingBackground = controller
+	-- Paused while the window is hidden.
+	local connection = self.root:GetPropertyChangedSignal("Visible"):Connect(function()
+		controller.SetVisible(self.root.Visible)
+	end)
+	local destroy = controller.Destroy
+	function controller.Destroy()
+		connection:Disconnect()
+		destroy()
+	end
+	self.scope:add(controller.Destroy)
 end
 
 -- How much of the game shows through the window, 0 (solid) to 0.6.

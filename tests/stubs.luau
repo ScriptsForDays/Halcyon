@@ -890,6 +890,10 @@ end
 
 function Methods:Cancel() end
 
+function Methods:Pause()
+	rawset(self, "paused", true)
+end
+
 local guids = 0
 function Methods:GenerateGUID()
 	guids += 1

@@ -112,6 +112,7 @@ All optional. Defaults in brackets.
 - `Styles = { Kind = "Look" }`; single options: `SectionStyle`, `TabIndicator`, `WindowStyle`, `OpenAnimation`, `PageTransition`, `TopbarControls`, `ButtonEffect`, `ToggleThumb`, `SliderTooltipStyle`
 - `Radius`: "Sharp" | "Soft" | "Default" | "Round"; `Density`: "Compact" | "Default" | "Spacious"; `TextSize`: "Default" | "Large" | "Larger"
 - `Theme` (name or palette table), `Font`, `IconPack`, `AccentGradient` (true or Color3), `SafeStatusColors` [false]
+- `Background = { Kind = "Aurora" | "Gradient" | "Mesh" | "Pattern" | "Image", Colors = { "accent", "info" }, Speed = 1, Intensity = 0.45, Image }`: a moving background behind the content (also on a Section, where Intensity defaults to 0.3). Tween-driven, paused while hidden, still under reduced motion, recoloured by themes. `Window:SetBackground(spec)`, `section:SetBackground(spec)`; nil removes it. One moving surface per screen reads as polish; three competing ones read as noise.
 - `Transparency` 0-0.6 [0]; `BackgroundImage`, `BackgroundImageTransparency` [0.75]; `Shadow` [true], `ShadowImage`, `ShadowTransparency` [0.5]
 - `SliderTooltips` [true]; `ToggleOutline` [true], `ToggleOutlineColor`; `LockShimmer` [true]; `FocusRing` [true]
 
