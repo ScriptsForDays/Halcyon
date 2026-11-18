@@ -158,6 +158,10 @@ local function create(container, kind, options)
 			target:SetDisabled(enabled == false)
 		end
 	end
+	handle.Options = options
+	if handle.Get and handle.Set then
+		Registry.values(handle)
+	end
 	-- Visible, Enabled, ShowWhen and EnableWhen: the same switches as the
 	-- methods, given when the row is made.
 	Registry.switches(handle, options)
@@ -254,6 +258,46 @@ function Registry.switches(target, options)
 		local source, expected = condition(options.EnableWhen)
 		Registry.enableWhen(target, source, expected, true)
 	end
+end
+
+-- A copy that later changes to the live value can't reach.
+local function copy(value)
+	return if type(value) == "table" then table.clone(value) else value
+end
+
+-- SetSilent, Reset and GetDefault for an element that holds a value. The
+-- default is the value it had when made, kept in its saved form so colours
+-- and keys come back exactly.
+function Registry.values(handle)
+	local row = handle.row
+	local function read()
+		return copy(if handle.Encode then handle:Encode() else handle:Get())
+	end
+	local function write(saved)
+		handle:Set(if handle.Decode then handle:Decode(copy(saved)) else copy(saved))
+	end
+	local default = read()
+
+	-- Sets the value and fires Changed without running the Callback.
+	function handle.SetSilent(target, value)
+		if not row then
+			target:Set(value)
+			return
+		end
+		row.silent = true
+		local ok, problem = pcall(target.Set, target, value)
+		row.silent = false
+		if not ok then
+			error(problem, 2)
+		end
+	end
+	function handle.GetDefault()
+		return if handle.Decode then handle:Decode(copy(default)) else copy(default)
+	end
+	function handle.Reset()
+		write(default)
+	end
+	handle.readSaved, handle.writeSaved = read, write
 end
 
 function Registry.install(container)

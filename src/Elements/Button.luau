@@ -144,19 +144,7 @@ function Button.new(container, options)
 		end
 		if options.ShowDone then
 			handle.Changed:Fire()
-			if type(options.Callback) ~= "function" then
-				flash(true)
-				return
-			end
-			task.spawn(function()
-				local ok, message = pcall(options.Callback)
-				if not ok then
-					warn(`[Halcyon] {handle.Title} callback failed: {message}`)
-				end
-				if not row.scope.cleaned then
-					flash(ok)
-				end
-			end)
+			row.run(options.Callback, flash)
 		else
 			row.fire()
 		end
@@ -255,6 +243,19 @@ function Button.new(container, options)
 
 	function handle:IsLoading()
 		return busy
+	end
+
+	-- A callback that yields shows the spinner until it returns, unless the
+	-- hub is already driving SetLoading itself.
+	local ownLoading = false
+	function row.busy(on)
+		if on and not busy then
+			ownLoading = true
+			handle:SetLoading(true)
+		elseif not on and ownLoading then
+			ownLoading = false
+			handle:SetLoading(false)
+		end
 	end
 
 	function handle:Press()

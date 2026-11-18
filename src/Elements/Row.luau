@@ -4,7 +4,6 @@
 
 local Create = require("../Core/Create")
 local Effects = require("../Core/Effects")
-local Env = require("../Core/Env")
 local Icons = require("../Core/Icons")
 local Popup = require("../Components/Popup")
 local Signal = require("../Core/Signal")
@@ -15,6 +14,8 @@ local Tokens = require("../Core/Tokens")
 local MIN_TITLE = 96
 -- How much more room a narrowed lock badge needs before it widens again.
 local LOCK_GIVE = 12
+-- A callback still running after this long counts as busy.
+local BUSY_AFTER = 0.15
 
 local Row = {}
 
@@ -421,10 +422,88 @@ function Row.new(container, options, layout)
 		container.scope:release(scope)
 	end
 
+	-- A failed callback's message, under the title until a later run works.
+	local errorLine
+	local function showError(message)
+		if message == nil or row.window.showErrors == false then
+			if errorLine then
+				errorLine.Visible = false
+			end
+			return
+		end
+		if not errorLine then
+			errorLine = Create.new("TextLabel", {
+				Name = "CallbackError",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextWrapped = true,
+				TextSize = 12,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				LayoutOrder = 9,
+				Theme = { TextColor3 = "danger" },
+				Parent = content,
+			})
+		end
+		errorLine.Text = message
+		errorLine.Visible = true
+	end
+
+	-- Runs one of the row's callbacks on its own thread, so a callback that
+	-- yields never holds up the UI. A failure is printed, kept in the
+	-- window's Errors list and shown on the row. `row.busy(on)`, when the
+	-- element sets it, hears about a callback still running after a moment.
+	-- `after(ok)` runs once it has finished.
+	function row.run(callback, after, ...)
+		if type(callback) ~= "function" then
+			if after then
+				after(true)
+			end
+			return
+		end
+		local finished, showedBusy = false, false
+		if row.busy then
+			task.delay(BUSY_AFTER, function()
+				if not finished and not scope.cleaned then
+					showedBusy = true
+					row.busy(true)
+				end
+			end)
+		end
+		task.spawn(function(...)
+			local trace
+			local ok, message = xpcall(callback, function(problem)
+				trace = debug.traceback(tostring(problem), 2)
+				return problem
+			end, ...)
+			finished = true
+			if scope.cleaned then
+				return
+			end
+			if showedBusy then
+				row.busy(false)
+			end
+			if ok then
+				showError(nil)
+			else
+				local text = tostring(message)
+				warn(`[Halcyon] {handle.Title} callback failed: {text}`)
+				-- The player sees the reason without the script path in front of it.
+				showError((string.gsub(text, "^.-:%d+: ", "")))
+				row.window:recordError(handle.Title, text, trace)
+			end
+			if after then
+				after(ok)
+			end
+		end, ...)
+	end
+
 	-- Fires Changed and runs the element's Callback with the same values.
+	-- During SetSilent only Changed fires.
 	function row.fire(...)
 		handle.Changed:Fire(...)
-		Env.call(handle.Title, options.Callback, ...)
+		if not row.silent then
+			row.run(options.Callback, nil, ...)
+		end
 	end
 
 	-- Calls `apply(narrow)` whenever the row crosses the width below which a

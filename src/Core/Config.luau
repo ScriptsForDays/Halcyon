@@ -9,12 +9,48 @@ local INVALID_NAME_MESSAGE = "Use letters, numbers, spaces, - or _ in a config n
 local Config = {}
 Config.__index = Config
 
-function Config.new(folder)
-	return setmetatable({ root = "Halcyon/" .. folder, flags = {} }, Config)
+-- With per-game configs, each game keeps its own folder and autoload under
+-- configs/<id>/, and configs saved before that, straight in configs/, still
+-- load and list.
+function Config.new(folder, gameKey)
+	local root = "Halcyon/" .. folder
+	local shared = root .. "/configs"
+	return setmetatable({
+		root = root,
+		shared = shared,
+		folder = if gameKey then `{shared}/{gameKey}` else shared,
+		autoloadPath = if gameKey then `{shared}/{gameKey}/autoload.txt` else root .. "/autoload.txt",
+		flags = {},
+	}, Config)
+end
+
+-- The folder name for this game from CreateWindow's `Configs` option:
+-- { PerGame = "Place" } keys by place, "Universe" (or true) by experience,
+-- so every place of one game shares configs.
+function Config.gameKey(settings)
+	local mode = type(settings) == "table" and settings.PerGame
+	if mode == "Place" then
+		return tostring(game.PlaceId or 0)
+	elseif mode == "Universe" or mode == true then
+		local universe = game.GameId
+		return tostring(if universe and universe ~= 0 then universe else game.PlaceId or 0)
+	end
+	return nil
 end
 
 function Config:path(name)
-	return `{self.root}/configs/{name}.json`
+	return `{self.folder}/{name}.json`
+end
+
+-- Where a config by this name is stored: this game's folder first, then the
+-- shared one. Nil when there is none.
+function Config:find(safe)
+	for _, path in { self:path(safe), `{self.shared}/{safe}.json` } do
+		if Env.read(path) then
+			return path
+		end
+	end
+	return nil
 end
 
 function Config:collect()
@@ -74,7 +110,8 @@ function Config:load(name)
 	elseif not Env.canSave then
 		return false, Env.NO_FILES
 	end
-	local content = Env.read(self:path(safe))
+	local found = self:find(safe)
+	local content = found and Env.read(found)
 	if not content then
 		return false, `There is no config named "{safe}".`
 	end
@@ -89,9 +126,11 @@ function Config:delete(name)
 	local safe = Env.safeName(name)
 	if not safe then
 		return false, INVALID_NAME_MESSAGE
-	elseif not Env.read(self:path(safe)) then
+	end
+	local found = self:find(safe)
+	if not found then
 		return false, `There is no config named "{safe}".`
-	elseif not Env.remove(self:path(safe)) then
+	elseif not Env.remove(found) then
 		return false, "This executor cannot delete files."
 	end
 	if self:getAutoload() == safe then
@@ -102,22 +141,28 @@ end
 
 function Config:exists(name)
 	local safe = Env.safeName(name)
-	return safe ~= nil and Env.read(self:path(safe)) ~= nil
+	return safe ~= nil and self:find(safe) ~= nil
 end
 
 function Config:list()
 	local names = {}
-	for _, file in Env.list(self.root .. "/configs") do
-		local name = string.match(file, "^(.+)%.json$")
-		if name then
-			table.insert(names, name)
+	local folders = { self.folder }
+	if self.folder ~= self.shared then
+		table.insert(folders, self.shared)
+	end
+	for _, folder in folders do
+		for _, file in Env.list(folder) do
+			local name = string.match(file, "^(.+)%.json$")
+			if name and not table.find(names, name) then
+				table.insert(names, name)
+			end
 		end
 	end
 	return names
 end
 
 function Config:getAutoload()
-	local name = Env.read(self.root .. "/autoload.txt")
+	local name = Env.read(self.autoloadPath)
 	return if name and name ~= "" then name else nil
 end
 
@@ -126,7 +171,7 @@ function Config:setAutoload(name)
 	if not safe then
 		return false, INVALID_NAME_MESSAGE
 	end
-	local wrote, message = Env.write(self.root .. "/autoload.txt", safe)
+	local wrote, message = Env.write(self.autoloadPath, safe)
 	if not wrote then
 		return false, message
 	end

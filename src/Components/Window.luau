@@ -139,7 +139,10 @@ function Window.new(library, options, access)
 	self.library, self.options = library, options
 	self.scope = library.scope:child()
 	self.folder = Env.safeName(options.Folder or options.Title) or "Default"
-	self.config = Config.new(self.folder)
+	self.config = Config.new(self.folder, Config.gameKey(options.Configs))
+	-- Callback failures, newest last; see Window:recordError.
+	self.Errors, self.ErrorsChanged = {}, Signal.new()
+	self.showErrors = options.ShowErrors ~= false
 	self.preferencesPath = `Halcyon/{self.folder}/settings.json`
 	self.Flags, self.tabs, self.keybinds, self.gated = {}, {}, {}, {}
 	self.OnUnload, self.KeybindsChanged, self.TabChanged, self.Tick = Signal.new(), Signal.new(), Signal.new(), Signal.new()
@@ -1839,7 +1842,116 @@ function Window:SaveConfig(name)
 end
 
 function Window:LoadConfig(name)
+	self:keepForUndo()
 	return announce(self, "load", name, self.config:load(name))
+end
+
+-- Values ----------------------------------------------------------------------
+
+-- Every flagged element's value, by flag.
+function Window:GetValues()
+	local values = {}
+	for flag, handle in self.Flags do
+		if handle.Get then
+			values[flag] = handle:Get()
+		end
+	end
+	return values
+end
+
+-- Sets flags from a table of flag = value; flags the hub doesn't have are
+-- skipped. With `silent`, callbacks don't run. Returns how many were set.
+function Window:SetValues(values, silent)
+	self:keepForUndo()
+	local count = 0
+	for flag, value in values do
+		local handle = self.Flags[flag]
+		if handle and handle.Set then
+			if silent and handle.SetSilent then
+				handle:SetSilent(value)
+			else
+				handle:Set(value)
+			end
+			count += 1
+		end
+	end
+	return count
+end
+
+-- Puts every flagged element back to the value it was made with.
+function Window:ResetValues()
+	self:keepForUndo()
+	for _, handle in self.Flags do
+		if handle.Reset then
+			handle:Reset()
+		end
+	end
+end
+
+-- Remembers the current values so the next Undo can bring them back. Only
+-- the latest change is kept.
+function Window:keepForUndo()
+	self.undoValues = self.config:collect()
+end
+
+-- Restores the values from before the last LoadConfig, ImportConfig,
+-- SetValues or ResetValues. Returns false when there is nothing to undo.
+function Window:Undo()
+	local values = self.undoValues
+	if not values then
+		return false, "Nothing to undo."
+	end
+	self.undoValues = nil
+	local count = self.config:apply(values)
+	return true, `Restored {count} settings.`
+end
+
+-- Share codes -------------------------------------------------------------------
+
+local SHARE_PREFIX = "Halcyon1:"
+
+-- The flagged values as one line of text players can paste to each other.
+-- Needs no file functions.
+function Window:ExportConfig()
+	local ok, text = Env.encode({ folder = self.folder, flags = self.config:collect() })
+	return if ok then SHARE_PREFIX .. text else nil
+end
+
+-- Applies a code from ExportConfig. Returns ok, message.
+function Window:ImportConfig(code)
+	if type(code) ~= "string" then
+		return false, "Paste a share code first."
+	end
+	code = string.match(code, "^%s*(.-)%s*$")
+	if string.sub(code, 1, #SHARE_PREFIX) ~= SHARE_PREFIX then
+		return false, "That isn't a Halcyon share code."
+	end
+	local ok, decoded = Env.decode(string.sub(code, #SHARE_PREFIX + 1))
+	if not ok or type(decoded) ~= "table" or type(decoded.flags) ~= "table" then
+		return false, "The share code is incomplete. Copy it again."
+	end
+	self:keepForUndo()
+	local count = self.config:apply(decoded.flags)
+	self.ConfigChanged:Fire("import", nil)
+	return true, `Imported {count} settings.`
+end
+
+-- Callback errors ------------------------------------------------------------------
+
+local ERROR_HISTORY = 50
+
+function Window:recordError(title, message, trace)
+	local entry = { Title = title, Message = message, Trace = trace, Time = os.time() }
+	table.insert(self.Errors, entry)
+	if #self.Errors > ERROR_HISTORY then
+		table.remove(self.Errors, 1)
+	end
+	self.ErrorsChanged:Fire(entry)
+end
+
+function Window:ClearErrors()
+	table.clear(self.Errors)
+	self.ErrorsChanged:Fire(nil)
 end
 
 function Window:DeleteConfig(name)

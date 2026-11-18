@@ -311,6 +311,57 @@ local ConfigSection = {}
 local function report(window, done, failed, ok, message)
 window:Notify({ Title = if ok then done else failed, Content = message, Kind = if ok then "success" else "warning" })
 end
+local function reportUndoable(window, done, failed, ok, message)
+if not ok then
+report(window, done, failed, ok, message)
+return
+end
+window:Notify({
+Title = done,
+Content = message,
+Kind = "success",
+Duration = 6,
+Actions = {
+{
+Title = "Undo",
+Callback = function()
+window:Undo()
+end,
+},
+},
+})
+end
+local function shareRows(window, section)
+local shown
+section:Button({
+Title = "Copy share code",
+Description = "Every setting as one line of text",
+Icon = "copy",
+Callback = function()
+local code = window:ExportConfig()
+if not code then
+report(window, "", "Code not made", false, "These settings could not be written as a code.")
+elseif Env.copy(code) then
+report(window, "Share code copied", "", true, "Paste it into the box below on another device or account.")
+elseif shown then
+shown:Set(code)
+else
+shown = section:Code({ Title = "Share code", Code = code })
+end
+end,
+})
+section:Input({
+Title = "Paste share code",
+Placeholder = "Halcyon1:...",
+Clearable = true,
+Callback = function(text)
+if text == "" then
+return
+end
+reportUndoable(window, "Settings imported", "Code not imported", window:ImportConfig(text))
+end,
+})
+end
 function ConfigSection.build(window, target, options)
 options = options or {}
 local section = target
@@ -318,7 +369,10 @@ if type(target.Section) == "function" then
 section = target:Section({ Title = options.Title or "Configs", Icon = options.Icon or "save", Side = options.Side })
 end
 if not Env.canSave then
-section:Paragraph({ Title = "Saving is off", Content = Env.NO_FILES, Icon = "info" })
+section:Paragraph({ Title = "Saving is off", Content = Env.NO_FILES .. " Share codes still work.", Icon = "info" })
+if options.ShareCodes ~= false then
+shareRows(window, section)
+end
 return section
 end
 local name = section:Input({ Title = "Config name", Placeholder = "default" })
@@ -362,7 +416,7 @@ section:Button({
 Title = "Load",
 Icon = "download",
 Callback = function()
-report(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
+reportUndoable(window, "Config loaded", "Config not loaded", window:LoadConfig(chosen()))
 end,
 })
 section:Button({
@@ -398,6 +452,9 @@ end,
 })
 end,
 })
+if options.ShareCodes ~= false then
+shareRows(window, section)
+end
 return section
 end
 return ConfigSection
@@ -5931,7 +5988,9 @@ local self = setmetatable({}, Window)
 self.library, self.options = library, options
 self.scope = library.scope:child()
 self.folder = Env.safeName(options.Folder or options.Title) or "Default"
-self.config = Config.new(self.folder)
+self.config = Config.new(self.folder, Config.gameKey(options.Configs))
+self.Errors, self.ErrorsChanged = {}, Signal.new()
+self.showErrors = options.ShowErrors ~= false
 self.preferencesPath = `Halcyon/{self.folder}/settings.json`
 self.Flags, self.tabs, self.keybinds, self.gated = {}, {}, {}, {}
 self.OnUnload, self.KeybindsChanged, self.TabChanged, self.Tick = Signal.new(), Signal.new(), Signal.new(), Signal.new()
@@ -7352,7 +7411,88 @@ function Window:SaveConfig(name)
 return announce(self, "save", name, self.config:save(name))
 end
 function Window:LoadConfig(name)
+self:keepForUndo()
 return announce(self, "load", name, self.config:load(name))
+end
+function Window:GetValues()
+local values = {}
+for flag, handle in self.Flags do
+if handle.Get then
+values[flag] = handle:Get()
+end
+end
+return values
+end
+function Window:SetValues(values, silent)
+self:keepForUndo()
+local count = 0
+for flag, value in values do
+local handle = self.Flags[flag]
+if handle and handle.Set then
+if silent and handle.SetSilent then
+handle:SetSilent(value)
+else
+handle:Set(value)
+end
+count += 1
+end
+end
+return count
+end
+function Window:ResetValues()
+self:keepForUndo()
+for _, handle in self.Flags do
+if handle.Reset then
+handle:Reset()
+end
+end
+end
+function Window:keepForUndo()
+self.undoValues = self.config:collect()
+end
+function Window:Undo()
+local values = self.undoValues
+if not values then
+return false, "Nothing to undo."
+end
+self.undoValues = nil
+local count = self.config:apply(values)
+return true, `Restored {count} settings.`
+end
+local SHARE_PREFIX = "Halcyon1:"
+function Window:ExportConfig()
+local ok, text = Env.encode({ folder = self.folder, flags = self.config:collect() })
+return if ok then SHARE_PREFIX .. text else nil
+end
+function Window:ImportConfig(code)
+if type(code) ~= "string" then
+return false, "Paste a share code first."
+end
+code = string.match(code, "^%s*(.-)%s*$")
+if string.sub(code, 1, #SHARE_PREFIX) ~= SHARE_PREFIX then
+return false, "That isn't a Halcyon share code."
+end
+local ok, decoded = Env.decode(string.sub(code, #SHARE_PREFIX + 1))
+if not ok or type(decoded) ~= "table" or type(decoded.flags) ~= "table" then
+return false, "The share code is incomplete. Copy it again."
+end
+self:keepForUndo()
+local count = self.config:apply(decoded.flags)
+self.ConfigChanged:Fire("import", nil)
+return true, `Imported {count} settings.`
+end
+local ERROR_HISTORY = 50
+function Window:recordError(title, message, trace)
+local entry = { Title = title, Message = message, Trace = trace, Time = os.time() }
+table.insert(self.Errors, entry)
+if #self.Errors > ERROR_HISTORY then
+table.remove(self.Errors, 1)
+end
+self.ErrorsChanged:Fire(entry)
+end
+function Window:ClearErrors()
+table.clear(self.Errors)
+self.ErrorsChanged:Fire(nil)
 end
 function Window:DeleteConfig(name)
 return announce(self, "delete", name, self.config:delete(name))
@@ -7552,11 +7692,37 @@ local VERSION = 1
 local INVALID_NAME_MESSAGE = "Use letters, numbers, spaces, - or _ in a config name."
 local Config = {}
 Config.__index = Config
-function Config.new(folder)
-return setmetatable({ root = "Halcyon/" .. folder, flags = {} }, Config)
+function Config.new(folder, gameKey)
+local root = "Halcyon/" .. folder
+local shared = root .. "/configs"
+return setmetatable({
+root = root,
+shared = shared,
+folder = if gameKey then `{shared}/{gameKey}` else shared,
+autoloadPath = if gameKey then `{shared}/{gameKey}/autoload.txt` else root .. "/autoload.txt",
+flags = {},
+}, Config)
+end
+function Config.gameKey(settings)
+local mode = type(settings) == "table" and settings.PerGame
+if mode == "Place" then
+return tostring(game.PlaceId or 0)
+elseif mode == "Universe" or mode == true then
+local universe = game.GameId
+return tostring(if universe and universe ~= 0 then universe else game.PlaceId or 0)
+end
+return nil
 end
 function Config:path(name)
-return `{self.root}/configs/{name}.json`
+return `{self.folder}/{name}.json`
+end
+function Config:find(safe)
+for _, path in { self:path(safe), `{self.shared}/{safe}.json` } do
+if Env.read(path) then
+return path
+end
+end
+return nil
 end
 function Config:collect()
 local values = {}
@@ -7611,7 +7777,8 @@ return false, INVALID_NAME_MESSAGE
 elseif not Env.canSave then
 return false, Env.NO_FILES
 end
-local content = Env.read(self:path(safe))
+local found = self:find(safe)
+local content = found and Env.read(found)
 if not content then
 return false, `There is no config named "{safe}".`
 end
@@ -7625,9 +7792,11 @@ function Config:delete(name)
 local safe = Env.safeName(name)
 if not safe then
 return false, INVALID_NAME_MESSAGE
-elseif not Env.read(self:path(safe)) then
+end
+local found = self:find(safe)
+if not found then
 return false, `There is no config named "{safe}".`
-elseif not Env.remove(self:path(safe)) then
+elseif not Env.remove(found) then
 return false, "This executor cannot delete files."
 end
 if self:getAutoload() == safe then
@@ -7637,20 +7806,26 @@ return true, `Deleted "{safe}".`
 end
 function Config:exists(name)
 local safe = Env.safeName(name)
-return safe ~= nil and Env.read(self:path(safe)) ~= nil
+return safe ~= nil and self:find(safe) ~= nil
 end
 function Config:list()
 local names = {}
-for _, file in Env.list(self.root .. "/configs") do
+local folders = { self.folder }
+if self.folder ~= self.shared then
+table.insert(folders, self.shared)
+end
+for _, folder in folders do
+for _, file in Env.list(folder) do
 local name = string.match(file, "^(.+)%.json$")
-if name then
+if name and not table.find(names, name) then
 table.insert(names, name)
+end
 end
 end
 return names
 end
 function Config:getAutoload()
-local name = Env.read(self.root .. "/autoload.txt")
+local name = Env.read(self.autoloadPath)
 return if name and name ~= "" then name else nil
 end
 function Config:setAutoload(name)
@@ -7658,7 +7833,7 @@ local safe = if name then Env.safeName(name) else ""
 if not safe then
 return false, INVALID_NAME_MESSAGE
 end
-local wrote, message = Env.write(self.root .. "/autoload.txt", safe)
+local wrote, message = Env.write(self.autoloadPath, safe)
 if not wrote then
 return false, message
 end
@@ -9637,19 +9812,7 @@ return
 end
 if options.ShowDone then
 handle.Changed:Fire()
-if type(options.Callback) ~= "function" then
-flash(true)
-return
-end
-task.spawn(function()
-local ok, message = pcall(options.Callback)
-if not ok then
-warn(`[Halcyon] {handle.Title} callback failed: {message}`)
-end
-if not row.scope.cleaned then
-flash(ok)
-end
-end)
+row.run(options.Callback, flash)
 else
 row.fire()
 end
@@ -9738,6 +9901,16 @@ end
 end
 function handle:IsLoading()
 return busy
+end
+local ownLoading = false
+function row.busy(on)
+if on and not busy then
+ownLoading = true
+handle:SetLoading(true)
+elseif not on and ownLoading then
+ownLoading = false
+handle:SetLoading(false)
+end
 end
 function handle:Press()
 run()
@@ -12940,6 +13113,10 @@ if target.SetDisabled then
 target:SetDisabled(enabled == false)
 end
 end
+handle.Options = options
+if handle.Get and handle.Set then
+Registry.values(handle)
+end
 Registry.switches(handle, options)
 if (type(options.Menu) == "table" or type(options.Menu) == "function") and handle.Frame then
 Menu.attach(handle.scope, window.library, handle.Frame, options.Menu)
@@ -13020,6 +13197,38 @@ local source, expected = condition(options.EnableWhen)
 Registry.enableWhen(target, source, expected, true)
 end
 end
+local function copy(value)
+return if type(value) == "table" then table.clone(value) else value
+end
+function Registry.values(handle)
+local row = handle.row
+local function read()
+return copy(if handle.Encode then handle:Encode() else handle:Get())
+end
+local function write(saved)
+handle:Set(if handle.Decode then handle:Decode(copy(saved)) else copy(saved))
+end
+local default = read()
+function handle.SetSilent(target, value)
+if not row then
+target:Set(value)
+return
+end
+row.silent = true
+local ok, problem = pcall(target.Set, target, value)
+row.silent = false
+if not ok then
+error(problem, 2)
+end
+end
+function handle.GetDefault()
+return if handle.Decode then handle:Decode(copy(default)) else copy(default)
+end
+function handle.Reset()
+write(default)
+end
+handle.readSaved, handle.writeSaved = read, write
+end
 function Registry.install(container)
 for kind in MODULES do
 container[kind] = function(self, options)
@@ -13032,7 +13241,6 @@ end
 modules["Elements/Row"] = function()
 local Create = import("Core/Create")
 local Effects = import("Core/Effects")
-local Env = import("Core/Env")
 local Icons = import("Core/Icons")
 local Popup = import("Components/Popup")
 local Signal = import("Core/Signal")
@@ -13040,6 +13248,7 @@ local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
 local MIN_TITLE = 96
 local LOCK_GIVE = 12
+local BUSY_AFTER = 0.15
 local Row = {}
 local BADGES = { New = "accent", Beta = "info", Risky = "danger", Paid = "warning" }
 function Row.badge(parent, badge)
@@ -13379,9 +13588,77 @@ end
 function handle:Destroy()
 container.scope:release(scope)
 end
+local errorLine
+local function showError(message)
+if message == nil or row.window.showErrors == false then
+if errorLine then
+errorLine.Visible = false
+end
+return
+end
+if not errorLine then
+errorLine = Create.new("TextLabel", {
+Name = "CallbackError",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+TextSize = 12,
+TextXAlignment = Enum.TextXAlignment.Left,
+LayoutOrder = 9,
+Theme = { TextColor3 = "danger" },
+Parent = content,
+})
+end
+errorLine.Text = message
+errorLine.Visible = true
+end
+function row.run(callback, after, ...)
+if type(callback) ~= "function" then
+if after then
+after(true)
+end
+return
+end
+local finished, showedBusy = false, false
+if row.busy then
+task.delay(BUSY_AFTER, function()
+if not finished and not scope.cleaned then
+showedBusy = true
+row.busy(true)
+end
+end)
+end
+task.spawn(function(...)
+local trace
+local ok, message = xpcall(callback, function(problem)
+trace = debug.traceback(tostring(problem), 2)
+return problem
+end, ...)
+finished = true
+if scope.cleaned then
+return
+end
+if showedBusy then
+row.busy(false)
+end
+if ok then
+showError(nil)
+else
+local text = tostring(message)
+warn(`[Halcyon] {handle.Title} callback failed: {text}`)
+showError((string.gsub(text, "^.-:%d+: ", "")))
+row.window:recordError(handle.Title, text, trace)
+end
+if after then
+after(ok)
+end
+end, ...)
+end
 function row.fire(...)
 handle.Changed:Fire(...)
-Env.call(handle.Title, options.Callback, ...)
+if not row.silent then
+row.run(options.Callback, nil, ...)
+end
 end
 function row.onNarrow(apply)
 local narrow = false
