@@ -9,6 +9,7 @@ local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Strings = require("../Core/Strings")
+local SearchFocus = require("./SearchFocus")
 
 local WIDTH, RESULTS = 460, 8
 
@@ -17,11 +18,16 @@ local CommandPalette = {}
 -- Every place the palette can jump to: tabs, then rows, with where each lives.
 local function catalogue(window)
 	local items = {}
-	for _, tab in window.tabs do
-		if tab.Hidden then
+	local places = table.clone(window.tabs)
+	for _, page in window.subPages do
+		table.insert(places, page)
+	end
+	for _, tab in places do
+		if tab.Hidden or (tab.rootTab and tab.rootTab.Hidden) then
 			continue
 		end
-		table.insert(items, { kind = "tab", tab = tab, title = tab.Title, path = "Tab", icon = tab.Icon or "layout-grid" })
+		local where = if tab.isPage then tab.parentTab.Title else "Tab"
+		table.insert(items, { kind = "tab", tab = tab, title = tab.Title, path = where, icon = tab.Icon or (tab.rootTab and tab.rootTab.Icon) or "layout-grid" })
 		for _, entry in tab.entries do
 			local handle = entry.handle
 			if not handle.Hidden and not (entry.section and entry.section.Hidden) and handle.Title and handle.Title ~= "" then
@@ -77,24 +83,7 @@ local function reveal(window, item)
 	if not handle then
 		return
 	end
-	-- Measured a moment after the tab opens: a page that was hidden reports
-	-- stale positions until it has been laid out once.
-	task.delay(0.05, function()
-		local page, frame = item.tab.page, handle.Frame
-		if not frame.Parent then
-			return
-		end
-		local offset = (frame.AbsolutePosition.Y - page.AbsolutePosition.Y) / window.scale
-		page.CanvasPosition = Vector2.new(0, math.max(page.CanvasPosition.Y + offset - 24, 0))
-		local ring = Create.new("UIStroke", { Thickness = 2, Theme = { Color = "accent" }, Parent = frame })
-		Motion.tween(ring, "slow", { Transparency = 0 })
-		task.delay(1.2, function()
-			Motion.tween(ring, "slow", { Transparency = 1 })
-			task.delay(0.4, function()
-				ring:Destroy()
-			end)
-		end)
-	end)
+	SearchFocus.reveal(window, item.tab, handle)
 end
 
 function CommandPalette.open(window)

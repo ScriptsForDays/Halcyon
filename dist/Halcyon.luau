@@ -18,15 +18,21 @@ local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Mount = import("Core/Mount")
 local Strings = import("Core/Strings")
+local SearchFocus = import("Components/SearchFocus")
 local WIDTH, RESULTS = 460, 8
 local CommandPalette = {}
 local function catalogue(window)
 local items = {}
-for _, tab in window.tabs do
-if tab.Hidden then
+local places = table.clone(window.tabs)
+for _, page in window.subPages do
+table.insert(places, page)
+end
+for _, tab in places do
+if tab.Hidden or (tab.rootTab and tab.rootTab.Hidden) then
 continue
 end
-table.insert(items, { kind = "tab", tab = tab, title = tab.Title, path = "Tab", icon = tab.Icon or "layout-grid" })
+local where = if tab.isPage then tab.parentTab.Title else "Tab"
+table.insert(items, { kind = "tab", tab = tab, title = tab.Title, path = where, icon = tab.Icon or (tab.rootTab and tab.rootTab.Icon) or "layout-grid" })
 for _, entry in tab.entries do
 local handle = entry.handle
 if not handle.Hidden and not (entry.section and entry.section.Hidden) and handle.Title and handle.Title ~= "" then
@@ -78,22 +84,7 @@ local handle = item.handle
 if not handle then
 return
 end
-task.delay(0.05, function()
-local page, frame = item.tab.page, handle.Frame
-if not frame.Parent then
-return
-end
-local offset = (frame.AbsolutePosition.Y - page.AbsolutePosition.Y) / window.scale
-page.CanvasPosition = Vector2.new(0, math.max(page.CanvasPosition.Y + offset - 24, 0))
-local ring = Create.new("UIStroke", { Thickness = 2, Theme = { Color = "accent" }, Parent = frame })
-Motion.tween(ring, "slow", { Transparency = 0 })
-task.delay(1.2, function()
-Motion.tween(ring, "slow", { Transparency = 1 })
-task.delay(0.4, function()
-ring:Destroy()
-end)
-end)
-end)
+SearchFocus.reveal(window, item.tab, handle)
 end
 function CommandPalette.open(window)
 local library = window.library
@@ -737,8 +728,207 @@ return button
 end
 return DiscordButton
 end
+modules["Components/Favourites"] = function()
+local Create = import("Core/Create")
+local Strings = import("Core/Strings")
+local Menu = import("Components/Menu")
+local Favourites = {}
+local MIRRORED = {
+Toggle = true,
+Slider = true,
+Dropdown = true,
+Input = true,
+ColorPicker = true,
+Segmented = true,
+Radio = true,
+Checklist = true,
+Chips = true,
+Stepper = true,
+Button = true,
+Knob = true,
+Rating = true,
+Tiles = true,
+DatePicker = true,
+Tags = true,
+ItemGrid = true,
+}
+local DROPPED = {
+Flag = true,
+Keybind = true,
+Color = true,
+Spotlight = true,
+Menu = true,
+Callback = true,
+Default = true,
+Value = true,
+Visible = true,
+ShowWhen = true,
+EnableWhen = true,
+Exclusive = true,
+}
+function Favourites.setup(window, saved)
+window.favourites = { order = {}, starred = {}, copies = {}, originals = {} }
+if type(saved) == "table" then
+for _, id in saved do
+if type(id) == "string" and not window.favourites.starred[id] then
+window.favourites.starred[id] = true
+table.insert(window.favourites.order, id)
+end
+end
+end
+local tab = window:Tab({ Title = Strings.get("Favourites"), Icon = "star", Visible = false })
+window.favourites.tab = tab
+tab.isFavourites = true
+end
+function Favourites.idOf(handle)
+if handle.Flag then
+return "flag:" .. handle.Flag
+end
+local tab = handle.Tab
+return `row:{if tab then tab.Title else ""}/{handle.Title}`
+end
+local function refresh(window)
+local state = window.favourites
+local tab = state.tab
+local any = next(state.copies) ~= nil
+if tab.Hidden == any then
+tab:SetVisible(any)
+end
+for position, id in state.order do
+local copy = state.copies[id]
+if copy and copy.Frame then
+copy.Frame.LayoutOrder = position
+end
+end
+end
+local function save(window)
+window:savePreferences()
+end
+function Favourites.isStarred(window, handle)
+return window.favourites ~= nil and handle.favouriteId ~= nil and window.favourites.starred[handle.favouriteId] == true
+end
+local function makeCopy(window, original)
+local state = window.favourites
+local id = original.favouriteId
+if state.copies[id] or original.scope.cleaned then
+return
+end
+local options = {}
+for key, value in original.Options do
+if not DROPPED[key] then
+options[key] = value
+end
+end
+local where = original.Tab
+options.Description = if where then where.Title else original.Options.Description
+if original.Get then
+options.Default = original:Get()
+if original.Kind == "Progress" then
+options.Value = options.Default
+end
+end
+local syncing = false
+options.Callback = function(...)
+if syncing then
+return
+end
+syncing = true
+if original.Kind == "Button" then
+original:Press()
+elseif original.Set then
+original:Set(...)
+end
+syncing = false
+end
+local holder = state.tab
+local copy = holder[original.Kind](holder, options)
+copy.isCopy = true
+Menu.attach(copy.scope, window.library, copy.Frame, function()
+return { Favourites.menuItem(window, original) }
+end)
+state.copies[id] = copy
+if original.Get and copy.SetSilent then
+copy.scope:add(original.Changed:Connect(function()
+if not syncing then
+syncing = true
+copy:SetSilent(original:Get())
+syncing = false
+end
+end))
+end
+copy.scope:add(function()
+if state.copies[id] == copy then
+state.copies[id] = nil
+end
+end)
+original.scope:add(function()
+copy:Destroy()
+end)
+refresh(window)
+end
+function Favourites.star(window, original, starred)
+local state = window.favourites
+local id = original.favouriteId
+if not state or not id then
+return
+end
+if starred and not state.starred[id] then
+state.starred[id] = true
+table.insert(state.order, id)
+makeCopy(window, original)
+elseif not starred and state.starred[id] then
+state.starred[id] = nil
+table.remove(state.order, table.find(state.order, id))
+local copy = state.copies[id]
+if copy then
+copy:Destroy()
+end
+refresh(window)
+end
+if original.favouriteMark then
+original.favouriteMark.Visible = state.starred[id] == true
+end
+save(window)
+end
+function Favourites.menuItem(window, original)
+local starred = Favourites.isStarred(window, original)
+return {
+Title = if starred then Strings.get("Remove from favourites") else Strings.get("Add to favourites"),
+Icon = "star",
+Callback = function()
+Favourites.star(window, original, not starred)
+end,
+}
+end
+function Favourites.register(window, handle, container)
+local state = window.favourites
+if not state or not MIRRORED[handle.Kind] or not handle.Frame or not handle.row then
+return false
+end
+local tab = container.tab or (container.section and container.section.tab)
+if tab and tab.isFavourites then
+return false
+end
+handle.favouriteId = Favourites.idOf(handle)
+state.originals[handle.favouriteId] = handle
+local mark = Create.icon("star", 12, "warning", handle.row.slot)
+mark.Name = "Favourite"
+mark.LayoutOrder = -10
+mark.Visible = state.starred[handle.favouriteId] == true
+handle.favouriteMark = mark
+if state.starred[handle.favouriteId] then
+task.defer(makeCopy, window, handle)
+end
+return true
+end
+function Favourites.saved(window)
+return if window.favourites then table.clone(window.favourites.order) else nil
+end
+return Favourites
+end
 modules["Components/Header"] = function()
 local Assets = import("Core/Assets")
+local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Hairline = import("Core/Hairline")
@@ -838,9 +1028,47 @@ Text = window.searchText or "",
 Theme = { TextColor3 = "text" },
 Parent = search,
 })
+local counter = Create.new("TextLabel", {
+Name = "Matches",
+Size = UDim2.fromOffset(0, 20),
+AutomaticSize = Enum.AutomaticSize.X,
+AnchorPoint = Vector2.new(1, 0.5),
+Position = UDim2.new(1, -8, 0.5, 0),
+TextSize = 11,
+Weight = "medium",
+Visible = false,
+Theme = { TextColor3 = "textMuted" },
+Parent = search,
+})
+window.searchCounter = counter
+local function fit()
+box.Size = if counter.Visible then UDim2.new(1, -38 - counter.AbsoluteSize.X - 8, 1, 0) else UDim2.new(1, -38, 1, 0)
+end
+scope:connect(counter:GetPropertyChangedSignal("AbsoluteSize"), fit)
+scope:connect(counter:GetPropertyChangedSignal("Visible"), fit)
 scope:connect(box:GetPropertyChangedSignal("Text"), function()
 window.searchText = box.Text
+window.matchIndex = nil
 window:applySearch(box.Text)
+end)
+scope:connect(box.FocusLost, function(enter)
+if enter and box.Text ~= "" then
+window:JumpToMatch(1)
+task.defer(function()
+if box.Parent then
+box:CaptureFocus()
+end
+end)
+end
+end)
+scope:connect(UserInputService.InputBegan, function(input)
+if box:IsFocused() and box.Text ~= "" then
+if input.KeyCode == Enum.KeyCode.Down then
+window:JumpToMatch(1)
+elseif input.KeyCode == Enum.KeyCode.Up then
+window:JumpToMatch(-1)
+end
+end
 end)
 return search, box
 end
@@ -3540,6 +3768,231 @@ end
 end
 return Personalise
 end
+modules["Components/PopOut"] = function()
+local Create = import("Core/Create")
+local Drag = import("Core/Drag")
+local Mount = import("Core/Mount")
+local Resize = import("Core/Resize")
+local Strings = import("Core/Strings")
+local Theme = import("Core/Theme")
+local PopOut = {}
+local MIN_SIZE = Vector2.new(240, 140)
+local DEFAULT_SIZE = Vector2.new(320, 300)
+local BAR = 36
+local function layer(library)
+local overlay = Mount.overlay(library)
+if not overlay.popOuts then
+overlay.popOuts = Create.new("Frame", { Name = "PopOuts", Size = UDim2.fromScale(1, 1), ZIndex = 0, Parent = overlay.gui })
+end
+return overlay.popOuts
+end
+function PopOut.key(section)
+return `{if section.tab then section.tab.Title else ""}/{section.Title or ""}`
+end
+function PopOut.open(section)
+if section.popped then
+return
+end
+local window, library = section.window, section.library
+local saved = window.popOutState[PopOut.key(section)] or {}
+local scope = section.scope:child()
+local view = Mount.overlay(library).gui.AbsoluteSize
+local size = Vector2.new(tonumber(saved.w) or DEFAULT_SIZE.X, tonumber(saved.h) or DEFAULT_SIZE.Y)
+local corner = if saved.x and saved.y then Vector2.new(saved.x, saved.y) else Vector2.new(view.X - size.X * window.scale - 24, (view.Y - size.Y * window.scale) / 2)
+local panel = Create.new("Frame", {
+Name = "PopOut",
+Size = UDim2.fromOffset(size.X, size.Y),
+Position = UDim2.fromOffset(math.round(corner.X), math.round(corner.Y)),
+Theme = { BackgroundColor3 = "surface" },
+Parent = layer(library),
+})
+scope:add(panel)
+Create.corner(12, panel)
+Create.stroke("stroke", panel)
+Create.new("UIScale", { Scale = window.scale, Parent = panel })
+local bar = Create.new("Frame", { Name = "TitleBar", Size = UDim2.new(1, 0, 0, BAR), Parent = panel })
+Create.padding(bar, 12, 0, 6, 0)
+Create.list(bar, "Horizontal", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
+if section.options.Icon then
+Create.icon(section.options.Icon, 14, "textMuted", bar)
+end
+Create.new("TextLabel", {
+Name = "Title",
+Size = UDim2.fromScale(0, 1),
+TextSize = 13,
+Weight = "bold",
+TextTruncate = Enum.TextTruncate.AtEnd,
+LayoutOrder = 1,
+Text = section.Title or "",
+Theme = { TextColor3 = "text" },
+Parent = bar,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+local dock = Create.new("TextButton", { Name = "Dock", Size = UDim2.fromOffset(26, 26), LayoutOrder = 2, Parent = bar })
+Create.corner(6, dock)
+local dockIcon = Create.icon("minimize-2", 14, "textMuted", dock)
+dockIcon.AnchorPoint, dockIcon.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+scope:connect(dock.MouseEnter, function()
+Theme.bind(dockIcon, "ImageColor3", "text")
+end)
+scope:connect(dock.MouseLeave, function()
+Theme.bind(dockIcon, "ImageColor3", "textMuted")
+end)
+scope:connect(dock.Activated, function()
+PopOut.close(section)
+end)
+Create.new("Frame", {
+Name = "Seam",
+Size = UDim2.new(1, 0, 0, 1),
+Position = UDim2.fromOffset(0, BAR),
+Theme = { BackgroundColor3 = "stroke" },
+Parent = panel,
+})
+local content = Create.new("ScrollingFrame", {
+Name = "Content",
+Size = UDim2.new(1, 0, 1, -BAR - 1),
+Position = UDim2.fromOffset(0, BAR + 1),
+AutomaticCanvasSize = Enum.AutomaticSize.Y,
+CanvasSize = UDim2.new(),
+ScrollBarThickness = 3,
+ScrollingDirection = Enum.ScrollingDirection.Y,
+Theme = { ScrollBarImageColor3 = "textMuted" },
+Parent = panel,
+})
+Create.padding(content, 4, 4, 6, 8)
+local body = section.body
+section.homeOfBody = body.Parent
+body.Parent = content
+local placeholder = Create.new("Frame", {
+Name = "PoppedOut",
+Size = UDim2.new(1, 0, 0, 44),
+LayoutOrder = 1,
+Parent = section.root,
+})
+scope:add(placeholder)
+Create.padding(placeholder, 14, 0)
+Create.list(placeholder, "Horizontal", 10, { VerticalAlignment = Enum.VerticalAlignment.Center })
+Create.new("TextLabel", {
+Name = "Note",
+Size = UDim2.fromScale(0, 1),
+TextSize = 12,
+Text = Strings.get("Open in its own window"),
+Theme = { TextColor3 = "textMuted" },
+Parent = placeholder,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+local back = Create.new("TextButton", {
+Name = "BringBack",
+Size = UDim2.fromOffset(0, 28),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = Strings.get("Bring back"),
+TextSize = 12,
+Weight = "medium",
+LayoutOrder = 1,
+Theme = { BackgroundColor3 = "raised", TextColor3 = "text" },
+Parent = placeholder,
+})
+Create.corner(6, back)
+Create.padding(back, 10, 0)
+scope:connect(back.Activated, function()
+PopOut.close(section)
+end)
+local function remember()
+local position = panel.Position
+window.popOutState[PopOut.key(section)] = {
+open = section.popped == true,
+x = position.X.Offset,
+y = position.Y.Offset,
+w = panel.Size.X.Offset,
+h = panel.Size.Y.Offset,
+}
+window:savePreferences()
+end
+Drag.move(scope, bar, panel, { onMoved = remember })
+local grip = Create.new("TextButton", {
+Name = "Resize",
+Text = "",
+Size = UDim2.fromOffset(18, 18),
+AnchorPoint = Vector2.new(1, 1),
+Position = UDim2.new(1, -2, 1, -2),
+ZIndex = 10,
+Parent = panel,
+})
+for _, offset in { Vector2.new(12, 12), Vector2.new(7, 12), Vector2.new(12, 7) } do
+Create.new("Frame", {
+Size = UDim2.fromOffset(2, 2),
+Position = UDim2.fromOffset(offset.X, offset.Y),
+ZIndex = 10,
+Theme = { BackgroundColor3 = "textMuted" },
+Parent = grip,
+})
+end
+Resize.grip(scope, grip, function()
+local room = Mount.overlay(library).gui.AbsoluteSize - Vector2.new(panel.Position.X.Offset, panel.Position.Y.Offset) - Vector2.new(8, 8)
+return {
+size = Vector2.new(panel.Size.X.Offset, panel.Size.Y.Offset),
+scale = window.scale,
+min = MIN_SIZE,
+max = room / window.scale,
+}
+end, function(newSize)
+panel.Size = UDim2.fromOffset(newSize.X, newSize.Y)
+end, remember)
+section.popped = true
+section.popScope = scope
+section.panel = panel
+if section.popButton then
+Theme.bind(section.popButton, "ImageColor3", "accent")
+end
+remember()
+window.SectionPopped:Fire(section, true)
+end
+function PopOut.close(section)
+if not section.popped then
+return
+end
+local window = section.window
+section.popped = false
+section.body.Parent = section.homeOfBody or section.root
+section.panel = nil
+if section.popButton then
+Theme.bind(section.popButton, "ImageColor3", "textMuted")
+end
+local state = window.popOutState[PopOut.key(section)]
+if state then
+state.open = false
+window:savePreferences()
+end
+section.scope:release(section.popScope)
+section.popScope = nil
+window.SectionPopped:Fire(section, false)
+end
+function PopOut.attach(section)
+local header = section.header
+if not header then
+return
+end
+local holder = Create.new("TextButton", { Name = "PopOutButton", Size = UDim2.fromOffset(22, 22), LayoutOrder = 3, Parent = header })
+Create.corner(6, holder)
+local icon = Create.icon("external-link", 14, "textMuted", holder)
+icon.AnchorPoint, icon.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+section.popButton = icon
+section.scope:connect(holder.Activated, function()
+if section.popped then
+PopOut.close(section)
+else
+PopOut.open(section)
+end
+end)
+local saved = section.window.popOutState[PopOut.key(section)]
+if saved and saved.open then
+task.defer(function()
+if not section.scope.cleaned then
+PopOut.open(section)
+end
+end)
+end
+end
+return PopOut
+end
 modules["Components/Popup"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
@@ -3978,6 +4431,88 @@ return handle
 end
 return QuickBar
 end
+modules["Components/SearchFocus"] = function()
+local TweenService = game:GetService("TweenService")
+local Arc = import("Core/Arc")
+local Create = import("Core/Create")
+local Motion = import("Core/Motion")
+local SearchFocus = {}
+local SWEEP_TIME, HOLD, FADE_TIME = 0.55, 1.3, 0.45
+local SWEEP = TweenInfo.new(SWEEP_TIME, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local FADE = TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+function SearchFocus.reveal(window, tab, handle)
+local frame = handle and handle.Frame
+if not frame then
+return
+end
+task.delay(0.05, function()
+local page = tab.page
+if not frame.Parent or not page.Parent then
+return
+end
+local scale = window.scale
+local top = (frame.AbsolutePosition.Y - page.AbsolutePosition.Y) / scale + page.CanvasPosition.Y
+local wanted = Vector2.new(0, math.max(top - 24, 0))
+if Motion.reduced then
+page.CanvasPosition = wanted
+else
+TweenService:Create(page, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { CanvasPosition = wanted }):Play()
+end
+if window.searchSpot then
+window.searchSpot:Destroy()
+end
+local left = (frame.AbsolutePosition.X - page.AbsolutePosition.X) / scale
+local size = frame.AbsoluteSize / scale
+local spot = Create.new("Frame", {
+Name = "SearchSpot",
+Size = UDim2.fromOffset(size.X, size.Y),
+Position = UDim2.fromOffset(left, top),
+BackgroundTransparency = 1,
+ZIndex = 8,
+Theme = { BackgroundColor3 = "accent" },
+Parent = page,
+})
+window.searchSpot = spot
+Create.corner(8, spot)
+local glow = Create.new("UIStroke", { Thickness = 4, Transparency = 1, Theme = { Color = "accent" }, Parent = spot })
+local arc = Arc.new(spot, { Thickness = 2, Role = "accent", Radius = 8, ZIndex = 9 })
+if Motion.reduced then
+arc:Set(1)
+glow.Transparency = 0.7
+task.delay(HOLD, function()
+spot:Destroy()
+end)
+return
+end
+arc:Set(0)
+local progress = Instance.new("NumberValue")
+progress.Parent = spot
+progress:GetPropertyChangedSignal("Value"):Connect(function()
+arc:Set(progress.Value)
+end)
+TweenService:Create(progress, SWEEP, { Value = 1 }):Play()
+TweenService:Create(glow, SWEEP, { Transparency = 0.72 }):Play()
+TweenService:Create(spot, SWEEP, { BackgroundTransparency = 0.9 }):Play()
+task.delay(SWEEP_TIME + HOLD, function()
+if not spot.Parent then
+return
+end
+TweenService:Create(glow, FADE, { Transparency = 1 }):Play()
+TweenService:Create(spot, FADE, { BackgroundTransparency = 1 }):Play()
+for _, stroke in arc.strokes do
+TweenService:Create(stroke, FADE, { Transparency = 1 }):Play()
+end
+task.delay(FADE_TIME, function()
+spot:Destroy()
+if window.searchSpot == spot then
+window.searchSpot = nil
+end
+end)
+end)
+end)
+end
+return SearchFocus
+end
 modules["Components/Section"] = function()
 local Create = import("Core/Create")
 local Effects = import("Core/Effects")
@@ -3990,6 +4525,7 @@ local Signal = import("Core/Signal")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
 local Tokens = import("Core/Tokens")
+local PopOut = import("Components/PopOut")
 Styles.register("Section", "Card", { fill = "card", stroke = "stroke", surface = "card" })
 Styles.register("Section", "Outlined", { stroke = "stroke", surface = "background" })
 Styles.register("Section", "Flat", { flat = true, surface = "background" })
@@ -4025,6 +4561,7 @@ collapsed = options.Collapsed == true,
 searching = false,
 }, Section)
 self.section = self
+self.options = options
 self.searchTitle = if options.Title then string.lower(options.Title) else nil
 local root = Create.new("Frame", {
 Name = "Section",
@@ -4151,6 +4688,9 @@ if self.tier then
 self:buildLock()
 end
 Registry.install(self)
+if options.PopOut then
+PopOut.attach(self)
+end
 if type(options.Tabs) == "table" and #options.Tabs > 0 then
 self:buildTabs(options.Tabs)
 end
@@ -4306,6 +4846,30 @@ function Section:setSearching(searching)
 if self.searching ~= searching then
 self.searching = searching
 self:refresh()
+end
+end
+function Section:setMatches(count)
+if not self.header then
+return
+end
+if count > 0 and not self.matchChip then
+self.matchChip = Create.new("TextLabel", {
+Name = "Matches",
+Size = UDim2.fromOffset(0, 18),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 11,
+Weight = "bold",
+LayoutOrder = 2,
+BackgroundTransparency = 0.82,
+Theme = { BackgroundColor3 = "accent", TextColor3 = "accent" },
+Parent = self.header,
+})
+Create.corner(-1, self.matchChip)
+Create.padding(self.matchChip, 7, 0)
+end
+if self.matchChip then
+self.matchChip.Visible = count > 0
+self.matchChip.Text = tostring(count)
 end
 end
 function Section:SetCollapsed(collapsed)
@@ -4530,6 +5094,19 @@ if index then
 table.remove(sections, index)
 end
 self.tab.scope:release(self.scope)
+end
+function Section:PopOut(open)
+if open == nil then
+open = not self.popped
+end
+if open then
+PopOut.open(self)
+else
+PopOut.close(self)
+end
+end
+function Section:IsPoppedOut()
+return self.popped == true
 end
 return Section
 end
@@ -5273,6 +5850,7 @@ Switches.applyBlur = applyBlur
 return Switches
 end
 modules["Components/Tab"] = function()
+local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
 local Motion = import("Core/Motion")
 local Panels = import("Components/Panels")
@@ -5478,6 +6056,7 @@ or named
 or string.find(handle.SearchText or "", query, 1, true) ~= nil
 or (section.searchTitle ~= nil and string.find(section.searchTitle, query, 1, true) ~= nil)
 handle.Frame.Visible = match and not handle.Hidden
+handle.searchMatched = query ~= "" and match and not handle.Hidden
 if handle.Highlight then
 handle:Highlight(if match then query else nil)
 end
@@ -5489,6 +6068,7 @@ end
 for _, section in self.sections do
 section.root.Visible = not section.Hidden and (query == "" or (counts[section] or 0) > 0)
 section:setSearching(query ~= "")
+section:setMatches(if query ~= "" then counts[section] or 0 else 0)
 end
 self.matches = total
 return total
@@ -5692,6 +6272,144 @@ tab.loose = loose
 end
 return loose
 end
+function Tab.page(parent, container, options)
+if type(options) == "string" then
+options = { Title = options }
+end
+if type(options) ~= "table" or type(options.Title) ~= "string" then
+error("Page needs a Title", 3)
+end
+local window = parent.window
+local page = Tab.new(window, {
+Title = options.Title,
+Icon = options.Icon,
+SectionStyle = options.SectionStyle or parent.sectionStyle,
+Tier = options.Tier,
+PaidOnly = options.PaidOnly,
+LockText = options.LockText,
+LockHint = options.LockHint,
+})
+page.isPage = true
+page.parentTab = parent
+page.rootTab = parent.rootTab or parent
+table.insert(window.subPages, page)
+page:reflow(window.wide)
+page:buildBreadcrumb(options.Description)
+page.link = container:PageLink({
+Title = options.Title,
+Description = options.Description,
+Icon = options.Icon,
+Badge = options.Badge,
+Tier = options.Tier,
+PaidOnly = options.PaidOnly,
+Page = page,
+})
+parent.scope:add(function()
+local index = table.find(window.subPages, page)
+if index then
+table.remove(window.subPages, index)
+end
+window.scope:release(page.scope)
+end)
+if not window.pageEscape then
+window.pageEscape = true
+window.scope:connect(UserInputService.InputBegan, function(input, processed)
+local open = window.selected
+if not processed and input.KeyCode == Enum.KeyCode.Escape and open and open.isPage and window.Visible then
+window:SelectTab(open.parentTab)
+end
+end)
+end
+return page
+end
+function Tab:Page(options)
+return Tab.page(self, self, options)
+end
+function Section:Page(options)
+return Tab.page(self.tab, self, options)
+end
+function Tab:buildBreadcrumb(description)
+local window = self.window
+local inset = self.page:FindFirstChild("Inset")
+local header = Create.new("Frame", { Name = "Breadcrumb", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = inset })
+Create.list(header, "Vertical", 4)
+local trail = Create.new("Frame", { Name = "Trail", Size = UDim2.new(1, 0, 0, 30), Parent = header })
+Create.list(trail, "Horizontal", 4, { VerticalAlignment = Enum.VerticalAlignment.Center })
+local back = Create.new("TextButton", {
+Name = "Back",
+Size = UDim2.fromOffset(30, 30),
+Theme = { BackgroundColor3 = "raised" },
+Parent = trail,
+})
+Create.corner(8, back)
+local arrow = Create.icon("chevron-left", 16, "text", back)
+arrow.AnchorPoint, arrow.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+self.scope:connect(back.Activated, function()
+window:SelectTab(self.parentTab)
+end)
+self.scope:connect(back.MouseEnter, function()
+Theme.bind(back, "BackgroundColor3", "hover")
+end)
+self.scope:connect(back.MouseLeave, function()
+Theme.bind(back, "BackgroundColor3", "raised")
+end)
+local chain = {}
+local level = self.parentTab
+while level do
+table.insert(chain, 1, level)
+level = level.parentTab
+end
+local order = 1
+for _, ancestor in chain do
+local step = Create.new("TextButton", {
+Name = "Step",
+Size = UDim2.fromOffset(0, 30),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = ancestor.Title,
+TextSize = 13,
+LayoutOrder = order,
+Theme = { TextColor3 = "textMuted" },
+Parent = trail,
+})
+Create.padding(step, 4, 0)
+self.scope:connect(step.Activated, function()
+window:SelectTab(ancestor)
+end)
+self.scope:connect(step.MouseEnter, function()
+Theme.bind(step, "TextColor3", "text")
+end)
+self.scope:connect(step.MouseLeave, function()
+Theme.bind(step, "TextColor3", "textMuted")
+end)
+local divider = Create.icon("chevron-right", 12, "textMuted", trail)
+divider.LayoutOrder = order + 1
+order += 2
+end
+Create.new("TextLabel", {
+Name = "Current",
+Size = UDim2.fromOffset(0, 30),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = self.Title,
+TextSize = 15,
+Weight = "bold",
+LayoutOrder = order,
+Theme = { TextColor3 = "text" },
+Parent = trail,
+})
+if description then
+Create.new("TextLabel", {
+Name = "Description",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+TextSize = 13,
+LayoutOrder = 1,
+Text = description,
+Theme = { TextColor3 = "textMuted" },
+Parent = header,
+})
+end
+end
 for _, kind in Registry.Kinds do
 Tab[kind] = function(self, options)
 local section = looseSection(self)
@@ -5699,6 +6417,185 @@ return section[kind](section, options)
 end
 end
 return Tab
+end
+modules["Components/TabOrder"] = function()
+local Create = import("Core/Create")
+local Drag = import("Core/Drag")
+local Menu = import("Components/Menu")
+local Strings = import("Core/Strings")
+local TabOrder = {}
+function TabOrder.setup(window, saved)
+local state = { list = {}, pinned = {} }
+if type(saved) == "table" then
+for _, title in saved.order or {} do
+if type(title) == "string" then
+table.insert(state.list, title)
+end
+end
+for _, title in saved.pinned or {} do
+if type(title) == "string" then
+state.pinned[title] = true
+end
+end
+end
+window.tabOrder = state
+end
+function TabOrder.saved(window)
+local state = window.tabOrder
+if not state then
+return nil
+end
+local pinned = {}
+for title in state.pinned do
+table.insert(pinned, title)
+end
+table.sort(pinned)
+return { order = table.clone(state.list), pinned = pinned }
+end
+function TabOrder.isPinned(window, tab)
+return window.tabOrder ~= nil and window.tabOrder.pinned[tab.Title] == true
+end
+function TabOrder.position(window, tab)
+return if window.tabOrder then table.find(window.tabOrder.list, tab.Title) else nil
+end
+local function placeBefore(window, tab, before)
+local shown = {}
+for _, other in window:navOrder() do
+if other ~= tab then
+table.insert(shown, other)
+end
+end
+local index = if before then table.find(shown, before) else nil
+if not index then
+index = #shown + 1
+for position = #shown, 1, -1 do
+if window:navGroup(shown[position]) == window:navGroup(tab) then
+index = position + 1
+break
+end
+end
+end
+table.insert(shown, index, tab)
+local titles = {}
+for _, other in shown do
+table.insert(titles, other.Title)
+end
+window.tabOrder.list = titles
+window:buildNav()
+window:savePreferences()
+end
+local function neighbours(window, tab)
+local list = {}
+for _, other in window:navOrder() do
+if not other.Hidden and window:navGroup(other) == window:navGroup(tab) then
+table.insert(list, other)
+end
+end
+return list
+end
+function TabOrder.move(window, tab, step)
+local list = neighbours(window, tab)
+local index = table.find(list, tab)
+local target = list[index + step]
+if not target then
+return
+end
+if step < 0 then
+placeBefore(window, tab, target)
+else
+placeBefore(window, tab, list[index + step + 1])
+end
+end
+function TabOrder.pin(window, tab, pinned)
+window.tabOrder.pinned[tab.Title] = if pinned then true else nil
+window:buildNav()
+window:savePreferences()
+end
+function TabOrder.attach(window, tab, scope, vertical)
+local button = tab.button
+if not button or tab.isFavourites then
+return
+end
+Menu.attach(scope, window.library, button, function()
+local pinned = TabOrder.isPinned(window, tab)
+return {
+{
+Title = if pinned then Strings.get("Unpin") else Strings.get("Pin to top"),
+Icon = "pin",
+Callback = function()
+TabOrder.pin(window, tab, not pinned)
+end,
+},
+{ Divider = true },
+{
+Title = Strings.get("Move up"),
+Icon = if vertical then "arrow-up" else "arrow-left",
+Callback = function()
+TabOrder.move(window, tab, -1)
+end,
+},
+{
+Title = Strings.get("Move down"),
+Icon = if vertical then "arrow-down" else "arrow-right",
+Callback = function()
+TabOrder.move(window, tab, 1)
+end,
+},
+}
+end)
+local marker
+local target
+Drag.track(scope, button, nil, function(position, _, moved)
+if not moved then
+return
+end
+local list = neighbours(window, tab)
+target = nil
+local edge
+for _, other in list do
+local frame = other.button
+if frame and other ~= tab then
+local middle = frame.AbsolutePosition + frame.AbsoluteSize / 2
+local before = if vertical then position.Y < middle.Y else position.X < middle.X
+if before then
+target = other
+edge = frame
+break
+end
+end
+end
+local host = window.navHost
+if not marker then
+marker = Create.new("Frame", {
+Name = "DropLine",
+ZIndex = 20,
+Theme = { BackgroundColor3 = "accent" },
+Parent = host,
+})
+Create.corner(-1, marker)
+end
+local anchor = edge or list[#list].button
+local parentOrigin = host.AbsolutePosition
+local place = anchor.AbsolutePosition - parentOrigin
+local scale = window.scale
+if vertical then
+marker.Size = UDim2.fromOffset(anchor.AbsoluteSize.X / scale, 2)
+marker.Position = UDim2.fromOffset(place.X / scale, (place.Y + (if edge then -2 else anchor.AbsoluteSize.Y + 1)) / scale)
+else
+marker.Size = UDim2.fromOffset(2, anchor.AbsoluteSize.Y / scale)
+marker.Position = UDim2.fromOffset((place.X + (if edge then -2 else anchor.AbsoluteSize.X + 1)) / scale, place.Y / scale)
+end
+end, function(moved)
+if marker then
+marker:Destroy()
+marker = nil
+end
+if moved then
+placeBefore(window, tab, target)
+end
+end)
+end
+return TabOrder
 end
 modules["Components/Tooltip"] = function()
 local UserInputService = game:GetService("UserInputService")
@@ -6200,6 +7097,9 @@ local Tab = import("Components/Tab")
 local UpdateLog = import("Components/UpdateLog")
 local Theme = import("Core/Theme")
 local Schema = import("Core/Schema")
+local Favourites = import("Components/Favourites")
+local TabOrder = import("Components/TabOrder")
+local SearchFocus = import("Components/SearchFocus")
 local NARROW = 560
 local COLUMNS = 520
 local LANES = { Sidebar = 196, Rail = 60 }
@@ -6237,6 +7137,7 @@ local SNAP = 18
 local SHADOW_IMAGE = "rbxassetid://8992230677"
 local SHADOW_SPREAD = 50
 local MIN_SIZE = Vector2.new(420, 300)
+local PINNED = "Pinned (Halcyon)"
 local DEFAULT_SIZE = Vector2.new(740, 500)
 local PREFERENCES_VERSION = 1
 local Window = {}
@@ -6277,6 +7178,8 @@ self.Errors, self.ErrorsChanged = {}, Signal.new()
 self.showErrors = options.ShowErrors ~= false
 self.preferencesPath = `Halcyon/{self.folder}/settings.json`
 self.Flags, self.tabs, self.keybinds, self.gated = {}, {}, {}, {}
+self.subPages = {}
+self.SectionPopped = Signal.new()
 self.OnUnload, self.KeybindsChanged, self.TabChanged, self.Tick = Signal.new(), Signal.new(), Signal.new(), Signal.new()
 self.ConfigChanged = Signal.new()
 self.query = ""
@@ -6312,6 +7215,7 @@ self.paidLockHint = options.PaidLockHint or Strings.get("Unlock with a paid key"
 self.lockedSections = {}
 local saved = if options.SavePreferences == false then {} else readPreferences(self.preferencesPath)
 self.languagePicked = if type(saved.language) == "string" then saved.language else nil
+self.popOutState = if type(saved.popOuts) == "table" then saved.popOuts else {}
 self.personal, self.customThemes = {}, {}
 Personalise.loadThemes(self, saved.themes)
 Personalise.restore(self, saved.personal, true)
@@ -6489,7 +7393,13 @@ if options.FocusRing ~= false then
 self:buildFocusRing()
 end
 Switches.build(self)
+if options.TabReorder then
+TabOrder.setup(self, saved.tabOrder)
+end
 self:layout()
+if options.Favourites then
+Favourites.setup(self, saved.favourites)
+end
 self:pop(true)
 return self
 end
@@ -7006,7 +7916,11 @@ end,
 end
 function Window:SetEnabled(enabled)
 self.disabledAll = enabled == false
-for _, tab in self.tabs do
+local places = table.clone(self.tabs)
+for _, page in self.subPages do
+table.insert(places, page)
+end
+for _, tab in places do
 for _, entry in tab.entries do
 if entry.handle.SetBlocked then
 entry.handle:SetBlocked(Registry.blocked(self, entry.section))
@@ -7079,6 +7993,9 @@ self.wide = width - (self:lane(style) or 0) >= COLUMNS
 for _, tab in self.tabs do
 tab:reflow(self.wide)
 end
+for _, page in self.subPages do
+page:reflow(self.wide)
+end
 local shown = Vector2.new(width * scale, height * scale)
 local corner = self.placed or (view - shown) / 2
 corner = Vector2.new(
@@ -7115,6 +8032,7 @@ Header.apply(self, sidebarHeader)
 local top = if sidebarHeader then Header.STRIP else 0
 local host = Create.new("Frame", { Name = "Navigation", Parent = self.body })
 scope:add(host)
+self.navHost = host
 local seam = Hairline.new(if lane then "Y" else "X", "stroke", { ZIndex = 2, Parent = host })
 local list
 if lane then
@@ -7181,15 +8099,19 @@ if tab.Hidden then
 tab.button = nil
 continue
 end
-if style == "Sidebar" and tab.Group and tab.Group ~= group then
+local heading = self:navGroup(tab)
+if style == "Sidebar" and heading and heading ~= group and heading ~= PINNED then
 order += 1
-self:buildGroupHeading(list, scope, tab.Group, order)
+self:buildGroupHeading(list, scope, heading, order)
 end
-group = tab.Group
+group = heading
 order += 1
 tab:buildButton(style, list, scope, order)
-if style == "Sidebar" and tab.Group and self.collapsedGroups[tab.Group] then
+if style == "Sidebar" and heading and self.collapsedGroups[heading] then
 tab.button.Visible = false
+end
+if self.tabOrder then
+TabOrder.attach(self, tab, scope, self:lane(style) ~= nil)
 end
 end
 self.chipHolder:ClearAllChildren()
@@ -7242,18 +8164,25 @@ self.collapsedGroups[name] = if collapsed then true else nil
 self:buildNav()
 self:savePreferences()
 end
+function Window:navGroup(tab)
+if TabOrder.isPinned(self, tab) then
+return PINNED
+end
+return tab.Group
+end
 function Window:navOrder()
 local rank, made = {}, {}
 for index, tab in self.tabs do
-made[tab] = index
-local key = tab.Group or ""
+local placed = TabOrder.position(self, tab)
+made[tab] = if placed then placed else 1000 + index
+local key = self:navGroup(tab) or ""
 if rank[key] == nil and not tab.trailing then
-rank[key] = index
+rank[key] = if TabOrder.isPinned(self, tab) then -1 else index
 end
 end
 local ordered = table.clone(self.tabs)
 table.sort(ordered, function(a, b)
-local first, second = rank[a.Group or ""] or math.huge, rank[b.Group or ""] or math.huge
+local first, second = rank[self:navGroup(a) or ""] or math.huge, rank[self:navGroup(b) or ""] or math.huge
 if first ~= second then
 return first < second
 end
@@ -7265,8 +8194,14 @@ end)
 return ordered
 end
 function Window:paintTabs()
+local open = self.selected
+local root = open and (open.rootTab or open)
+local found = {}
+for _, page in self.subPages do
+found[page.rootTab] = (found[page.rootTab] or 0) + page.matches
+end
 for _, tab in self.tabs do
-tab:paint(tab == self.selected, self.query ~= "" and tab.matches == 0)
+tab:paint(tab == root, self.query ~= "" and tab.matches + (found[tab] or 0) == 0)
 end
 end
 function Window:Tab(options)
@@ -7334,10 +8269,16 @@ if tab:filter(self.query) > 0 and not first and not tab.Hidden then
 first = tab
 end
 end
+for _, page in self.subPages do
+if page:filter(self.query) > 0 and not first and not page.rootTab.Hidden then
+first = page
+end
+end
 if self.query ~= "" and first and self.selected and self.selected.matches == 0 then
 self:SelectTab(first)
 end
 self.empty.Visible = self.query ~= "" and first == nil
+self:updateMatchCounter()
 self.empty.Text = Strings.get('Nothing matches "{query}".', { query = self.query })
 if self.selected then
 self.selected.page.Visible = not self.empty.Visible
@@ -7346,6 +8287,50 @@ self:paintTabs()
 end
 function Window:Search(query)
 self.searchBox.Text = query or ""
+end
+function Window:searchMatches()
+local matches = {}
+local function collect(tab)
+for _, entry in tab.entries do
+if entry.handle.searchMatched then
+table.insert(matches, { tab = tab, handle = entry.handle })
+end
+end
+end
+for _, tab in self:navOrder() do
+if not tab.Hidden then
+collect(tab)
+for _, page in self.subPages do
+if page.rootTab == tab then
+collect(page)
+end
+end
+end
+end
+return matches
+end
+function Window:JumpToMatch(step)
+local matches = self:searchMatches()
+if #matches == 0 then
+return nil
+end
+local index = self.matchIndex
+index = if index then (index - 1 + (step or 1)) % #matches + 1 else (if (step or 1) < 0 then #matches else 1)
+self.matchIndex = index
+local found = matches[index]
+self:SelectTab(found.tab)
+SearchFocus.reveal(self, found.tab, found.handle)
+self:updateMatchCounter(#matches)
+return found.handle
+end
+function Window:updateMatchCounter(total)
+local counter = self.searchCounter
+if not counter then
+return
+end
+total = total or #self:searchMatches()
+counter.Visible = self.query ~= "" and total > 0
+counter.Text = if self.matchIndex then Strings.get("{index} of {total}", { index = self.matchIndex, total = total }) else tostring(total)
 end
 function Window:checkFlag(flag)
 if flag == nil then
@@ -7650,6 +8635,9 @@ reducedMotion = Motion.reduced,
 anonymous = self.profile.Anonymous,
 toggleKey = if self.toggleKey then self.toggleKey.Name else "",
 language = self.languagePicked,
+favourites = Favourites.saved(self),
+tabOrder = TabOrder.saved(self),
+popOuts = if next(self.popOutState) then self.popOutState else nil,
 })
 local wrote, message = false, Strings.get("The settings could not be encoded.")
 if encoded then
@@ -9729,6 +10717,7 @@ Max = "number",
 Height = "number",
 },
 },
+PageLink = { value = "any", options = { Page = "any" } },
 Banner = {
 value = "string",
 options = { Text = "string", Image = "Image", Height = "number", Button = "{ Title: string, Callback: Callback? }" },
@@ -9761,6 +10750,7 @@ Collapsed = "boolean",
 Tabs = "{ string }",
 Switch = "{ Default: boolean?, Flag: string?, Callback: Callback? }",
 MaxHeight = "number",
+PopOut = "boolean",
 Tier = "string",
 PaidOnly = "boolean",
 LockText = "string",
@@ -9865,6 +10855,8 @@ DisplayOrder = "number",
 Notifications = "{ [string]: any }",
 Configs = "{ PerGame: (string | boolean)? }",
 ShowErrors = "boolean",
+Favourites = "boolean",
+TabReorder = "boolean",
 Debug = "boolean",
 Language = "string",
 Strings = "{ [string]: string }",
@@ -14635,6 +15627,33 @@ end
 end
 return Options
 end
+modules["Elements/PageLink"] = function()
+local Create = import("Core/Create")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local PageLink = {}
+function PageLink.new(container, options)
+local row = Row.new(container, options, { button = true })
+local handle = row.handle
+local arrow = Create.icon("chevron-right", 16, "textMuted", row.slot)
+row.onHover(function(active)
+Theme.bind(arrow, "ImageColor3", if active then "accent" else "textMuted")
+Theme.bind(row.frame, "BackgroundColor3", if active then "hover" else container.rowRole or "raised")
+row.frame.BackgroundTransparency = if active then 0 elseif container.rowFill then 0 else 1
+end)
+row.scope:connect(row.frame.Activated, function()
+if not handle:IsLocked() and options.Page then
+row.window:SelectTab(options.Page)
+row.fire(options.Page)
+end
+end)
+function handle:Get()
+return options.Page
+end
+return handle
+end
+return PageLink
+end
 modules["Elements/Paragraph"] = function()
 local Create = import("Core/Create")
 local Env = import("Core/Env")
@@ -15010,6 +16029,7 @@ local Stat = import("Elements/Stat")
 local Strings = import("Core/Strings")
 local Tooltip = import("Components/Tooltip")
 local Schema = import("Core/Schema")
+local Favourites = import("Components/Favourites")
 local MODULES = {
 Button = import("Elements/Button"),
 Toggle = import("Elements/Toggle"),
@@ -15054,6 +16074,7 @@ Knob = { new = Gauge.knob },
 Chart = import("Elements/Chart"),
 ItemGrid = import("Elements/ItemGrid"),
 Waypoints = import("Elements/Waypoints"),
+PageLink = import("Elements/PageLink"),
 }
 local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true, Stats = true }
 local Registry = { Kinds = {}, KindSet = {}, custom = {} }
@@ -15150,8 +16171,25 @@ if handle.Get and handle.Set then
 Registry.values(handle)
 end
 Registry.switches(handle, options)
-if (type(options.Menu) == "table" or type(options.Menu) == "function") and handle.Frame then
-Menu.attach(handle.scope, window.library, handle.Frame, options.Menu)
+local favourite = Favourites.register(window, handle, container)
+local own = type(options.Menu) == "table" or type(options.Menu) == "function"
+if (own or favourite) and handle.Frame then
+Menu.attach(handle.scope, window.library, handle.Frame, function()
+local items = {}
+if favourite then
+table.insert(items, Favourites.menuItem(window, handle))
+end
+if own then
+local listed = if type(options.Menu) == "function" then options.Menu() else options.Menu
+if #items > 0 and #listed > 0 then
+table.insert(items, { Divider = true })
+end
+for _, item in listed do
+table.insert(items, item)
+end
+end
+return items
+end)
 end
 if window.query ~= "" then
 window:applySearch()
@@ -15576,13 +16614,42 @@ function handle:SetBlocked(blocked)
 state.blocked = blocked == true
 refresh()
 end
+local searchEdge, searchTint
+local function markRow(matched)
+if matched and not searchEdge then
+searchTint = Create.new("Frame", {
+Name = "SearchTint",
+Size = UDim2.fromScale(1, 1),
+BackgroundTransparency = 0.93,
+ZIndex = 0,
+Theme = { BackgroundColor3 = "accent" },
+Parent = frame,
+})
+Create.corner(8, searchTint)
+searchEdge = Create.new("Frame", {
+Name = "SearchEdge",
+Size = UDim2.new(0, 3, 0.56, 0),
+AnchorPoint = Vector2.new(0, 0.5),
+Position = UDim2.new(0, 2, 0.5, 0),
+Theme = { BackgroundColor3 = "accent" },
+Parent = frame,
+})
+Create.corner(-1, searchEdge)
+end
+if searchEdge then
+searchEdge.Visible = matched
+searchTint.Visible = matched
+end
+end
 function handle:Highlight(query)
+local searching = query ~= nil and query ~= ""
+markRow(searching)
 if not title then
 return
 end
 local plain = self.Title
 local from, to = nil, nil
-if query and query ~= "" then
+if searching then
 from, to = string.find(string.lower(plain), query, 1, true)
 end
 if not from then
@@ -15595,9 +16662,9 @@ return (string.gsub(string.gsub(string.gsub(text, "&", "&amp;"), "<", "&lt;"), "
 end
 title.RichText = true
 title.Text = escape(string.sub(plain, 1, from - 1))
-.. `<font color="#{Theme.color("accent"):ToHex()}">`
+.. `<mark color="#{Theme.color("accent"):ToHex()}" transparency="0.72"><b>`
 .. escape(string.sub(plain, from, to))
-.. "</font>"
+.. "</b></mark>"
 .. escape(string.sub(plain, to + 1))
 end
 function handle:Lock(reason, icon, quiet)
@@ -18335,6 +19402,16 @@ return {
 ["Epic"] = "Épique",
 ["Legendary"] = "Légendaire",
 ["Mythic"] = "Mythique",
+["Favourites"] = "Favoris",
+["Add to favourites"] = "Ajouter aux favoris",
+["Remove from favourites"] = "Retirer des favoris",
+["Open in its own window"] = "Ouvert dans sa propre fenêtre",
+["Bring back"] = "Ramener ici",
+["Unpin"] = "Désépingler",
+["Pin to top"] = "Épingler en haut",
+["Move up"] = "Monter",
+["Move down"] = "Descendre",
+["{index} of {total}"] = "{index} sur {total}",
 }
 end
 modules["Locales/German"] = function()
@@ -18590,6 +19667,16 @@ return {
 ["Epic"] = "Episch",
 ["Legendary"] = "Legendär",
 ["Mythic"] = "Mythisch",
+["Favourites"] = "Favoriten",
+["Add to favourites"] = "Zu Favoriten hinzufügen",
+["Remove from favourites"] = "Aus Favoriten entfernen",
+["Open in its own window"] = "In eigenem Fenster geöffnet",
+["Bring back"] = "Zurückholen",
+["Unpin"] = "Lösen",
+["Pin to top"] = "Oben anheften",
+["Move up"] = "Nach oben",
+["Move down"] = "Nach unten",
+["{index} of {total}"] = "{index} von {total}",
 }
 end
 modules["Locales/Indonesian"] = function()
@@ -18845,6 +19932,16 @@ return {
 ["Epic"] = "Epik",
 ["Legendary"] = "Legendaris",
 ["Mythic"] = "Mitos",
+["Favourites"] = "Favorit",
+["Add to favourites"] = "Tambah ke favorit",
+["Remove from favourites"] = "Hapus dari favorit",
+["Open in its own window"] = "Terbuka di jendela sendiri",
+["Bring back"] = "Kembalikan",
+["Unpin"] = "Lepas sematan",
+["Pin to top"] = "Sematkan di atas",
+["Move up"] = "Naikkan",
+["Move down"] = "Turunkan",
+["{index} of {total}"] = "{index} dari {total}",
 }
 end
 modules["Locales/Locales"] = function()
@@ -19152,6 +20249,16 @@ return {
 ["Epic"] = "Épico",
 ["Legendary"] = "Lendário",
 ["Mythic"] = "Mítico",
+["Favourites"] = "Favoritos",
+["Add to favourites"] = "Adicionar aos favoritos",
+["Remove from favourites"] = "Tirar dos favoritos",
+["Open in its own window"] = "Aberto numa janela própria",
+["Bring back"] = "Trazer de volta",
+["Unpin"] = "Desafixar",
+["Pin to top"] = "Fixar no topo",
+["Move up"] = "Mover para cima",
+["Move down"] = "Mover para baixo",
+["{index} of {total}"] = "{index} de {total}",
 }
 end
 modules["Locales/Russian"] = function()
@@ -19407,6 +20514,16 @@ return {
 ["Epic"] = "Эпический",
 ["Legendary"] = "Легендарный",
 ["Mythic"] = "Мифический",
+["Favourites"] = "Избранное",
+["Add to favourites"] = "Добавить в избранное",
+["Remove from favourites"] = "Убрать из избранного",
+["Open in its own window"] = "Открыто в отдельном окне",
+["Bring back"] = "Вернуть сюда",
+["Unpin"] = "Открепить",
+["Pin to top"] = "Закрепить сверху",
+["Move up"] = "Выше",
+["Move down"] = "Ниже",
+["{index} of {total}"] = "{index} из {total}",
 }
 end
 modules["Locales/Spanish"] = function()
@@ -19662,6 +20779,16 @@ return {
 ["Epic"] = "Épico",
 ["Legendary"] = "Legendario",
 ["Mythic"] = "Mítico",
+["Favourites"] = "Favoritos",
+["Add to favourites"] = "Añadir a favoritos",
+["Remove from favourites"] = "Quitar de favoritos",
+["Open in its own window"] = "Abierto en su propia ventana",
+["Bring back"] = "Traer de vuelta",
+["Unpin"] = "Desfijar",
+["Pin to top"] = "Fijar arriba",
+["Move up"] = "Subir",
+["Move down"] = "Bajar",
+["{index} of {total}"] = "{index} de {total}",
 }
 end
 modules["Locales/Turkish"] = function()
@@ -19917,6 +21044,16 @@ return {
 ["Epic"] = "Destansı",
 ["Legendary"] = "Efsanevi",
 ["Mythic"] = "Mitik",
+["Favourites"] = "Favoriler",
+["Add to favourites"] = "Favorilere ekle",
+["Remove from favourites"] = "Favorilerden çıkar",
+["Open in its own window"] = "Kendi penceresinde açık",
+["Bring back"] = "Geri getir",
+["Unpin"] = "Sabitlemeyi kaldır",
+["Pin to top"] = "En üste sabitle",
+["Move up"] = "Yukarı taşı",
+["Move down"] = "Aşağı taşı",
+["{index} of {total}"] = "{index} / {total}",
 }
 end
 modules["Locales/Vietnamese"] = function()
@@ -20172,6 +21309,16 @@ return {
 ["Epic"] = "Sử thi",
 ["Legendary"] = "Huyền thoại",
 ["Mythic"] = "Thần thoại",
+["Favourites"] = "Yêu thích",
+["Add to favourites"] = "Thêm vào yêu thích",
+["Remove from favourites"] = "Bỏ khỏi yêu thích",
+["Open in its own window"] = "Đang mở trong cửa sổ riêng",
+["Bring back"] = "Đưa về đây",
+["Unpin"] = "Bỏ ghim",
+["Pin to top"] = "Ghim lên đầu",
+["Move up"] = "Lên trên",
+["Move down"] = "Xuống dưới",
+["{index} of {total}"] = "{index} / {total}",
 }
 end
 modules["Themes/Palettes"] = function()

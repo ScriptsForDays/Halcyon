@@ -2,6 +2,8 @@
 -- holds one or two columns and folds to one when the window is narrow, so a
 -- phone shows the same controls in one ordered flow.
 
+local UserInputService = game:GetService("UserInputService")
+
 local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Panels = require("./Panels")
@@ -250,6 +252,7 @@ function Tab:filter(query)
 			or string.find(handle.SearchText or "", query, 1, true) ~= nil
 			or (section.searchTitle ~= nil and string.find(section.searchTitle, query, 1, true) ~= nil)
 		handle.Frame.Visible = match and not handle.Hidden
+		handle.searchMatched = query ~= "" and match and not handle.Hidden
 		if handle.Highlight then
 			handle:Highlight(if match then query else nil)
 		end
@@ -261,6 +264,7 @@ function Tab:filter(query)
 	for _, section in self.sections do
 		section.root.Visible = not section.Hidden and (query == "" or (counts[section] or 0) > 0)
 		section:setSearching(query ~= "")
+		section:setMatches(if query ~= "" then counts[section] or 0 else 0)
 	end
 	self.matches = total
 	return total
@@ -486,6 +490,161 @@ local function looseSection(tab)
 		tab.loose = loose
 	end
 	return loose
+end
+
+-- Sub-pages ----------------------------------------------------------------
+
+-- A page inside a tab: its own sections and rows, opened from a row on the
+-- parent and left with the back arrow, the breadcrumb or Escape. Pages nest.
+-- `container` is the tab or section the opening row goes in.
+-- Options: Title, Description, Icon, Badge, SectionStyle, Tier, PaidOnly,
+-- LockText, LockHint.
+function Tab.page(parent, container, options)
+	if type(options) == "string" then
+		options = { Title = options }
+	end
+	if type(options) ~= "table" or type(options.Title) ~= "string" then
+		error("Page needs a Title", 3)
+	end
+	local window = parent.window
+	local page = Tab.new(window, {
+		Title = options.Title,
+		Icon = options.Icon,
+		SectionStyle = options.SectionStyle or parent.sectionStyle,
+		Tier = options.Tier,
+		PaidOnly = options.PaidOnly,
+		LockText = options.LockText,
+		LockHint = options.LockHint,
+	})
+	page.isPage = true
+	page.parentTab = parent
+	page.rootTab = parent.rootTab or parent
+	table.insert(window.subPages, page)
+	page:reflow(window.wide)
+	page:buildBreadcrumb(options.Description)
+	page.link = container:PageLink({
+		Title = options.Title,
+		Description = options.Description,
+		Icon = options.Icon,
+		Badge = options.Badge,
+		Tier = options.Tier,
+		PaidOnly = options.PaidOnly,
+		Page = page,
+	})
+	parent.scope:add(function()
+		local index = table.find(window.subPages, page)
+		if index then
+			table.remove(window.subPages, index)
+		end
+		window.scope:release(page.scope)
+	end)
+
+	-- Escape goes back a level, unless a text box has the keyboard.
+	if not window.pageEscape then
+		window.pageEscape = true
+		window.scope:connect(UserInputService.InputBegan, function(input, processed)
+			local open = window.selected
+			if not processed and input.KeyCode == Enum.KeyCode.Escape and open and open.isPage and window.Visible then
+				window:SelectTab(open.parentTab)
+			end
+		end)
+	end
+	return page
+end
+
+function Tab:Page(options)
+	return Tab.page(self, self, options)
+end
+
+function Section:Page(options)
+	return Tab.page(self.tab, self, options)
+end
+
+-- The back arrow and the trail of tabs and pages above this one; each step
+-- opens that level. A description sits under it.
+function Tab:buildBreadcrumb(description)
+	local window = self.window
+	local inset = self.page:FindFirstChild("Inset")
+	local header = Create.new("Frame", { Name = "Breadcrumb", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = inset })
+	Create.list(header, "Vertical", 4)
+	local trail = Create.new("Frame", { Name = "Trail", Size = UDim2.new(1, 0, 0, 30), Parent = header })
+	Create.list(trail, "Horizontal", 4, { VerticalAlignment = Enum.VerticalAlignment.Center })
+
+	local back = Create.new("TextButton", {
+		Name = "Back",
+		Size = UDim2.fromOffset(30, 30),
+		Theme = { BackgroundColor3 = "raised" },
+		Parent = trail,
+	})
+	Create.corner(8, back)
+	local arrow = Create.icon("chevron-left", 16, "text", back)
+	arrow.AnchorPoint, arrow.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+	self.scope:connect(back.Activated, function()
+		window:SelectTab(self.parentTab)
+	end)
+	self.scope:connect(back.MouseEnter, function()
+		Theme.bind(back, "BackgroundColor3", "hover")
+	end)
+	self.scope:connect(back.MouseLeave, function()
+		Theme.bind(back, "BackgroundColor3", "raised")
+	end)
+
+	local chain = {}
+	local level = self.parentTab
+	while level do
+		table.insert(chain, 1, level)
+		level = level.parentTab
+	end
+	local order = 1
+	for _, ancestor in chain do
+		local step = Create.new("TextButton", {
+			Name = "Step",
+			Size = UDim2.fromOffset(0, 30),
+			AutomaticSize = Enum.AutomaticSize.X,
+			Text = ancestor.Title,
+			TextSize = 13,
+			LayoutOrder = order,
+			Theme = { TextColor3 = "textMuted" },
+			Parent = trail,
+		})
+		Create.padding(step, 4, 0)
+		self.scope:connect(step.Activated, function()
+			window:SelectTab(ancestor)
+		end)
+		self.scope:connect(step.MouseEnter, function()
+			Theme.bind(step, "TextColor3", "text")
+		end)
+		self.scope:connect(step.MouseLeave, function()
+			Theme.bind(step, "TextColor3", "textMuted")
+		end)
+		local divider = Create.icon("chevron-right", 12, "textMuted", trail)
+		divider.LayoutOrder = order + 1
+		order += 2
+	end
+	Create.new("TextLabel", {
+		Name = "Current",
+		Size = UDim2.fromOffset(0, 30),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = self.Title,
+		TextSize = 15,
+		Weight = "bold",
+		LayoutOrder = order,
+		Theme = { TextColor3 = "text" },
+		Parent = trail,
+	})
+	if description then
+		Create.new("TextLabel", {
+			Name = "Description",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
+			TextSize = 13,
+			LayoutOrder = 1,
+			Text = description,
+			Theme = { TextColor3 = "textMuted" },
+			Parent = header,
+		})
+	end
 end
 
 for _, kind in Registry.Kinds do

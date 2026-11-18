@@ -11,6 +11,7 @@ local Stat = require("./Stat")
 local Strings = require("../Core/Strings")
 local Tooltip = require("../Components/Tooltip")
 local Schema = require("../Core/Schema")
+local Favourites = require("../Components/Favourites")
 
 local MODULES = {
 	Button = require("./Button"),
@@ -56,6 +57,7 @@ local MODULES = {
 	Chart = require("./Chart"),
 	ItemGrid = require("./ItemGrid"),
 	Waypoints = require("./Waypoints"),
+	PageLink = require("./PageLink"),
 }
 local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true, Stats = true }
 
@@ -181,8 +183,26 @@ local function create(container, kind, options)
 	Registry.switches(handle, options)
 	-- Menu = { items } (or a function returning them) opens on right-click
 	-- or a long press on the row.
-	if (type(options.Menu) == "table" or type(options.Menu) == "function") and handle.Frame then
-		Menu.attach(handle.scope, window.library, handle.Frame, options.Menu)
+	-- With Favourites on, the menu also stars the row.
+	local favourite = Favourites.register(window, handle, container)
+	local own = type(options.Menu) == "table" or type(options.Menu) == "function"
+	if (own or favourite) and handle.Frame then
+		Menu.attach(handle.scope, window.library, handle.Frame, function()
+			local items = {}
+			if favourite then
+				table.insert(items, Favourites.menuItem(window, handle))
+			end
+			if own then
+				local listed = if type(options.Menu) == "function" then options.Menu() else options.Menu
+				if #items > 0 and #listed > 0 then
+					table.insert(items, { Divider = true })
+				end
+				for _, item in listed do
+					table.insert(items, item)
+				end
+			end
+			return items
+		end)
 	end
 	if window.query ~= "" then
 		window:applySearch()

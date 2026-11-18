@@ -10,6 +10,8 @@
 -- Studio and on executors without getcustomasset.
 
 local Assets = require("../Core/Assets")
+local UserInputService = game:GetService("UserInputService")
+
 local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Hairline = require("../Core/Hairline")
@@ -126,9 +128,49 @@ function Header.searchBox(window, scope, parent, size)
 		Theme = { TextColor3 = "text" },
 		Parent = search,
 	})
+	-- How many rows match, and which one Enter or the arrow keys landed on.
+	local counter = Create.new("TextLabel", {
+		Name = "Matches",
+		Size = UDim2.fromOffset(0, 20),
+		AutomaticSize = Enum.AutomaticSize.X,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -8, 0.5, 0),
+		TextSize = 11,
+		Weight = "medium",
+		Visible = false,
+		Theme = { TextColor3 = "textMuted" },
+		Parent = search,
+	})
+	window.searchCounter = counter
+	local function fit()
+		box.Size = if counter.Visible then UDim2.new(1, -38 - counter.AbsoluteSize.X - 8, 1, 0) else UDim2.new(1, -38, 1, 0)
+	end
+	scope:connect(counter:GetPropertyChangedSignal("AbsoluteSize"), fit)
+	scope:connect(counter:GetPropertyChangedSignal("Visible"), fit)
 	scope:connect(box:GetPropertyChangedSignal("Text"), function()
 		window.searchText = box.Text
+		window.matchIndex = nil
 		window:applySearch(box.Text)
+	end)
+	-- Enter jumps to the next match and keeps the box open for the one after.
+	scope:connect(box.FocusLost, function(enter)
+		if enter and box.Text ~= "" then
+			window:JumpToMatch(1)
+			task.defer(function()
+				if box.Parent then
+					box:CaptureFocus()
+				end
+			end)
+		end
+	end)
+	scope:connect(UserInputService.InputBegan, function(input)
+		if box:IsFocused() and box.Text ~= "" then
+			if input.KeyCode == Enum.KeyCode.Down then
+				window:JumpToMatch(1)
+			elseif input.KeyCode == Enum.KeyCode.Up then
+				window:JumpToMatch(-1)
+			end
+		end
 	end)
 	return search, box
 end

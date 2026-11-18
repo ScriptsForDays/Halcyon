@@ -303,6 +303,8 @@ Schema.elements = {
 			Height = "number",
 		},
 	},
+	-- Made by Tab:Page and Section:Page, not called directly.
+	PageLink = { value = "any", options = { Page = "any" } },
 	Banner = {
 		value = "string",
 		options = { Text = "string", Image = "Image", Height = "number", Button = "{ Title: string, Callback: Callback? }" },
@@ -339,6 +341,7 @@ Schema.section = {
 	Tabs = "{ string }",
 	Switch = "{ Default: boolean?, Flag: string?, Callback: Callback? }",
 	MaxHeight = "number",
+	PopOut = "boolean",
 	Tier = "string",
 	PaidOnly = "boolean",
 	LockText = "string",
@@ -449,6 +452,8 @@ Schema.window = {
 	Notifications = "{ [string]: any }",
 	Configs = "{ PerGame: (string | boolean)? }",
 	ShowErrors = "boolean",
+	Favourites = "boolean",
+	TabReorder = "boolean",
 	Debug = "boolean",
 	Language = "string",
 	Strings = "{ [string]: string }",

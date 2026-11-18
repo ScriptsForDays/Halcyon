@@ -370,13 +370,46 @@ function Row.new(container, options, layout)
 	end
 
 	-- Marks where `query` appears in the title while a search is typed.
+	-- While a search matches this row: the matched words get a marker, and
+	-- a thin accent edge and tint pick the row out of its section. Sizes
+	-- here are pure scale, since the row sizes itself to its children.
+	local searchEdge, searchTint
+	local function markRow(matched)
+		if matched and not searchEdge then
+			searchTint = Create.new("Frame", {
+				Name = "SearchTint",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 0.93,
+				ZIndex = 0,
+				Theme = { BackgroundColor3 = "accent" },
+				Parent = frame,
+			})
+			Create.corner(8, searchTint)
+			searchEdge = Create.new("Frame", {
+				Name = "SearchEdge",
+				Size = UDim2.new(0, 3, 0.56, 0),
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(0, 2, 0.5, 0),
+				Theme = { BackgroundColor3 = "accent" },
+				Parent = frame,
+			})
+			Create.corner(-1, searchEdge)
+		end
+		if searchEdge then
+			searchEdge.Visible = matched
+			searchTint.Visible = matched
+		end
+	end
+
 	function handle:Highlight(query)
+		local searching = query ~= nil and query ~= ""
+		markRow(searching)
 		if not title then
 			return
 		end
 		local plain = self.Title
 		local from, to = nil, nil
-		if query and query ~= "" then
+		if searching then
 			from, to = string.find(string.lower(plain), query, 1, true)
 		end
 		if not from then
@@ -389,9 +422,9 @@ function Row.new(container, options, layout)
 		end
 		title.RichText = true
 		title.Text = escape(string.sub(plain, 1, from - 1))
-			.. `<font color="#{Theme.color("accent"):ToHex()}">`
+			.. `<mark color="#{Theme.color("accent"):ToHex()}" transparency="0.72"><b>`
 			.. escape(string.sub(plain, from, to))
-			.. "</font>"
+			.. "</b></mark>"
 			.. escape(string.sub(plain, to + 1))
 	end
 

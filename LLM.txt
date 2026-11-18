@@ -116,7 +116,9 @@ All optional. Defaults in brackets.
 - `SliderTooltips` [true]; `ToggleOutline` [true], `ToggleOutlineColor`; `LockShimmer` [true]; `FocusRing` [true]
 
 **Behaviour**
-- `Search` [true]; `CommandPalette` [false] (Ctrl+K), `PaletteKey` [K]
+- `Favourites` [false]: players star rows from their right-click or long-press menu; a Favourites tab at the top shows live copies (changing either side changes both; only the original holds the Flag). Remembered per hub.
+- `TabReorder` [false]: players drag tabs to reorder them within their group, or pin and move them from the tab's menu. Remembered per hub.
+- `Search` [true]; matches are marked, counted per section and in the box ("2 of 7"); Enter or Up/Down jumps between them with a light running round the row. `Window:JumpToMatch(1 or -1)`; `CommandPalette` [false] (Ctrl+K), `PaletteKey` [K]
 - `Tooltips` [true]; `Animations` [true]; `Blur` [false; true or a size]; `NotificationCenter` [false]: a bell with past notices
 - `Watermark`, `KeybindList`, `SettingsTab` [false]: true, or the same table their Window methods take
 - `ConfirmUnload` [true]; `SavePreferences` [true]; `DisplayOrder` [2147483000]
@@ -165,6 +167,7 @@ Tabs, sections and elements take, when made: `Visible = false`, `Disabled = true
 `Window:Tab({ Title, Icon, Group, Description, SectionStyle, Tier, PaidOnly, LockText, LockHint, Visible, ShowWhen })`
 
 - `Description` adds a page heading with that line under it.
+- `Page({ Title, Description, Icon, Badge, Tier, PaidOnly })` (also on a Section): a sub-page with its own sections and rows, opened from a row on the parent and left by the back arrow, the breadcrumb or Escape. Pages nest, search finds rows inside them, and the navigation marks the tab they belong to. Use them for deep settings of one feature (Combat > Aimbot > Prediction), not as a second set of tabs.
 - Methods: `Section(options)`, `Select()`, `SetTitle(text)`, `SetVisible(bool)`, `ShowWhen(source, value)`, `SetBadge(value)` (number, short word, true for a dot, nil to clear), `Notice({ Title, Content, Kind, Dismissible })` (callout at the top of the page) -> `{ SetContent, Destroy }`, `EmptyState({ Icon, Title, Text, Kind = "error", Button = { Title, Callback } })` -> `{ SetText, Destroy }`, `About(options)`.
 - Every element method also exists on a tab; those rows go into an untitled flat section.
 
@@ -178,6 +181,7 @@ Tabs, sections and elements take, when made: `Visible = false`, `Disabled = true
 - `Tabs = { "Aim", "Visuals" }`: tabs inside the box. `section:Tab("Visuals"):Toggle({...})`; elements added to the section itself go to the first. `SelectTab(name)`.
 - `Switch = { Default, Flag, Callback }`: a switch in the header; off greys every row in the section.
 - `MaxHeight = 240`: rows scroll past that height.
+- `PopOut = true`: a header button moves the rows into a floating panel (drag by its title bar, resize from the bottom-right corner) that stays on screen while the hub is hidden; it docks back from the panel or the note left in the section. `section:PopOut(open)`, `section:IsPoppedOut()`, `Window.SectionPopped(section, open)`. Position, size and whether it was out are saved. Good for live readouts and a few quick switches.
 - `Tier` / `PaidOnly`: one overlay covers the section with `LockText` and `LockHint`.
 - `Group({ Columns = 2 })`: a holder taking element calls that puts 2-3 controls on one line; they stack when narrow. Use for short pairs (Auto farm / Auto sell), not for sliders or lists.
 - Methods: `SetTitle`, `SetBadge`, `SetCollapsed(bool)`, `SetVisible(bool)`, `SetEnabled(bool)`, `ShowWhen(source, value)`, `EnableWhen(source, value)`, `Group(options)`, `Destroy()`, and every element method.

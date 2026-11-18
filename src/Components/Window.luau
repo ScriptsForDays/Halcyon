@@ -33,6 +33,9 @@ local Tab = require("./Tab")
 local UpdateLog = require("./UpdateLog")
 local Theme = require("../Core/Theme")
 local Schema = require("../Core/Schema")
+local Favourites = require("./Favourites")
+local TabOrder = require("./TabOrder")
+local SearchFocus = require("./SearchFocus")
 
 -- Below this window width the side navigation becomes a strip of tabs.
 local NARROW = 560
@@ -100,6 +103,8 @@ local SNAP = 18
 local SHADOW_IMAGE = "rbxassetid://8992230677"
 local SHADOW_SPREAD = 50
 local MIN_SIZE = Vector2.new(420, 300)
+-- The group key for tabs the player pinned to the top of the navigation.
+local PINNED = "Pinned (Halcyon)"
 local DEFAULT_SIZE = Vector2.new(740, 500)
 local PREFERENCES_VERSION = 1
 
@@ -147,6 +152,11 @@ function Window.new(library, options, access)
 	self.showErrors = options.ShowErrors ~= false
 	self.preferencesPath = `Halcyon/{self.folder}/settings.json`
 	self.Flags, self.tabs, self.keybinds, self.gated = {}, {}, {}, {}
+	-- Pages made with Tab:Page; they search like tabs but stay out of the
+	-- navigation, which marks the tab they belong to instead.
+	self.subPages = {}
+	-- Fires (section, open) when a section moves into its own panel or back.
+	self.SectionPopped = Signal.new()
 	self.OnUnload, self.KeybindsChanged, self.TabChanged, self.Tick = Signal.new(), Signal.new(), Signal.new(), Signal.new()
 	-- Fires (action, name) after a config is saved, loaded, deleted or set to autoload.
 	self.ConfigChanged = Signal.new()
@@ -200,6 +210,8 @@ function Window.new(library, options, access)
 	-- Only a language the player picked is saved; the hub's own choice is
 	-- applied again on every run.
 	self.languagePicked = if type(saved.language) == "string" then saved.language else nil
+	-- Popped-out panels by section: where they sit and whether they were out.
+	self.popOutState = if type(saved.popOuts) == "table" then saved.popOuts else {}
 	-- The player's own look: themes they made, then what applies at build
 	-- time; the rest is restored once the window exists.
 	self.personal, self.customThemes = {}, {}
@@ -398,7 +410,14 @@ function Window.new(library, options, access)
 		self:buildFocusRing()
 	end
 	Switches.build(self)
+	if options.TabReorder then
+		TabOrder.setup(self, saved.tabOrder)
+	end
 	self:layout()
+	-- After the first layout, which picks the navigation the tab goes in.
+	if options.Favourites then
+		Favourites.setup(self, saved.favourites)
+	end
 	self:pop(true)
 	return self
 end
@@ -1013,7 +1032,11 @@ end
 -- the hub disabled itself stay disabled.
 function Window:SetEnabled(enabled)
 	self.disabledAll = enabled == false
-	for _, tab in self.tabs do
+	local places = table.clone(self.tabs)
+	for _, page in self.subPages do
+		table.insert(places, page)
+	end
+	for _, tab in places do
 		for _, entry in tab.entries do
 			if entry.handle.SetBlocked then
 				entry.handle:SetBlocked(Registry.blocked(self, entry.section))
@@ -1100,6 +1123,9 @@ function Window:layout()
 	for _, tab in self.tabs do
 		tab:reflow(self.wide)
 	end
+	for _, page in self.subPages do
+		page:reflow(self.wide)
+	end
 
 	-- The top-left corner sits on a whole pixel, wherever the window goes:
 	-- centred at first, then where the player dragged it, kept on screen.
@@ -1151,6 +1177,7 @@ function Window:buildNav()
 
 	local host = Create.new("Frame", { Name = "Navigation", Parent = self.body })
 	scope:add(host)
+	self.navHost = host
 	local seam = Hairline.new(if lane then "Y" else "X", "stroke", { ZIndex = 2, Parent = host })
 	local list
 
@@ -1220,15 +1247,19 @@ function Window:buildNav()
 			tab.button = nil
 			continue
 		end
-		if style == "Sidebar" and tab.Group and tab.Group ~= group then
+		local heading = self:navGroup(tab)
+		if style == "Sidebar" and heading and heading ~= group and heading ~= PINNED then
 			order += 1
-			self:buildGroupHeading(list, scope, tab.Group, order)
+			self:buildGroupHeading(list, scope, heading, order)
 		end
-		group = tab.Group
+		group = heading
 		order += 1
 		tab:buildButton(style, list, scope, order)
-		if style == "Sidebar" and tab.Group and self.collapsedGroups[tab.Group] then
+		if style == "Sidebar" and heading and self.collapsedGroups[heading] then
 			tab.button.Visible = false
+		end
+		if self.tabOrder then
+			TabOrder.attach(self, tab, scope, self:lane(style) ~= nil)
 		end
 	end
 
@@ -1293,18 +1324,29 @@ end
 -- kept together under their sidebar heading, and the update log last in its
 -- group. A hub that builds its tabs a frame apart gets its update log made
 -- at the first pause, early, and it still belongs at the end.
+-- The sidebar heading a tab sits under: its Group, or the pinned tabs'
+-- own place at the top, which shows no heading.
+function Window:navGroup(tab)
+	if TabOrder.isPinned(self, tab) then
+		return PINNED
+	end
+	return tab.Group
+end
+
 function Window:navOrder()
 	local rank, made = {}, {}
 	for index, tab in self.tabs do
-		made[tab] = index
-		local key = tab.Group or ""
+		-- A place the player dragged the tab to wins over the order it was made in.
+		local placed = TabOrder.position(self, tab)
+		made[tab] = if placed then placed else 1000 + index
+		local key = self:navGroup(tab) or ""
 		if rank[key] == nil and not tab.trailing then
-			rank[key] = index
+			rank[key] = if TabOrder.isPinned(self, tab) then -1 else index
 		end
 	end
 	local ordered = table.clone(self.tabs)
 	table.sort(ordered, function(a, b)
-		local first, second = rank[a.Group or ""] or math.huge, rank[b.Group or ""] or math.huge
+		local first, second = rank[self:navGroup(a) or ""] or math.huge, rank[self:navGroup(b) or ""] or math.huge
 		if first ~= second then
 			return first < second
 		end
@@ -1317,8 +1359,14 @@ function Window:navOrder()
 end
 
 function Window:paintTabs()
+	local open = self.selected
+	local root = open and (open.rootTab or open)
+	local found = {}
+	for _, page in self.subPages do
+		found[page.rootTab] = (found[page.rootTab] or 0) + page.matches
+	end
 	for _, tab in self.tabs do
-		tab:paint(tab == self.selected, self.query ~= "" and tab.matches == 0)
+		tab:paint(tab == root, self.query ~= "" and tab.matches + (found[tab] or 0) == 0)
 	end
 end
 
@@ -1395,10 +1443,16 @@ function Window:applySearch(query)
 			first = tab
 		end
 	end
+	for _, page in self.subPages do
+		if page:filter(self.query) > 0 and not first and not page.rootTab.Hidden then
+			first = page
+		end
+	end
 	if self.query ~= "" and first and self.selected and self.selected.matches == 0 then
 		self:SelectTab(first)
 	end
 	self.empty.Visible = self.query ~= "" and first == nil
+	self:updateMatchCounter()
 	self.empty.Text = Strings.get('Nothing matches "{query}".', { query = self.query })
 	if self.selected then
 		self.selected.page.Visible = not self.empty.Visible
@@ -1408,6 +1462,57 @@ end
 
 function Window:Search(query)
 	self.searchBox.Text = query or ""
+end
+
+-- Every row the search matches, tab by tab in navigation order, pages after
+-- the tab they belong to.
+function Window:searchMatches()
+	local matches = {}
+	local function collect(tab)
+		for _, entry in tab.entries do
+			if entry.handle.searchMatched then
+				table.insert(matches, { tab = tab, handle = entry.handle })
+			end
+		end
+	end
+	for _, tab in self:navOrder() do
+		if not tab.Hidden then
+			collect(tab)
+			for _, page in self.subPages do
+				if page.rootTab == tab then
+					collect(page)
+				end
+			end
+		end
+	end
+	return matches
+end
+
+-- Moves to the next (step 1) or previous (step -1) matching row: opens its
+-- tab or page, scrolls it into view and lights it up.
+function Window:JumpToMatch(step)
+	local matches = self:searchMatches()
+	if #matches == 0 then
+		return nil
+	end
+	local index = self.matchIndex
+	index = if index then (index - 1 + (step or 1)) % #matches + 1 else (if (step or 1) < 0 then #matches else 1)
+	self.matchIndex = index
+	local found = matches[index]
+	self:SelectTab(found.tab)
+	SearchFocus.reveal(self, found.tab, found.handle)
+	self:updateMatchCounter(#matches)
+	return found.handle
+end
+
+function Window:updateMatchCounter(total)
+	local counter = self.searchCounter
+	if not counter then
+		return
+	end
+	total = total or #self:searchMatches()
+	counter.Visible = self.query ~= "" and total > 0
+	counter.Text = if self.matchIndex then Strings.get("{index} of {total}", { index = self.matchIndex, total = total }) else tostring(total)
 end
 
 -- Flags ---------------------------------------------------------------------
@@ -1785,6 +1890,9 @@ function Window:writePreferences()
 		anonymous = self.profile.Anonymous,
 		toggleKey = if self.toggleKey then self.toggleKey.Name else "",
 		language = self.languagePicked,
+		favourites = Favourites.saved(self),
+		tabOrder = TabOrder.saved(self),
+		popOuts = if next(self.popOutState) then self.popOutState else nil,
 	})
 	local wrote, message = false, Strings.get("The settings could not be encoded.")
 	if encoded then

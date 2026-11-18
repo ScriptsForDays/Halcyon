@@ -19,6 +19,7 @@ local Signal = require("../Core/Signal")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 local Tokens = require("../Core/Tokens")
+local PopOut = require("./PopOut")
 
 -- fill: the section's own colour; stroke: its outline; surface: the colour
 -- rows sit on (veils match it); flat: no container at all.
@@ -66,6 +67,7 @@ function Section.new(tab, options)
 		searching = false,
 	}, Section)
 	self.section = self
+	self.options = options
 	self.searchTitle = if options.Title then string.lower(options.Title) else nil
 
 	local root = Create.new("Frame", {
@@ -208,6 +210,9 @@ function Section.new(tab, options)
 		self:buildLock()
 	end
 	Registry.install(self)
+	if options.PopOut then
+		PopOut.attach(self)
+	end
 	if type(options.Tabs) == "table" and #options.Tabs > 0 then
 		self:buildTabs(options.Tabs)
 	end
@@ -387,6 +392,32 @@ function Section:setSearching(searching)
 	if self.searching ~= searching then
 		self.searching = searching
 		self:refresh()
+	end
+end
+
+-- The number of matching rows, beside the title while a search runs.
+function Section:setMatches(count)
+	if not self.header then
+		return
+	end
+	if count > 0 and not self.matchChip then
+		self.matchChip = Create.new("TextLabel", {
+			Name = "Matches",
+			Size = UDim2.fromOffset(0, 18),
+			AutomaticSize = Enum.AutomaticSize.X,
+			TextSize = 11,
+			Weight = "bold",
+			LayoutOrder = 2,
+			BackgroundTransparency = 0.82,
+			Theme = { BackgroundColor3 = "accent", TextColor3 = "accent" },
+			Parent = self.header,
+		})
+		Create.corner(-1, self.matchChip)
+		Create.padding(self.matchChip, 7, 0)
+	end
+	if self.matchChip then
+		self.matchChip.Visible = count > 0
+		self.matchChip.Text = tostring(count)
 	end
 end
 
@@ -641,6 +672,23 @@ function Section:Destroy()
 		table.remove(sections, index)
 	end
 	self.tab.scope:release(self.scope)
+end
+
+-- Moves the rows into a panel of their own (true) or back (false); with
+-- no argument, switches. The header button does the same.
+function Section:PopOut(open)
+	if open == nil then
+		open = not self.popped
+	end
+	if open then
+		PopOut.open(self)
+	else
+		PopOut.close(self)
+	end
+end
+
+function Section:IsPoppedOut()
+	return self.popped == true
 end
 
 return Section
