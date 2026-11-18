@@ -9,6 +9,7 @@ local Spotlight = require("../Components/Spotlight")
 local Stat = require("./Stat")
 local Strings = require("../Core/Strings")
 local Tooltip = require("../Components/Tooltip")
+local Schema = require("../Core/Schema")
 
 local MODULES = {
 	Button = require("./Button"),
@@ -51,7 +52,7 @@ local MODULES = {
 }
 local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true, Stats = true }
 
-local Registry = { Kinds = {}, KindSet = {} }
+local Registry = { Kinds = {}, KindSet = {}, custom = {} }
 for kind in MODULES do
 	table.insert(Registry.Kinds, kind)
 	Registry.KindSet[kind] = true
@@ -88,6 +89,11 @@ local function create(container, kind, options)
 		error(`{kind} expects a table of options`, 3)
 	elseif not UNTITLED[kind] and type(options.Title) ~= "string" then
 		error(`{kind} needs a Title`, 3)
+	end
+
+	local spec = Schema.elements[kind] or Registry.custom[kind]
+	if spec then
+		Schema.check(`{kind} "{options.Title or ""}"`, options, spec.options, Schema.shared)
 	end
 
 	-- Refuse a duplicate Flag before anything is built, so a rejected element leaves no half-made row.

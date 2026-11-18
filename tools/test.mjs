@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "./bundle.mjs";
 import { checkStrings } from "./check-strings.mjs";
+import { checkSchema } from "./check-schema.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TESTS = join(ROOT, "tests");
@@ -60,10 +61,11 @@ for (const suite of suites) {
 	}
 }
 
-// The translation packs cover every built-in text and nothing stale.
+// The translation packs cover every built-in text and nothing stale, and
+// the option schema covers what the elements read and what LLM.txt says.
 if (!only) {
-	const problems = checkStrings();
-	process.stdout.write(problems.length === 0 ? "translations: complete\n" : `translations: FAILED\n  ${problems.join("\n  ")}\n`);
+	const problems = [...checkStrings(), ...checkSchema({ docs: process.env.HALCYON_DOCS_CHECK !== "0" })];
+	process.stdout.write(problems.length === 0 ? "translations and schema: complete\n" : `translations and schema: FAILED\n  ${problems.join("\n  ")}\n`);
 	if (problems.length > 0) {
 		failed = true;
 	}

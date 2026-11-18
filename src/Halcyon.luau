@@ -24,6 +24,7 @@ local QuickBar = require("./Components/QuickBar")
 local Sheet = require("./Components/Sheet")
 local Palettes = require("./Themes/Palettes")
 local Presets = require("./Themes/Presets")
+local Schema = require("./Core/Schema")
 local Scope = require("./Core/Scope")
 local SettingsTab = require("./Components/SettingsTab")
 local Signal = require("./Core/Signal")
@@ -71,6 +72,7 @@ local Halcyon = {
 		Motion = Motion,
 		Notifications = Notifications,
 		Personalise = require("./Components/Personalise"),
+		Schema = Schema,
 		Scope = Scope,
 		Signal = Signal,
 		Strings = Strings,
@@ -137,6 +139,12 @@ function Halcyon:CreateWindow(options)
 	if type(options) ~= "table" then
 		error("CreateWindow expects a table of options", 2)
 	end
+	-- Debug = true warns about unknown option names and looks; it stays on
+	-- for the session until a window sets it false.
+	if options.Debug ~= nil then
+		Schema.enabled = options.Debug == true
+	end
+	Schema.check(`CreateWindow "{options.Title or ""}"`, options, Schema.window)
 	-- A preset fills in whatever the hub did not set itself.
 	options = Presets.apply(options)
 	local folder = folderFor(options)
@@ -304,6 +312,12 @@ end
 -- `callback(id, problem)`. Needs getcustomasset for URLs and files.
 function Halcyon:Image(source, callback)
 	return Assets.resolve(source, callback)
+end
+
+-- Warnings for option names Halcyon doesn't know, misspelt looks and
+-- themes. For building; leave it off in a released hub.
+function Halcyon:SetDebug(enabled)
+	Schema.enabled = enabled == true
 end
 
 -- Translation. Codes: "en", "pt-br", "es", "vi", "id", "ru", "tr", "fr",

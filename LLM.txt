@@ -112,7 +112,7 @@ All optional. Defaults in brackets.
 - `Styles = { Kind = "Look" }`; single options: `SectionStyle`, `TabIndicator`, `WindowStyle`, `OpenAnimation`, `PageTransition`, `TopbarControls`, `ButtonEffect`, `ToggleThumb`, `SliderTooltipStyle`
 - `Radius`: "Sharp" | "Soft" | "Default" | "Round"; `Density`: "Compact" | "Default" | "Spacious"; `TextSize`: "Default" | "Large" | "Larger"
 - `Theme` (name or palette table), `Font`, `IconPack`, `AccentGradient` (true or Color3), `SafeStatusColors` [false]
-- `Transparency` 0-0.6 [0]; `BackgroundImage`, `BackgroundImageTransparency` [0.75]; `Shadow` [true], `ShadowTransparency` [0.5]
+- `Transparency` 0-0.6 [0]; `BackgroundImage`, `BackgroundImageTransparency` [0.75]; `Shadow` [true], `ShadowImage`, `ShadowTransparency` [0.5]
 - `SliderTooltips` [true]; `ToggleOutline` [true], `ToggleOutlineColor`; `LockShimmer` [true]; `FocusRing` [true]
 
 **Behaviour**
@@ -121,6 +121,10 @@ All optional. Defaults in brackets.
 - `Watermark`, `KeybindList`, `SettingsTab` [false]: true, or the same table their Window methods take
 - `ConfirmUnload` [true]; `SavePreferences` [true]; `DisplayOrder` [2147483000]
 - `Notifications = { Duration, Position, Progress, MaxVisible, Style, Sound }`
+- `Configs = { PerGame = "Place" | "Universe" }`: configs and autoload kept per game
+- `ShowErrors` [true]: a failing callback's message shows under its row
+- `Debug` [false]: warns about unknown option names, misspelt looks and themes. Turn it on while building.
+- `Language` ["en"]: "auto" or a code ("pt-br", "es", "vi", "id", "ru", "tr", "fr", "de"); `Strings = { ["English text"] = "your text" }` replaces built-in wording
 
 **Access**
 - `KeySystem` (see Key system); or `Tiers`, `Tier`, `PaidTier` for tiers without a prompt
@@ -137,7 +141,7 @@ Every built-in part is an option: false leaves it out, true adds it, a table pas
 Live switches: Search, Profile, ShowVersion, Minimize (Minimizable), Close, Resize (Resizable), Drag, Shadow, Tooltips, Animations, Blur, CommandPalette, Snap, OpenButton, Watermark, KeybindList, NotificationCenter, SettingsTab.
 Read once at creation: Icon, TopbarImage, Logo, CollapsibleGroups, SliderTooltips, ToggleOutline, ConfirmUnload, LockShimmer, FocusRing, SavePreferences.
 
-Tabs, sections and elements take, when made: `Visible = false`, `Disabled = true`, `ShowWhen = "Flag"` or `{ "Flag", value }` (shown while that flag holds value [true]; value may be a function), `EnableWhen` (the same, greyed instead of hidden). The flag may belong to an element made later.
+Tabs, sections and elements take, when made: `Visible = false`, `Disabled = true` (or `Enabled = false`), `ShowWhen = "Flag"` or `{ "Flag", value }` (shown while that flag holds value [true]; value may be a function), `EnableWhen` (the same, greyed instead of hidden). The flag may belong to an element made later.
 
 ## Window
 

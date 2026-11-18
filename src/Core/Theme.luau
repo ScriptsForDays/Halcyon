@@ -2,6 +2,7 @@
 -- switching the palette recolours everything already on screen.
 
 local Signal = require("./Signal")
+local Schema = require("./Schema")
 
 local ROLES = {
 	"background",
@@ -143,6 +144,7 @@ local SAFE_STATUS_LIGHT = {
 function Theme.set(name)
 	local palette = Theme.palettes[name]
 	if not palette then
+		Schema.warn(`Theme "{name}" does not exist; the theme stays {Theme.current and Theme.current.Name or "as it was"}.`)
 		return false, `Theme "{name}" does not exist.`
 	end
 	if Theme.accent then

@@ -32,6 +32,7 @@ local Switches = require("./Switches")
 local Tab = require("./Tab")
 local UpdateLog = require("./UpdateLog")
 local Theme = require("../Core/Theme")
+local Schema = require("../Core/Schema")
 
 -- Below this window width the side navigation becomes a strip of tabs.
 local NARROW = 560
@@ -1328,6 +1329,7 @@ function Window:Tab(options)
 	if type(options) ~= "table" or type(options.Title) ~= "string" then
 		error("Tab needs a Title", 2)
 	end
+	Schema.check(`Tab "{options.Title}"`, options, Schema.tab)
 	local tab = Tab.new(self, options)
 	table.insert(self.tabs, tab)
 	tab:reflow(self.wide)

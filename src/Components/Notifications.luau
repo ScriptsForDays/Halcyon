@@ -19,6 +19,7 @@ local Signal = require("../Core/Signal")
 local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
+local Schema = require("../Core/Schema")
 
 local WIDTH, NARROW = 320, 480
 local RADIUS = 12
@@ -692,6 +693,7 @@ function Notifications.push(library, options)
 	if type(options) == "string" then
 		options = { Title = options }
 	end
+	Schema.check(`Notify "{options.Title or ""}"`, options, Schema.notify)
 	local defaults = Notifications.Defaults
 	local state = toastStack(library)
 	local style = if STYLES[options.Style] then options.Style else defaults.Style

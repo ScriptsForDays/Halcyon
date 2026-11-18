@@ -9,6 +9,7 @@ local Registry = require("../Elements/Registry")
 local Section = require("./Section")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
+local Schema = require("../Core/Schema")
 
 local GAP = 10
 
@@ -136,6 +137,9 @@ function Tab:nextOrder()
 end
 
 function Tab:Section(options)
+	if type(options) == "table" then
+		Schema.check(`Section "{options.Title or ""}"`, options, Schema.section)
+	end
 	local section = Section.new(self, options)
 	table.insert(self.sections, section)
 	self.last = section

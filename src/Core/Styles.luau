@@ -8,6 +8,8 @@
 -- first look registered for a kind is its default. Hub developers add their
 -- own looks with Halcyon:AddStyle, using the same fields as a built-in one.
 
+local Schema = require("./Schema")
+
 local Styles = { kinds = {} }
 
 local function entry(kind)
@@ -73,6 +75,10 @@ function Styles.pick(kind, explicit, window)
 	end
 	if found.specs[explicit] then
 		return found.specs[explicit], explicit
+	end
+	if type(explicit) == "string" then
+		local guess = Schema.closest(explicit, found.specs)
+		Schema.warn(`{kind} look "{explicit}" doesn't exist{if guess then `; did you mean "{guess}"?` else "."} Looks: {table.concat(found.order, ", ")}.`)
 	end
 	local preferred = window and window.styles and window.styles[kind]
 	if found.specs[preferred] then
