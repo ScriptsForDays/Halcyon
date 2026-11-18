@@ -232,6 +232,10 @@ function Halcyon:SetNotificationDefaults(settings)
 	Notifications.configure(library, settings)
 end
 
+function Halcyon:ClearNotifications()
+	Notifications.clear(library)
+end
+
 function Halcyon:Dialog(options)
 	return Dialog.open(library, options)
 end

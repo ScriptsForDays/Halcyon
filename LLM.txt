@@ -72,7 +72,7 @@ Window:LoadAutoload()
 | `Halcyon:CreateWindow(options)` | Window, or nil if a key prompt was closed (yields with KeySystem) |
 | `Halcyon:Authenticate(keySystemOptions)` | access table or nil; the key prompt without a window (yields) |
 | `Halcyon:Notify(options)` | notice handle (see Notifications) |
-| `Halcyon:SetNotificationDefaults({ Duration, Position, Progress, MaxVisible, Style, Sound })` | defaults for later notices |
+| `Halcyon:SetNotificationDefaults({ Duration, Position, Progress, MaxVisible, Style, Sound, Countdown, Stack })` | defaults for later notices; `Stack = "Deck"` piles notices and fans them out on hover |
 | `Halcyon:Dialog(options)` | dialog shell (see Dialogs) |
 | `Halcyon:SetTheme(name)`, `:GetTheme()`, `:GetThemes()` | theme control |
 | `Halcyon:AddTheme(palette)` | `ok, message`; see Themes |
@@ -480,8 +480,14 @@ local notice = Window:Notify({
 	Style = "Default" | "Timer" | "Compact" | "Banner" | "Progress" | "Accent" | "Glass" | "Achievement" | "Snackbar" | "Island",
 	Icon = "save", Duration = 4, Progress = true, Sound = false, Close = true, Indeterminate = false,
 	Actions = { { Title = "Undo", Callback = fn } },
+	Countdown = "Bar" | "Edge" | "Ring" | "Top" | "None", -- how the time left shows; Edge drains the card's border
+	Id = "farm-status", -- a later notice with the same Id updates this one instead of stacking
+	Merge = true, -- identical notices fold into one with a count; false keeps them apart
+	Image = "rbxassetid://…", Avatar = player.UserId, -- a picture instead of the icon
+	OnClick = function(notice) end, OnDismiss = function(reason) end, -- reason: timeout, closed, clicked, swiped, action, cleared, code
 })
--- notice.Dismiss(), SetTitle(t), SetContent(t), SetProgress(0..1), Done(title, kind) (also Complete)
+-- notice.Dismiss(), SetTitle(t), SetContent(t), SetKind(kind), SetProgress(0..1), Restart(seconds), Done(title, kind) (also Complete)
+-- Window:ClearNotifications() / Halcyon:ClearNotifications() dismiss everything
 ```
 
 - Hovering pauses the countdown; a sideways drag dismisses; the × shows on hover (always on touch); `Close = false` removes it. Past `MaxVisible`, a pill counts the waiting ones.

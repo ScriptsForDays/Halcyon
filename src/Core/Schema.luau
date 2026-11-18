@@ -286,6 +286,13 @@ Schema.notify = {
 	Close = "boolean",
 	Indeterminate = "boolean",
 	Actions = "{ { Title: string, Callback: Callback? } }",
+	Countdown = "string",
+	Id = "string",
+	Merge = "boolean",
+	Image = "Image",
+	Avatar = "number",
+	OnClick = "(any) -> ()",
+	OnDismiss = "(string) -> ()",
 }
 
 Schema.window = {

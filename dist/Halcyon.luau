@@ -1962,6 +1962,7 @@ end
 modules["Components/Notifications"] = function()
 local GuiService = game:GetService("GuiService")
 local SoundService = game:GetService("SoundService")
+local Arc = import("Core/Arc")
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
 local Env = import("Core/Env")
@@ -1997,8 +1998,19 @@ Styles.register("Notification", name, {})
 end
 local CHIME = "rbxasset://sounds/electronicpingshort.wav"
 local Notifications = {
-Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4, Style = "Default", Sound = false },
+Defaults = {
+Duration = 4,
+Position = "BottomRight",
+Progress = true,
+MaxVisible = 4,
+Style = "Default",
+Sound = false,
+Countdown = "Bar",
+Stack = "List",
+},
 }
+local COUNTDOWNS = { Bar = true, Edge = true, Ring = true, Top = true, None = true }
+local STACKS = { List = true, Deck = true }
 function Notifications.configure(library, settings)
 if type(settings) ~= "table" then
 return
@@ -2021,6 +2033,15 @@ defaults.Style = settings.Style
 end
 if type(settings.MaxVisible) == "number" and settings.MaxVisible >= 1 then
 defaults.MaxVisible = math.floor(settings.MaxVisible)
+end
+if COUNTDOWNS[settings.Countdown] then
+defaults.Countdown = settings.Countdown
+end
+if STACKS[settings.Stack] then
+defaults.Stack = settings.Stack
+if library.toasts then
+library.toasts.fan(false)
+end
 end
 if library.toasts then
 library.toasts.place()
@@ -2077,8 +2098,67 @@ Position = UDim2.new(0.5, 0, 0, GuiService:GetGuiInset().Y + 8),
 Parent = overlay.toasts,
 })
 Create.list(island, "Vertical", 6, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
-local state = { holder = holder, island = island, more = more, active = {}, queue = {}, order = 0, side = 1 }
+local state = { holder = holder, island = island, more = more, active = {}, queue = {}, order = 0, side = 1, byId = {}, fanned = false }
 library.toasts = state
+local PEEK = { 10, 7 }
+function state.arrange()
+local deck = Notifications.Defaults.Stack == "Deck" and not state.fanned
+local count = #state.active
+for index, toast in state.active do
+local slot, card = toast.slot, toast.card
+if slot and card and toast.style ~= "Island" then
+local behind = count - index
+local peek = if deck and behind > 0 then PEEK[behind] else nil
+slot.Visible = not deck or behind <= #PEEK
+slot.ClipsDescendants = peek ~= nil
+if peek then
+slot.AutomaticSize = Enum.AutomaticSize.None
+slot.Size = UDim2.new(1, 0, 0, peek)
+else
+slot.Size = UDim2.new(1, 0, 0, 0)
+slot.AutomaticSize = Enum.AutomaticSize.Y
+end
+if toast.deckScale then
+local scale = if peek then 1 - 0.04 * behind else 1
+local goals = { [toast.deckScale] = { Scale = scale } }
+if peek or toast.peeked then
+goals[card] = { Position = UDim2.fromOffset(if peek then slot.AbsoluteSize.X * (1 - scale) / 2 else 0, 0) }
+end
+toast.peeked = peek ~= nil
+for target, goal in goals do
+if Motion.reduced then
+for property, value in goal do
+target[property] = value
+end
+else
+Motion.tween(target, "fast", goal)
+end
+end
+end
+end
+end
+layout.Padding = UDim.new(0, if deck then 3 else 8)
+end
+local hovering = 0
+function state.fan(open)
+state.fanned = open
+state.arrange()
+end
+function state.hover(entered)
+if Notifications.Defaults.Stack ~= "Deck" then
+return
+end
+hovering += if entered then 1 else -1
+if hovering > 0 then
+state.fan(true)
+else
+task.delay(0.35, function()
+if hovering <= 0 and state.fanned then
+state.fan(false)
+end
+end)
+end
+end
 function state.place()
 local narrow = overlay.gui.AbsoluteSize.X < NARROW
 local position = if narrow then "TopCenter" else Notifications.Defaults.Position
@@ -2131,6 +2211,21 @@ scope:connect(Theme.Changed, paint)
 end
 local function buildLead(toast, kind, parent)
 local options, style = toast.options, toast.style
+local picture = options.Image or (if options.Avatar then `rbxthumb://type=AvatarHeadShot&id={options.Avatar}&w=150&h=150` else nil)
+if picture and style ~= "Snackbar" and style ~= "Island" and style ~= "Compact" then
+local size = if style == "Achievement" then 44 else 36
+local frame = Create.new("ImageLabel", {
+Name = "Picture",
+Size = UDim2.fromOffset(size, size),
+ScaleType = Enum.ScaleType.Crop,
+Theme = { BackgroundColor3 = "raised" },
+Parent = parent,
+})
+Create.corner(if options.Avatar then -1 else 8, frame)
+Icons.apply(frame, picture)
+toast.picture = frame
+return
+end
 if style == "Achievement" then
 local disc = Create.new("Frame", { Name = "Disc", Size = UDim2.fromOffset(44, 44), Theme = { BackgroundColor3 = kind.role }, Parent = parent })
 Create.corner(-1, disc)
@@ -2307,7 +2402,7 @@ Parent = parent,
 })
 Create.padding(word, 6, 0)
 scope:connect(word.Activated, function()
-toast.Dismiss()
+toast.Dismiss("action")
 Env.call(settings.Title or "Notification", settings.Callback)
 end)
 end
@@ -2318,9 +2413,12 @@ return
 end
 local close = Create.new("TextButton", { Name = "Close", Size = UDim2.fromOffset(24, 24), LayoutOrder = 3, Parent = parent })
 Create.corner(6, close)
+toast.close = close
 local cross = centred(Create.icon("x", 14, "textMuted", close))
 cross.ImageTransparency = if library.touch then 0 else 1
-scope:connect(close.Activated, toast.Dismiss)
+scope:connect(close.Activated, function()
+toast.Dismiss("closed")
+end)
 scope:connect(close.MouseEnter, function()
 Theme.bind(cross, "ImageColor3", "text")
 end)
@@ -2355,6 +2453,7 @@ LayoutOrder = state.order,
 Parent = if isle then state.island else state.holder,
 })
 scope:add(slot)
+toast.slot = slot
 local card = Create.new("TextButton", {
 Name = "Card",
 Text = "",
@@ -2365,6 +2464,9 @@ BackgroundTransparency = if style == "Glass" then 0.3 else 0,
 Parent = slot,
 })
 toast.card = card
+if not isle then
+toast.deckScale = Create.new("UIScale", { Parent = card })
+end
 if dark then
 card.BackgroundColor3 = DARK.fill
 else
@@ -2447,6 +2549,20 @@ Create.list(body, "Horizontal", 10, { VerticalAlignment = if line or style == "B
 buildLead(toast, kind, body)
 buildText(library, toast, kind, body, detail)
 buildTrailing(library, toast, body, card)
+toast.countLabel = Create.new("TextLabel", {
+Name = "Count",
+Size = UDim2.fromOffset(0, 20),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 12,
+Weight = "bold",
+LayoutOrder = 2,
+Visible = toast.repeats > 1,
+Text = tostring(toast.repeats),
+Theme = { BackgroundColor3 = kind.role, TextColor3 = "onAccent" },
+Parent = body,
+})
+Create.corner(-1, toast.countLabel)
+Create.padding(toast.countLabel, 7, 0)
 if detail and toast.contentLabel and toast.content == "" and not detail:FindFirstChild("Actions") then
 detail.Visible = false
 end
@@ -2465,9 +2581,23 @@ hovering = false
 toast.paused = toast.dragging == true
 end)
 scope:connect(card.Activated, function()
-if not toast.swiped then
-toast.Dismiss()
+if toast.swiped then
+return
 end
+if Notifications.Defaults.Stack == "Deck" and not state.fanned and #state.active > 1 then
+state.fan(true)
+return
+end
+if type(options.OnClick) == "function" then
+Env.call(toast.title, options.OnClick, toast)
+end
+toast.Dismiss("clicked")
+end)
+scope:connect(card.MouseEnter, function()
+state.hover(true)
+end)
+scope:connect(card.MouseLeave, function()
+state.hover(false)
 end)
 if not isle then
 Drag.track(scope, card, function()
@@ -2491,7 +2621,7 @@ end
 local offset = card.Position.X.Offset
 if math.abs(offset) >= SWIPE then
 toast.leaving = math.sign(offset)
-toast.Dismiss()
+toast.Dismiss("swiped")
 else
 Motion.tween(card, "spring", { Position = UDim2.fromOffset(0, 0) })
 end
@@ -2499,8 +2629,59 @@ end)
 end
 local duration = toast.duration
 if duration > 0 then
-local fill
-if toast.progress and not line and style ~= "Timer" and style ~= "Progress" and not Motion.reduced then
+local fill, arc, top
+local mode = toast.countdown
+if style == "Timer" or style == "Progress" then
+mode = "None"
+end
+if mode == "Edge" and isle then
+mode = "Ring"
+end
+if mode == "Edge" then
+local layout = card:FindFirstChildOfClass("UIListLayout")
+local content = if panel ~= card then panel else body
+local function fit()
+local wanted = if layout then layout.AbsoluteContentSize.Y else content.AbsoluteSize.Y
+local shown, current = card.AbsoluteSize.Y, card.Size.Y.Offset
+local height = if shown > 0 and current > 0 then current * wanted / shown else wanted
+if math.abs(height - current) >= 0.5 then
+card.Size = UDim2.new(1, 0, 0, math.ceil(height))
+end
+end
+card.AutomaticSize = Enum.AutomaticSize.None
+fit()
+if layout then
+scope:connect(layout:GetPropertyChangedSignal("AbsoluteContentSize"), fit)
+else
+scope:connect(content:GetPropertyChangedSignal("AbsoluteSize"), fit)
+end
+arc = Arc.new(card, {
+Thickness = 2,
+Role = kind.role,
+Radius = if isle or compact then -1 elseif snack then 10 else RADIUS,
+Even = true,
+ZIndex = 4,
+})
+toast.arc = arc
+elseif mode == "Ring" then
+local host = toast.close
+if not host then
+host = Create.new("Frame", { Name = "Ring", Size = UDim2.fromOffset(16, 16), LayoutOrder = 4, Parent = body })
+end
+arc = Arc.new(host, { Thickness = 2, Role = kind.role, Radius = -1, ZIndex = 3 })
+toast.arc = arc
+elseif mode == "Top" and not line then
+top = Create.new("Frame", {
+Name = "Countdown",
+Size = UDim2.new(1, -2 * RADIUS, 0, 2),
+Position = UDim2.fromOffset(RADIUS, 0),
+ZIndex = 4,
+Theme = { BackgroundColor3 = kind.role },
+Parent = card,
+})
+toast.topLine = top
+end
+if mode == "Bar" and not line and not Motion.reduced then
 if band then
 local rail = Create.new("Frame", {
 Name = "Countdown",
@@ -2535,17 +2716,25 @@ while toast.left > 0 do
 local elapsed = task.wait(0.05)
 if not toast.paused then
 toast.left -= elapsed
+local share = math.max(toast.left / toast.duration, 0)
 if fill then
-fill.Size = UDim2.fromScale(math.max(toast.left / duration, 0), 1)
+fill.Size = UDim2.fromScale(share, 1)
+end
+if arc then
+arc:Set(share)
+end
+if top then
+top.Size = UDim2.new(share, -2 * RADIUS * share, 0, 2)
 end
 if toast.seconds then
 toast.seconds.Text = `{math.max(math.ceil(toast.left), 0)}s`
 end
 end
 end
-toast.Dismiss()
+toast.Dismiss("timeout")
 end))
 end
+state.arrange()
 end
 function Notifications.push(library, options)
 if type(options) == "string" then
@@ -2565,7 +2754,72 @@ content = options.Content or "",
 value = 0,
 duration = if type(options.Duration) == "number" then options.Duration elseif style == "Progress" then 0 else defaults.Duration,
 progress = if options.Progress ~= nil then options.Progress == true else defaults.Progress,
+repeats = 1,
 }
+toast.countdown = if COUNTDOWNS[options.Countdown] then options.Countdown else defaults.Countdown
+if not toast.progress then
+toast.countdown = "None"
+end
+local existing = if options.Id ~= nil then state.byId[options.Id] else nil
+if not existing and options.Merge ~= false and options.Id == nil and style ~= "Progress" then
+for _, other in state.active do
+if not other.done and other.options.Id == nil and other.title == toast.title and other.content == toast.content and other.kind == toast.kind and other.style == style then
+existing = other
+existing.repeats += 1
+if existing.countLabel then
+existing.countLabel.Text = tostring(existing.repeats)
+existing.countLabel.Visible = true
+end
+break
+end
+end
+end
+if existing and not existing.done then
+if options.Id ~= nil then
+existing.options = options
+existing.SetTitle(toast.title)
+existing.SetContent(toast.content)
+if options.Kind then
+existing.SetKind(options.Kind)
+end
+end
+existing.Restart(toast.duration)
+return existing
+end
+if options.Id ~= nil then
+state.byId[options.Id] = toast
+end
+function toast.Restart(seconds)
+if type(seconds) == "number" then
+toast.duration = seconds
+end
+toast.left = toast.duration
+end
+function toast.SetKind(kind)
+local chosen = KINDS[kind] or KINDS.info
+toast.kind = kind
+if toast.icon then
+Icons.apply(toast.icon, chosen.icon)
+if toast.tileRole ~= "fill" then
+Theme.bind(toast.icon, "ImageColor3", chosen.role)
+end
+end
+if toast.tile then
+Theme.bind(toast.tile, "BackgroundColor3", chosen.role)
+end
+if toast.fill then
+Theme.bind(toast.fill, "BackgroundColor3", chosen.role)
+end
+if toast.arc then
+toast.arc:SetRole(chosen.role)
+end
+if toast.topLine then
+Theme.bind(toast.topLine, "BackgroundColor3", chosen.role)
+end
+if toast.countLabel then
+Theme.bind(toast.countLabel, "BackgroundColor3", chosen.role)
+end
+end
 function toast.SetProgress(value)
 toast.value = math.clamp(tonumber(value) or 0, 0, 1)
 toast.running = false
@@ -2599,20 +2853,7 @@ toast.SetProgress(1)
 if title then
 toast.SetTitle(title)
 end
-local finished = KINDS[kind or "success"] or KINDS.success
-toast.kind = kind or "success"
-if toast.icon then
-Icons.apply(toast.icon, finished.icon)
-if toast.tileRole ~= "fill" then
-Theme.bind(toast.icon, "ImageColor3", finished.role)
-end
-end
-if toast.tile then
-Theme.bind(toast.tile, "BackgroundColor3", finished.role)
-end
-if toast.fill then
-Theme.bind(toast.fill, "BackgroundColor3", finished.role)
-end
+toast.SetKind(kind or "success")
 if toast.scope then
 toast.scope:add(task.delay(2.5, toast.Dismiss))
 else
@@ -2620,12 +2861,18 @@ toast.duration = 2.5
 end
 end
 toast.Complete = toast.Done
-function toast.Dismiss()
+function toast.Dismiss(reason)
 if toast.done then
 return
 end
 toast.done = true
 toast.running = false
+if options.Id ~= nil and state.byId[options.Id] == toast then
+state.byId[options.Id] = nil
+end
+if type(options.OnDismiss) == "function" then
+Env.call(toast.title, options.OnDismiss, if type(reason) == "string" then reason else "code")
+end
 local queued = table.find(state.queue, toast)
 if queued then
 table.remove(state.queue, queued)
@@ -2652,6 +2899,7 @@ table.insert(state.active, waiting)
 show(library, state, waiting)
 end
 state.count()
+state.arrange()
 end
 remember(library, toast)
 if #state.active < defaults.MaxVisible then
@@ -2662,6 +2910,18 @@ table.insert(state.queue, toast)
 end
 state.count()
 return toast
+end
+function Notifications.clear(library)
+local state = library.toasts
+if not state then
+return
+end
+for _, toast in table.clone(state.queue) do
+toast.Dismiss("cleared")
+end
+for _, toast in table.clone(state.active) do
+toast.Dismiss("cleared")
+end
 end
 return Notifications
 end
@@ -7425,6 +7685,9 @@ end
 function Window:Notify(options)
 return Notifications.push(self.library, options)
 end
+function Window:ClearNotifications()
+Notifications.clear(self.library)
+end
 function Window:Dialog(options)
 return Dialog.open(self.library, options)
 end
@@ -7596,6 +7859,123 @@ self.onUnloaded()
 end
 end
 return Window
+end
+modules["Core/Arc"] = function()
+local Create = import("Core/Create")
+local Theme = import("Core/Theme")
+local Arc = {}
+Arc.__index = Arc
+local STEP = NumberSequence.new({
+NumberSequenceKeypoint.new(0, 0),
+NumberSequenceKeypoint.new(0.5, 0),
+NumberSequenceKeypoint.new(0.5001, 1),
+NumberSequenceKeypoint.new(1, 1),
+})
+function Arc.new(parent, options)
+options = options or {}
+local thickness = options.Thickness or 2
+local radius = options.Radius or 0
+local self = setmetatable({ parent = parent, thickness = thickness, fraction = 1 }, Arc)
+self.even = if options.Even ~= nil then options.Even else radius >= 0
+self.frame = Create.new("Frame", {
+Name = "Arc",
+Size = UDim2.fromScale(1, 1),
+ZIndex = options.ZIndex,
+Parent = parent,
+})
+self.strokes, self.gradients = {}, {}
+for index, left in { false, true } do
+local clip = Create.new("Frame", {
+Name = if left then "Left" else "Right",
+Size = UDim2.fromScale(0.5, 1),
+Position = UDim2.fromScale(if left then 0 else 0.5, 0),
+ClipsDescendants = true,
+ZIndex = options.ZIndex,
+Parent = self.frame,
+})
+local shape = Create.new("Frame", {
+Name = "Shape",
+Size = UDim2.new(2, -2 * thickness, 1, -2 * thickness),
+Position = if left then UDim2.fromOffset(thickness, thickness) else UDim2.new(-1, thickness, 0, thickness),
+ZIndex = options.ZIndex,
+Parent = clip,
+})
+Create.new("UICorner", {
+CornerRadius = if radius < 0 then UDim.new(1, 0) else UDim.new(0, math.max(radius - thickness, 0)),
+Parent = shape,
+})
+local stroke = Create.new("UIStroke", {
+Thickness = thickness,
+Transparency = options.Transparency or 0,
+Theme = if options.Color then nil else { Color = options.Role or "accent" },
+Parent = shape,
+})
+if options.Color then
+stroke.Color = options.Color
+end
+self.strokes[index] = stroke
+self.gradients[index] = Create.new("UIGradient", { Transparency = STEP, Parent = stroke })
+end
+self:Set(1)
+return self
+end
+local function evenAngle(fraction, width, height)
+local perimeter = 2 * (width + height)
+local walked = fraction * perimeter
+local x, y
+local halfWidth, halfHeight = width / 2, height / 2
+if walked <= halfWidth then
+x, y = walked, -halfHeight
+elseif walked <= halfWidth + height then
+x, y = halfWidth, -halfHeight + (walked - halfWidth)
+elseif walked <= halfWidth + height + width then
+x, y = halfWidth - (walked - halfWidth - height), halfHeight
+elseif walked <= halfWidth + 2 * height + width then
+x, y = -halfWidth, halfHeight - (walked - halfWidth - height - width)
+else
+x, y = -halfWidth + (walked - halfWidth - 2 * height - width), -halfHeight
+end
+local angle = math.deg(math.atan2(x / width, -y / height))
+if angle < 0 then
+angle += 360
+end
+if fraction >= 1 then
+return 360
+end
+return angle
+end
+function Arc:Set(fraction)
+fraction = math.clamp(fraction, 0, 1)
+self.fraction = fraction
+local angle = fraction * 360
+local size = self.parent.AbsoluteSize
+if self.even and size.X > 0 and size.Y > 0 and fraction > 0 and fraction < 1 then
+angle = evenAngle(fraction, size.X, size.Y)
+end
+self.gradients[1].Rotation = math.min(angle, 180)
+self.gradients[2].Rotation = 180 + math.max(angle - 180, 0)
+end
+function Arc:Get()
+return self.fraction
+end
+function Arc:SetRole(role)
+for _, stroke in self.strokes do
+Theme.bind(stroke, "Color", role)
+end
+end
+function Arc:SetColor(color)
+for _, stroke in self.strokes do
+Theme.unbind(stroke, "Color")
+stroke.Color = color
+end
+end
+function Arc:SetVisible(visible)
+self.frame.Visible = visible
+end
+function Arc:Destroy()
+self.frame:Destroy()
+end
+return Arc
 end
 modules["Core/Assets"] = function()
 local Env = import("Core/Env")
@@ -9327,6 +9707,13 @@ Sound = "boolean | string | number",
 Close = "boolean",
 Indeterminate = "boolean",
 Actions = "{ { Title: string, Callback: Callback? } }",
+Countdown = "string",
+Id = "string",
+Merge = "boolean",
+Image = "Image",
+Avatar = "number",
+OnClick = "(any) -> ()",
+OnDismiss = "(string) -> ()",
 }
 Schema.window = {
 Title = "string",
@@ -16035,6 +16422,9 @@ return Notifications.push(library, options)
 end
 function Halcyon:SetNotificationDefaults(settings)
 Notifications.configure(library, settings)
+end
+function Halcyon:ClearNotifications()
+Notifications.clear(library)
 end
 function Halcyon:Dialog(options)
 return Dialog.open(library, options)

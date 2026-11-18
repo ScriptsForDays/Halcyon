@@ -9,6 +9,7 @@
 local GuiService = game:GetService("GuiService")
 local SoundService = game:GetService("SoundService")
 
+local Arc = require("../Core/Arc")
 local Create = require("../Core/Create")
 local Drag = require("../Core/Drag")
 local Env = require("../Core/Env")
@@ -67,10 +68,27 @@ local CHIME = "rbxasset://sounds/electronicpingshort.wav"
 local Notifications = {
 	-- What a notice uses when it does not say otherwise. Hubs change these
 	-- with Halcyon:SetNotificationDefaults.
-	Defaults = { Duration = 4, Position = "BottomRight", Progress = true, MaxVisible = 4, Style = "Default", Sound = false },
+	Defaults = {
+		Duration = 4,
+		Position = "BottomRight",
+		Progress = true,
+		MaxVisible = 4,
+		Style = "Default",
+		Sound = false,
+		Countdown = "Bar",
+		Stack = "List",
+	},
 }
 
--- Accepts any of Duration, Position, Progress, Sound, Style and MaxVisible;
+-- How the time left is shown: a bar along the bottom, the card's own border
+-- draining, a ring round the close button, a line along the top, or nothing.
+local COUNTDOWNS = { Bar = true, Edge = true, Ring = true, Top = true, None = true }
+-- List shows every notice; Deck piles them with only the newest in full and
+-- fans them out while the pointer is over the pile.
+local STACKS = { List = true, Deck = true }
+
+-- Accepts any of Duration, Position, Progress, Sound, Style, MaxVisible,
+-- Countdown and Stack;
 -- anything else, or a value of the wrong kind, is ignored.
 function Notifications.configure(library, settings)
 	if type(settings) ~= "table" then
@@ -95,6 +113,15 @@ function Notifications.configure(library, settings)
 	end
 	if type(settings.MaxVisible) == "number" and settings.MaxVisible >= 1 then
 		defaults.MaxVisible = math.floor(settings.MaxVisible)
+	end
+	if COUNTDOWNS[settings.Countdown] then
+		defaults.Countdown = settings.Countdown
+	end
+	if STACKS[settings.Stack] then
+		defaults.Stack = settings.Stack
+		if library.toasts then
+			library.toasts.fan(false)
+		end
 	end
 	if library.toasts then
 		library.toasts.place()
@@ -159,8 +186,75 @@ local function toastStack(library)
 		Parent = overlay.toasts,
 	})
 	Create.list(island, "Vertical", 6, { HorizontalAlignment = Enum.HorizontalAlignment.Center })
-	local state = { holder = holder, island = island, more = more, active = {}, queue = {}, order = 0, side = 1 }
+	local state = { holder = holder, island = island, more = more, active = {}, queue = {}, order = 0, side = 1, byId = {}, fanned = false }
 	library.toasts = state
+
+	-- Deck: the newest notice in full, the two before it as slim edges
+	-- behind it, the rest out of sight until the pile fans out.
+	local PEEK = { 10, 7 }
+	function state.arrange()
+		local deck = Notifications.Defaults.Stack == "Deck" and not state.fanned
+		local count = #state.active
+		for index, toast in state.active do
+			local slot, card = toast.slot, toast.card
+			if slot and card and toast.style ~= "Island" then
+				local behind = count - index
+				local peek = if deck and behind > 0 then PEEK[behind] else nil
+				slot.Visible = not deck or behind <= #PEEK
+				slot.ClipsDescendants = peek ~= nil
+				if peek then
+					slot.AutomaticSize = Enum.AutomaticSize.None
+					slot.Size = UDim2.new(1, 0, 0, peek)
+				else
+					slot.Size = UDim2.new(1, 0, 0, 0)
+					slot.AutomaticSize = Enum.AutomaticSize.Y
+				end
+				if toast.deckScale then
+					local scale = if peek then 1 - 0.04 * behind else 1
+					local goals = { [toast.deckScale] = { Scale = scale } }
+					-- A UIScale shrinks towards the top-left corner; shifting the
+					-- card by half what it lost keeps the pile centred. Only cards
+					-- that peek move, so a newer card's slide-in is left alone.
+					if peek or toast.peeked then
+						goals[card] = { Position = UDim2.fromOffset(if peek then slot.AbsoluteSize.X * (1 - scale) / 2 else 0, 0) }
+					end
+					toast.peeked = peek ~= nil
+					for target, goal in goals do
+						if Motion.reduced then
+							for property, value in goal do
+								target[property] = value
+							end
+						else
+							Motion.tween(target, "fast", goal)
+						end
+					end
+				end
+			end
+		end
+		layout.Padding = UDim.new(0, if deck then 3 else 8)
+	end
+
+	-- Fanning out on hover, folding back a moment after the pointer leaves.
+	local hovering = 0
+	function state.fan(open)
+		state.fanned = open
+		state.arrange()
+	end
+	function state.hover(entered)
+		if Notifications.Defaults.Stack ~= "Deck" then
+			return
+		end
+		hovering += if entered then 1 else -1
+		if hovering > 0 then
+			state.fan(true)
+		else
+			task.delay(0.35, function()
+				if hovering <= 0 and state.fanned then
+					state.fan(false)
+				end
+			end)
+		end
+	end
 
 	function state.place()
 		local narrow = overlay.gui.AbsoluteSize.X < NARROW
@@ -224,6 +318,22 @@ end
 -- plain icon on the one-line looks, Accent and Banner.
 local function buildLead(toast, kind, parent)
 	local options, style = toast.options, toast.style
+	-- Image = any image source, Avatar = a user id: a picture leads the card.
+	local picture = options.Image or (if options.Avatar then `rbxthumb://type=AvatarHeadShot&id={options.Avatar}&w=150&h=150` else nil)
+	if picture and style ~= "Snackbar" and style ~= "Island" and style ~= "Compact" then
+		local size = if style == "Achievement" then 44 else 36
+		local frame = Create.new("ImageLabel", {
+			Name = "Picture",
+			Size = UDim2.fromOffset(size, size),
+			ScaleType = Enum.ScaleType.Crop,
+			Theme = { BackgroundColor3 = "raised" },
+			Parent = parent,
+		})
+		Create.corner(if options.Avatar then -1 else 8, frame)
+		Icons.apply(frame, picture)
+		toast.picture = frame
+		return
+	end
 	if style == "Achievement" then
 		local disc = Create.new("Frame", { Name = "Disc", Size = UDim2.fromOffset(44, 44), Theme = { BackgroundColor3 = kind.role }, Parent = parent })
 		Create.corner(-1, disc)
@@ -416,7 +526,7 @@ local function buildTrailing(library, toast, parent, card)
 			})
 			Create.padding(word, 6, 0)
 			scope:connect(word.Activated, function()
-				toast.Dismiss()
+				toast.Dismiss("action")
 				Env.call(settings.Title or "Notification", settings.Callback)
 			end)
 		end
@@ -427,10 +537,13 @@ local function buildTrailing(library, toast, parent, card)
 	end
 	local close = Create.new("TextButton", { Name = "Close", Size = UDim2.fromOffset(24, 24), LayoutOrder = 3, Parent = parent })
 	Create.corner(6, close)
+	toast.close = close
 	local cross = centred(Create.icon("x", 14, "textMuted", close))
 	-- Shown while the card is hovered; always on a touch screen, which has no hover.
 	cross.ImageTransparency = if library.touch then 0 else 1
-	scope:connect(close.Activated, toast.Dismiss)
+	scope:connect(close.Activated, function()
+		toast.Dismiss("closed")
+	end)
 	scope:connect(close.MouseEnter, function()
 		Theme.bind(cross, "ImageColor3", "text")
 	end)
@@ -467,6 +580,7 @@ local function show(library, state, toast)
 		Parent = if isle then state.island else state.holder,
 	})
 	scope:add(slot)
+	toast.slot = slot
 	-- The card slides in from the side of the screen it sits on.
 	local card = Create.new("TextButton", {
 		Name = "Card",
@@ -478,6 +592,9 @@ local function show(library, state, toast)
 		Parent = slot,
 	})
 	toast.card = card
+	if not isle then
+		toast.deckScale = Create.new("UIScale", { Parent = card })
+	end
 	if dark then
 		card.BackgroundColor3 = DARK.fill
 	else
@@ -569,6 +686,21 @@ local function show(library, state, toast)
 	buildLead(toast, kind, body)
 	buildText(library, toast, kind, body, detail)
 	buildTrailing(library, toast, body, card)
+	-- Repeats of the same notice fold into this one and count here.
+	toast.countLabel = Create.new("TextLabel", {
+		Name = "Count",
+		Size = UDim2.fromOffset(0, 20),
+		AutomaticSize = Enum.AutomaticSize.X,
+		TextSize = 12,
+		Weight = "bold",
+		LayoutOrder = 2,
+		Visible = toast.repeats > 1,
+		Text = tostring(toast.repeats),
+		Theme = { BackgroundColor3 = kind.role, TextColor3 = "onAccent" },
+		Parent = body,
+	})
+	Create.corner(-1, toast.countLabel)
+	Create.padding(toast.countLabel, 7, 0)
 	if detail and toast.contentLabel and toast.content == "" and not detail:FindFirstChild("Actions") then
 		-- A banner with nothing below its band ends at the band.
 		detail.Visible = false
@@ -591,9 +723,24 @@ local function show(library, state, toast)
 		toast.paused = toast.dragging == true
 	end)
 	scope:connect(card.Activated, function()
-		if not toast.swiped then
-			toast.Dismiss()
+		if toast.swiped then
+			return
 		end
+		-- A tap on a folded pile fans it out instead of dismissing what's on top.
+		if Notifications.Defaults.Stack == "Deck" and not state.fanned and #state.active > 1 then
+			state.fan(true)
+			return
+		end
+		if type(options.OnClick) == "function" then
+			Env.call(toast.title, options.OnClick, toast)
+		end
+		toast.Dismiss("clicked")
+	end)
+	scope:connect(card.MouseEnter, function()
+		state.hover(true)
+	end)
+	scope:connect(card.MouseLeave, function()
+		state.hover(false)
 	end)
 	if not isle then
 		-- Dragged far enough sideways and let go, the card leaves; not far
@@ -619,7 +766,7 @@ local function show(library, state, toast)
 			local offset = card.Position.X.Offset
 			if math.abs(offset) >= SWIPE then
 				toast.leaving = math.sign(offset)
-				toast.Dismiss()
+				toast.Dismiss("swiped")
 			else
 				Motion.tween(card, "spring", { Position = UDim2.fromOffset(0, 0) })
 			end
@@ -628,8 +775,67 @@ local function show(library, state, toast)
 
 	local duration = toast.duration
 	if duration > 0 then
-		local fill
-		if toast.progress and not line and style ~= "Timer" and style ~= "Progress" and not Motion.reduced then
+		local fill, arc, top
+		local mode = toast.countdown
+		if style == "Timer" or style == "Progress" then
+			mode = "None"
+		end
+		if mode == "Edge" and isle then
+			mode = "Ring"
+		end
+		if mode == "Edge" then
+			-- An outline drawn inside a card that sizes itself to its
+			-- children counts towards that size and grows it without end,
+			-- so the card takes its height from its content instead.
+			local layout = card:FindFirstChildOfClass("UIListLayout")
+			local content = if panel ~= card then panel else body
+			local function fit()
+				local wanted = if layout then layout.AbsoluteContentSize.Y else content.AbsoluteSize.Y
+				local shown, current = card.AbsoluteSize.Y, card.Size.Y.Offset
+				-- Content and card are measured on screen, so their ratio is
+				-- right whatever UIScale sits above them.
+				local height = if shown > 0 and current > 0 then current * wanted / shown else wanted
+				if math.abs(height - current) >= 0.5 then
+					card.Size = UDim2.new(1, 0, 0, math.ceil(height))
+				end
+			end
+			card.AutomaticSize = Enum.AutomaticSize.None
+			fit()
+			if layout then
+				scope:connect(layout:GetPropertyChangedSignal("AbsoluteContentSize"), fit)
+			else
+				scope:connect(content:GetPropertyChangedSignal("AbsoluteSize"), fit)
+			end
+			-- The card's own outline drains anticlockwise back to the top
+			-- centre, where it started.
+			arc = Arc.new(card, {
+				Thickness = 2,
+				Role = kind.role,
+				Radius = if isle or compact then -1 elseif snack then 10 else RADIUS,
+				Even = true,
+				ZIndex = 4,
+			})
+			toast.arc = arc
+		elseif mode == "Ring" then
+			-- A ring round the close button, or a small one at the end of the line.
+			local host = toast.close
+			if not host then
+				host = Create.new("Frame", { Name = "Ring", Size = UDim2.fromOffset(16, 16), LayoutOrder = 4, Parent = body })
+			end
+			arc = Arc.new(host, { Thickness = 2, Role = kind.role, Radius = -1, ZIndex = 3 })
+			toast.arc = arc
+		elseif mode == "Top" and not line then
+			top = Create.new("Frame", {
+				Name = "Countdown",
+				Size = UDim2.new(1, -2 * RADIUS, 0, 2),
+				Position = UDim2.fromOffset(RADIUS, 0),
+				ZIndex = 4,
+				Theme = { BackgroundColor3 = kind.role },
+				Parent = card,
+			})
+			toast.topLine = top
+		end
+		if mode == "Bar" and not line and not Motion.reduced then
 			if band then
 				-- The countdown runs along the bottom of the band, inset from
 				-- the card's sides like the rail on the other cards.
@@ -669,26 +875,37 @@ local function show(library, state, toast)
 				local elapsed = task.wait(0.05)
 				if not toast.paused then
 					toast.left -= elapsed
+					local share = math.max(toast.left / toast.duration, 0)
 					if fill then
-						fill.Size = UDim2.fromScale(math.max(toast.left / duration, 0), 1)
+						fill.Size = UDim2.fromScale(share, 1)
+					end
+					if arc then
+						arc:Set(share)
+					end
+					if top then
+						top.Size = UDim2.new(share, -2 * RADIUS * share, 0, 2)
 					end
 					if toast.seconds then
 						toast.seconds.Text = `{math.max(math.ceil(toast.left), 0)}s`
 					end
 				end
 			end
-			toast.Dismiss()
+			toast.Dismiss("timeout")
 		end))
 	end
+	state.arrange()
 end
 
 -- Options: Title, Content, Kind ("info", "success", "warning", "danger"),
 -- Style (see the looks above), Sound (true or a sound id), Icon, Duration in
 -- seconds (0 stays until dismissed), Progress (false hides the countdown),
 -- Close (false hides the close button), Indeterminate (a Progress notice
--- with no amount yet), Actions as a list of { Title, Callback }.
--- Returns a handle with Dismiss, SetTitle, SetContent, SetProgress and Done
--- (also called Complete).
+-- with no amount yet), Actions as a list of { Title, Callback }, Countdown
+-- (see COUNTDOWNS), Id (a later notice with the same Id updates this one),
+-- Merge (false keeps repeats apart), Image or Avatar (a picture instead of
+-- the icon), OnClick(handle) and OnDismiss(reason).
+-- Returns a handle with Dismiss, SetTitle, SetContent, SetKind, SetProgress,
+-- Restart and Done (also called Complete).
 function Notifications.push(library, options)
 	if type(options) == "string" then
 		options = { Title = options }
@@ -708,7 +925,81 @@ function Notifications.push(library, options)
 		-- A Progress notice stays until the hub calls Done.
 		duration = if type(options.Duration) == "number" then options.Duration elseif style == "Progress" then 0 else defaults.Duration,
 		progress = if options.Progress ~= nil then options.Progress == true else defaults.Progress,
+		repeats = 1,
 	}
+	toast.countdown = if COUNTDOWNS[options.Countdown] then options.Countdown else defaults.Countdown
+	if not toast.progress then
+		toast.countdown = "None"
+	end
+
+	-- The same Id updates the notice already showing; the same words while
+	-- it shows count up on it. Either way its timer starts again.
+	local existing = if options.Id ~= nil then state.byId[options.Id] else nil
+	if not existing and options.Merge ~= false and options.Id == nil and style ~= "Progress" then
+		for _, other in state.active do
+			if not other.done and other.options.Id == nil and other.title == toast.title and other.content == toast.content and other.kind == toast.kind and other.style == style then
+				existing = other
+				existing.repeats += 1
+				if existing.countLabel then
+					existing.countLabel.Text = tostring(existing.repeats)
+					existing.countLabel.Visible = true
+				end
+				break
+			end
+		end
+	end
+	if existing and not existing.done then
+		if options.Id ~= nil then
+			existing.options = options
+			existing.SetTitle(toast.title)
+			existing.SetContent(toast.content)
+			if options.Kind then
+				existing.SetKind(options.Kind)
+			end
+		end
+		existing.Restart(toast.duration)
+		return existing
+	end
+	if options.Id ~= nil then
+		state.byId[options.Id] = toast
+	end
+
+	-- Starts the countdown again from `seconds` (the notice's own duration
+	-- when left out).
+	function toast.Restart(seconds)
+		if type(seconds) == "number" then
+			toast.duration = seconds
+		end
+		toast.left = toast.duration
+	end
+
+	-- Changes the colour and icon to another kind: "info", "success",
+	-- "warning" or "danger".
+	function toast.SetKind(kind)
+		local chosen = KINDS[kind] or KINDS.info
+		toast.kind = kind
+		if toast.icon then
+			Icons.apply(toast.icon, chosen.icon)
+			if toast.tileRole ~= "fill" then
+				Theme.bind(toast.icon, "ImageColor3", chosen.role)
+			end
+		end
+		if toast.tile then
+			Theme.bind(toast.tile, "BackgroundColor3", chosen.role)
+		end
+		if toast.fill then
+			Theme.bind(toast.fill, "BackgroundColor3", chosen.role)
+		end
+		if toast.arc then
+			toast.arc:SetRole(chosen.role)
+		end
+		if toast.topLine then
+			Theme.bind(toast.topLine, "BackgroundColor3", chosen.role)
+		end
+		if toast.countLabel then
+			Theme.bind(toast.countLabel, "BackgroundColor3", chosen.role)
+		end
+	end
 
 	-- For Progress notices: a fraction from 0 to 1.
 	function toast.SetProgress(value)
@@ -749,20 +1040,7 @@ function Notifications.push(library, options)
 		if title then
 			toast.SetTitle(title)
 		end
-		local finished = KINDS[kind or "success"] or KINDS.success
-		toast.kind = kind or "success"
-		if toast.icon then
-			Icons.apply(toast.icon, finished.icon)
-			if toast.tileRole ~= "fill" then
-				Theme.bind(toast.icon, "ImageColor3", finished.role)
-			end
-		end
-		if toast.tile then
-			Theme.bind(toast.tile, "BackgroundColor3", finished.role)
-		end
-		if toast.fill then
-			Theme.bind(toast.fill, "BackgroundColor3", finished.role)
-		end
+		toast.SetKind(kind or "success")
 		if toast.scope then
 			toast.scope:add(task.delay(2.5, toast.Dismiss))
 		else
@@ -771,12 +1049,20 @@ function Notifications.push(library, options)
 	end
 	toast.Complete = toast.Done
 
-	function toast.Dismiss()
+	-- `reason` reaches OnDismiss: "timeout", "closed", "clicked", "swiped",
+	-- "action", "cleared", or "code" when the hub calls Dismiss itself.
+	function toast.Dismiss(reason)
 		if toast.done then
 			return
 		end
 		toast.done = true
 		toast.running = false
+		if options.Id ~= nil and state.byId[options.Id] == toast then
+			state.byId[options.Id] = nil
+		end
+		if type(options.OnDismiss) == "function" then
+			Env.call(toast.title, options.OnDismiss, if type(reason) == "string" then reason else "code")
+		end
 		local queued = table.find(state.queue, toast)
 		if queued then
 			table.remove(state.queue, queued)
@@ -805,6 +1091,7 @@ function Notifications.push(library, options)
 			show(library, state, waiting)
 		end
 		state.count()
+		state.arrange()
 	end
 
 	remember(library, toast)
@@ -816,6 +1103,20 @@ function Notifications.push(library, options)
 	end
 	state.count()
 	return toast
+end
+
+-- Dismisses every notice on screen and every one waiting.
+function Notifications.clear(library)
+	local state = library.toasts
+	if not state then
+		return
+	end
+	for _, toast in table.clone(state.queue) do
+		toast.Dismiss("cleared")
+	end
+	for _, toast in table.clone(state.active) do
+		toast.Dismiss("cleared")
+	end
 end
 
 return Notifications

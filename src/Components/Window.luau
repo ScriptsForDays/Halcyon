@@ -1830,6 +1830,11 @@ function Window:Notify(options)
 	return Notifications.push(self.library, options)
 end
 
+-- Dismisses every notice on screen or waiting.
+function Window:ClearNotifications()
+	Notifications.clear(self.library)
+end
+
 function Window:Dialog(options)
 	return Dialog.open(self.library, options)
 end
