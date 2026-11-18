@@ -5853,6 +5853,7 @@ local Popup = import("Components/Popup")
 local Profile = import("Components/Profile")
 local Registry = import("Elements/Registry")
 local Signal = import("Core/Signal")
+local Resize = import("Core/Resize")
 local Styles = import("Core/Styles")
 local Switches = import("Components/Switches")
 local Tab = import("Components/Tab")
@@ -6688,13 +6689,18 @@ Theme = { BackgroundColor3 = "textMuted" },
 Parent = grip,
 })
 end
-local start = self.size
-Drag.track(self.scope, grip, function()
-start = self.size
-return not self.minimized
-end, function(position, origin)
-local travel = (position - origin) * (2 / self.scale)
-self.size = Vector2.new(math.round(math.max(start.X + travel.X, MIN_SIZE.X)), math.round(math.max(start.Y + travel.Y, MIN_SIZE.Y)))
+Resize.grip(self.scope, grip, function()
+if self.minimized then
+return nil
+end
+local root, scale = self.root, self.scale
+local shown = Vector2.new(root.Size.X.Offset, root.Size.Y.Offset)
+local corner = Vector2.new(root.Position.X.Offset, root.Position.Y.Offset) - shown * scale / 2
+self.placed = Vector2.new(math.round(corner.X), math.round(corner.Y))
+local room = self.gui.AbsoluteSize - self.placed - Vector2.new(8, 8)
+return { size = shown, scale = scale, min = MIN_SIZE, max = room / scale }
+end, function(size)
+self.size = size
 self:layout()
 end, function()
 self:savePreferences()
@@ -8820,6 +8826,26 @@ end)
 return overlay
 end
 return Mount
+end
+modules["Core/Resize"] = function()
+local Drag = import("Core/Drag")
+local Resize = {}
+function Resize.grip(scope, grip, begin, apply, done)
+local from
+Drag.track(scope, grip, function()
+from = begin()
+return from ~= nil
+end, function(position, origin)
+local wanted = from.size + (position - origin) / from.scale
+local high = Vector2.new(math.max(from.max.X, from.min.X), math.max(from.max.Y, from.min.Y))
+apply(Vector2.new(math.round(math.clamp(wanted.X, from.min.X, high.X)), math.round(math.clamp(wanted.Y, from.min.Y, high.Y))))
+end, function()
+if done then
+done()
+end
+end)
+end
+return Resize
 end
 modules["Core/Scope"] = function()
 local Scope = {}
@@ -11510,6 +11536,15 @@ return handle
 end
 return Input
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX3">
+<Properties>
+<string name="Name">Part03</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Keybind"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
@@ -11749,15 +11784,6 @@ return handle
 end
 return Keybind
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX3">
-<Properties>
-<string name="Name">Part03</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Label"] = function()
 local Create = import("Core/Create")
 local Icons = import("Core/Icons")

@@ -25,6 +25,7 @@ local Popup = require("./Popup")
 local Profile = require("./Profile")
 local Registry = require("../Elements/Registry")
 local Signal = require("../Core/Signal")
+local Resize = require("../Core/Resize")
 local Styles = require("../Core/Styles")
 local Switches = require("./Switches")
 local Tab = require("./Tab")
@@ -1013,8 +1014,10 @@ function Window:SetEnabled(enabled)
 	end
 end
 
--- A corner grip for mouse users. The window is anchored at its centre, so the
--- size grows by twice the pointer's travel to keep the corner under it.
+-- A corner grip for mouse users. A press pins the window's top-left corner
+-- where it is on screen, so the bottom-right corner moves one for one with
+-- the pointer, and the size stops at the screen edge instead of running
+-- ahead of what is shown.
 function Window:buildGrip()
 	local grip = Create.new("TextButton", {
 		Name = "Resize",
@@ -1034,13 +1037,18 @@ function Window:buildGrip()
 			Parent = grip,
 		})
 	end
-	local start = self.size
-	Drag.track(self.scope, grip, function()
-		start = self.size
-		return not self.minimized
-	end, function(position, origin)
-		local travel = (position - origin) * (2 / self.scale)
-		self.size = Vector2.new(math.round(math.max(start.X + travel.X, MIN_SIZE.X)), math.round(math.max(start.Y + travel.Y, MIN_SIZE.Y)))
+	Resize.grip(self.scope, grip, function()
+		if self.minimized then
+			return nil
+		end
+		local root, scale = self.root, self.scale
+		local shown = Vector2.new(root.Size.X.Offset, root.Size.Y.Offset)
+		local corner = Vector2.new(root.Position.X.Offset, root.Position.Y.Offset) - shown * scale / 2
+		self.placed = Vector2.new(math.round(corner.X), math.round(corner.Y))
+		local room = self.gui.AbsoluteSize - self.placed - Vector2.new(8, 8)
+		return { size = shown, scale = scale, min = MIN_SIZE, max = room / scale }
+	end, function(size)
+		self.size = size
 		self:layout()
 	end, function()
 		self:savePreferences()

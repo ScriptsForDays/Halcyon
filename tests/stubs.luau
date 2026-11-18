@@ -1077,6 +1077,28 @@ function Stub.key(keyCode, processed, ended)
 	Stub.flush()
 end
 
+-- A mouse press on `surface` at `from`, moved through each point in `path`
+-- (a Vector2 or a list of them); `release` false leaves the button held.
+-- `onStep(point)` runs after each move.
+function Stub.drag(surface, from, path, onStep, release)
+	local service = game:GetService("UserInputService")
+	local press = { UserInputType = Enum.UserInputType.MouseButton1, Position = Vector3.new(from.X, from.Y, 0) }
+	surface.InputBegan:Fire(press, false)
+	Stub.flush()
+	local points = if typeof(path) == "Vector2" then { path } else path
+	for _, point in points do
+		service.InputChanged:Fire({ UserInputType = Enum.UserInputType.MouseMovement, Position = Vector3.new(point.X, point.Y, 0) }, false)
+		Stub.flush()
+		if onStep then
+			onStep(point)
+		end
+	end
+	if release ~= false then
+		service.InputEnded:Fire(press, false)
+		Stub.flush()
+	end
+end
+
 function Stub.inputConnections()
 	local service = game:GetService("UserInputService")
 	local count = 0
