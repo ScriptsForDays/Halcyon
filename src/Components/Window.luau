@@ -37,6 +37,7 @@ local Favourites = require("./Favourites")
 local TabOrder = require("./TabOrder")
 local SearchFocus = require("./SearchFocus")
 local Background = require("../Core/Background")
+local Services = require("./Services")
 
 -- Below this window width the side navigation becomes a strip of tabs.
 local NARROW = 560
@@ -158,6 +159,8 @@ function Window.new(library, options, access)
 	self.subPages = {}
 	-- Fires (section, open) when a section moves into its own panel or back.
 	self.SectionPopped = Signal.new()
+	-- Fires (latest, notes) when UpdateCheck finds a newer version.
+	self.UpdateAvailable = Signal.new()
 	self.OnUnload, self.KeybindsChanged, self.TabChanged, self.Tick = Signal.new(), Signal.new(), Signal.new(), Signal.new()
 	-- Fires (action, name) after a config is saved, loaded, deleted or set to autoload.
 	self.ConfigChanged = Signal.new()
@@ -414,6 +417,7 @@ function Window.new(library, options, access)
 	if options.TabReorder then
 		TabOrder.setup(self, saved.tabOrder)
 	end
+	Services.watchUpdates(self, options.UpdateCheck)
 	self:layout()
 	-- After the first layout, which picks the navigation the tab goes in.
 	if options.Favourites then
@@ -2115,6 +2119,22 @@ function Window:recordError(title, message, trace)
 		table.remove(self.Errors, 1)
 	end
 	self.ErrorsChanged:Fire(entry)
+end
+
+-- Asks the UpdateCheck address now. Returns ok, latest (nil when this is
+-- the newest), notes.
+function Window:CheckForUpdate()
+	return Services.check(self)
+end
+
+-- A panel listing what this executor offers and what is locked for it.
+function Window:SupportPanel()
+	return Services.supportPanel(self)
+end
+
+-- A panel listing the callbacks that failed this session.
+function Window:ErrorsPanel()
+	return Services.errorsPanel(self)
 end
 
 function Window:ClearErrors()

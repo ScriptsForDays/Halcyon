@@ -123,6 +123,7 @@ All optional. Defaults in brackets.
 - `Tooltips` [true]; `Animations` [true]; `Blur` [false; true or a size]; `NotificationCenter` [false]: a bell with past notices
 - `Watermark`, `KeybindList`, `SettingsTab` [false]: true, or the same table their Window methods take
 - `ConfirmUnload` [true]; `SavePreferences` [true]; `DisplayOrder` [2147483000]
+- `UpdateCheck = { Url, Current, Notify, OnUpdate }`: a moment after opening, reads Url (plain text "2.4.0" or JSON `{ "version": "2.4.0", "notes": "..." }`), and when it is newer than Current [the window's Version] shows a notice, fires `Window.UpdateAvailable` and calls OnUpdate(latest, notes). Never runs anything it downloads. `Window:CheckForUpdate()` -> ok, latest, notes.
 - `Notifications = { Duration, Position, Progress, MaxVisible, Style, Sound }`
 - `Configs = { PerGame = "Place" | "Universe" }`: configs and autoload kept per game
 - `ShowErrors` [true]: a failing callback's message shows under its row
@@ -155,6 +156,7 @@ Tabs, sections and elements take, when made: `Visible = false`, `Disabled = true
 - Top bar: `SetTitle`, `SetSubtitle`, `SetVersion`, `SetVersionVisible`, `AddTopbarButton({ Icon, Callback })` -> `{ Destroy }`, `Search(text)`, `OpenPalette()`
 - Profile: `SetAnonymous(bool)`, `SetProfile(table)`
 - Access: `GetTier()`, `HasTier(name)`, `IsPaid()`, `SetTier(name)`, `GetKeyExpiry()`, `SetLockText(text, paidText)`, `SetLockHint(hint, paidHint)`, `Require(names)` -> missing executor functions
+- Support: `SupportPanel()` (what this executor offers, rows locked for it, a copyable report), `ErrorsPanel()` (failed callbacks with tracebacks), `Errors` list, `ErrorsChanged`, `ClearErrors()`. The Settings tab has rows for both (`Support`, `Errors` switches).
 - Feedback: `Notify(options)`, `Dialog(options)`, `Loading(options)`, `Changelog(options)`, `AddUpdate(release)`, `Watermark(options)`, `KeybindList(options)`
 - Switches: `Set(name, value)`, `Get(name)`
 - Panels: `Sheet({ Title, Width = 340 })` (slides over the page; takes element calls; `Open()`, `Close()`, `IsOpen`), `QuickBar({ Items = { "Flag", toggleHandle, { Title, Icon, Callback } } })` (floating bar that stays while the window is hidden; `Add(item)`, `SetVisible`, `Destroy`)

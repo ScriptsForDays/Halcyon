@@ -83,6 +83,8 @@ local Halcyon = {
 	},
 }
 
+library.version = Halcyon.Version
+
 function Window:SettingsTab(options)
 	return SettingsTab.build(self, options)
 end

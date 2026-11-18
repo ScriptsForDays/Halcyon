@@ -24,6 +24,7 @@ local SettingsTab = {}
 -- Options: Title, Icon, Group, and one switch per row. Every row is on
 -- unless its switch is false:
 --   Theme, Accent, Navigation, Scale, Language, ReduceMotion, MenuKey, Minimize,
+--   Support, Errors,
 --   Anonymous, Configs, Unload
 -- ScaleControl picks "Stepper" (default) or "Slider" for the interface scale.
 -- Two sections are added only when asked for: Personalise = true (or a
@@ -180,14 +181,43 @@ function SettingsTab.build(window, options)
 		ConfigSection.build(window, tab, { Side = "Right" })
 	end
 
-	if wants("Unload") then
-		tab:Section({ Title = Strings.get("Session"), Icon = "power" }):Button({
-			Title = Strings.get("Unload"),
-			Variant = "Danger",
-			Callback = function()
-				window:RequestUnload()
-			end,
-		})
+	if wants("Support", "Errors", "Unload") then
+		local session = tab:Section({ Title = Strings.get("Session"), Icon = "power" })
+		if wants("Support") then
+			session:Button({
+				Title = Strings.get("Executor support"),
+				Description = Strings.get("What this executor can run"),
+				Icon = "cpu",
+				Callback = function()
+					window:SupportPanel()
+				end,
+			})
+		end
+		if wants("Errors") then
+			local errors = session:Button({
+				Title = Strings.get("Errors"),
+				Description = Strings.get("Callbacks that failed this session"),
+				Icon = "bug",
+				Callback = function()
+					window:ErrorsPanel()
+				end,
+			})
+			-- A count beside it once something has failed.
+			local function count()
+				local total = #window.Errors
+				errors:SetDescription(if total > 0 then Strings.get("{count} this session", { count = total }) else Strings.get("Callbacks that failed this session"))
+			end
+			tab.scope:add(window.ErrorsChanged:Connect(count))
+		end
+		if wants("Unload") then
+			session:Button({
+				Title = Strings.get("Unload"),
+				Variant = "Danger",
+				Callback = function()
+					window:RequestUnload()
+				end,
+			})
+		end
 	end
 	return tab
 end

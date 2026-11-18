@@ -454,6 +454,7 @@ Schema.window = {
 	Notifications = "{ [string]: any }",
 	Configs = "{ PerGame: (string | boolean)? }",
 	ShowErrors = "boolean",
+	UpdateCheck = "{ Url: string, Current: string?, Notify: boolean?, OnUpdate: ((string, string?) -> ())? }",
 	Favourites = "boolean",
 	TabReorder = "boolean",
 	Debug = "boolean",
