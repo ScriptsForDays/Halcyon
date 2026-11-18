@@ -275,7 +275,8 @@ local Vector3Meta = valueType("Vector3")
 local Vector3 = {}
 
 function Vector3.new(x, y, z)
-	return setmetatable({ X = x or 0, Y = y or 0, Z = z or 0 }, Vector3Meta)
+	x, y, z = x or 0, y or 0, z or 0
+	return setmetatable({ X = x, Y = y, Z = z, Magnitude = math.sqrt(x * x + y * y + z * z) }, Vector3Meta)
 end
 
 Vector3Meta.__add = function(a, b)
@@ -291,6 +292,7 @@ Vector3Meta.__mul = function(a, b)
 	return Vector3.new(a.X * b.X, a.Y * b.Y, a.Z * b.Z)
 end
 Vector3.zero = Vector3.new(0, 0, 0)
+Vector3.one = Vector3.new(1, 1, 1)
 
 local UDimMeta = valueType("UDim")
 local UDim = {}
@@ -333,8 +335,15 @@ local CFrameMeta = valueType("CFrame")
 local CFrame = {}
 
 function CFrame.new(x, y, z)
-	local position = if typeof(x) == "Vector3" then x else Vector3.new(x, y, z)
-	return setmetatable({ Position = position, LookVector = Vector3.new(0, 0, -1) }, CFrameMeta)
+	local position = if typeof(x) == "Vector3" then x else Vector3.new(x or 0, y or 0, z or 0)
+	return setmetatable({
+		Position = position,
+		LookVector = Vector3.new(0, 0, -1),
+		-- Rotation is not modelled: the twelve numbers carry the position.
+		GetComponents = function(self)
+			return self.Position.X, self.Position.Y, self.Position.Z, 1, 0, 0, 0, 1, 0, 0, 0, 1
+		end,
+	}, CFrameMeta)
 end
 
 CFrame.Angles = function()
@@ -567,7 +576,7 @@ for _, name in
 		"Activated,MouseEnter,MouseLeave,MouseButton1Down,MouseButton1Up,MouseButton1Click,InputBegan,InputChanged,"
 			.. "InputEnded,FocusLost,Focused,Destroying,ChildAdded,ChildRemoved,Changed,Heartbeat,RenderStepped,"
 			.. "CharacterAdded,Completed,SelectionGained,SelectionLost,TouchTap,ReturnPressedFromOnScreenKeyboard,"
-			.. "PlayerAdded,PlayerRemoving,MouseButton2Click,DescendantAdded",
+			.. "PlayerAdded,PlayerRemoving,MouseButton2Click,DescendantAdded,MouseMoved",
 		","
 	)
 do
@@ -813,6 +822,19 @@ function Methods:ClearAllChildren()
 	for _, child in table.clone(rawget(self, "children")) do
 		child:Destroy()
 	end
+end
+
+-- Models: a pivot and a bounding box, enough for previews and teleports.
+function Methods:GetPivot()
+	return rawget(self, "props").Pivot or CFrame.new()
+end
+
+function Methods:PivotTo(cframe)
+	rawget(self, "props").Pivot = cframe
+end
+
+function Methods:GetBoundingBox()
+	return self:GetPivot(), Vector3.new(4, 4, 4)
 end
 
 function Methods:Clone()

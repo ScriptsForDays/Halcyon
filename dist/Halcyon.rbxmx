@@ -1091,7 +1091,7 @@ Create.new("TextLabel", {
 Size = UDim2.new(0, 66, 1, 0),
 AnchorPoint = Vector2.new(1, 0),
 Position = UDim2.fromScale(1, 0),
-Text = key.Name,
+Text = if listing.control.Label then listing.control.Label() else key.Name,
 TextSize = 12,
 TextXAlignment = Enum.TextXAlignment.Right,
 Theme = { TextColor3 = if active then "accent" else "textMuted" },
@@ -9501,8 +9501,10 @@ Default = "boolean",
 Thumb = "string",
 Outline = "boolean",
 OutlineColor = "Color3",
-Keybind = "{ Default: Enum.KeyCode?, Mode: string?, Flag: string? }",
+Keybind = "{ Default: Enum.KeyCode?, Mode: string?, Flag: string?, Modifiers: boolean? }",
 Color = "{ Default: Color3?, Alpha: number?, Flag: string?, Callback: Callback? }",
+Exclusive = "string",
+Confirm = "boolean | string",
 },
 },
 Button = {
@@ -9514,6 +9516,7 @@ Effect = "string",
 Hold = "boolean | number",
 Confirm = "boolean | string",
 ShowDone = "boolean",
+Keybind = "Enum.KeyCode | { Default: Enum.KeyCode?, Flag: string?, Modifiers: boolean? }",
 },
 },
 Buttons = {
@@ -9587,12 +9590,14 @@ Clearable = "boolean",
 Password = "boolean",
 MultiLine = "boolean",
 Lines = "number",
+Validate = "(string | number) -> (boolean?, string?)",
 },
 },
 Keybind = {
-value = "Enum.KeyCode?",
+value = "Enum.KeyCode? | { Key: Enum.KeyCode, Ctrl: boolean, Shift: boolean, Alt: boolean }?",
 options = {
-Default = "Enum.KeyCode",
+Default = "Enum.KeyCode | string | { Key: Enum.KeyCode, Ctrl: boolean?, Shift: boolean?, Alt: boolean? }",
+Modifiers = "boolean",
 Mode = "string",
 ModePicker = "boolean",
 ChangedCallback = "(Enum.KeyCode?) -> ()",
@@ -9681,6 +9686,77 @@ Role = "string",
 },
 },
 Log = { value = "{ string }", options = { Height = "number", MaxLines = "number", Timestamps = "boolean", EmptyText = "string" } },
+Viewport = {
+value = "Instance?",
+options = { Model = "Instance", Character = "boolean", Height = "number", Spin = "number", Distance = "number", FieldOfView = "number" },
+},
+Gauge = {
+value = "number",
+options = {
+Value = "number",
+Min = "number",
+Max = "number",
+Suffix = "string",
+Format = "(number) -> string",
+Size = "number",
+Thickness = "number",
+Role = "string",
+Thresholds = "{ { At: number, Role: string } }",
+},
+},
+Knob = {
+value = "number",
+options = {
+Min = "number",
+Max = "number",
+Step = "number",
+Default = "number",
+Suffix = "string",
+Format = "(number) -> string",
+Size = "number",
+Thickness = "number",
+Role = "string",
+Live = "boolean",
+},
+},
+Chart = {
+value = "{ any }",
+options = {
+Type = "string",
+Items = "{ { Name: string, Value: number, Role: string? } }",
+Series = "{ { Name: string, Values: { number }, Role: string? } }",
+Labels = "{ string | number }",
+Height = "number",
+Min = "number",
+Max = "number",
+Suffix = "string",
+Format = "(number) -> string",
+},
+},
+ItemGrid = {
+value = "any",
+options = {
+Items = "{ { Title: string?, Name: string?, Image: Image?, Icon: Image?, Rarity: string?, Count: number?, Value: any?, Disabled: boolean? } }",
+Rarities = "{ { Name: string, Role: string?, Color: Color3? } }",
+Multi = "boolean",
+Default = "any",
+AllowNone = "boolean",
+Search = "boolean",
+Sort = "string",
+Columns = "number",
+Height = "number",
+},
+},
+Waypoints = {
+value = "{ { Name: string, CFrame: CFrame } }",
+options = {
+Teleport = "(CFrame, string) -> ()",
+GetPosition = "() -> CFrame?",
+Default = "{ { Name: string, CFrame: CFrame } }",
+Max = "number",
+Height = "number",
+},
+},
 Banner = {
 value = "string",
 options = { Text = "string", Image = "Image", Height = "number", Button = "{ Title: string, Callback: Callback? }" },
@@ -10617,6 +10693,7 @@ local Row = import("Elements/Row")
 local Strings = import("Core/Strings")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
+local Keybind = import("Elements/Keybind")
 local CONFIRM_WINDOW = 3
 local FLASH = 1.2
 Styles.register("Button", "Row", { row = true })
@@ -10834,6 +10911,20 @@ end
 function handle:Press()
 run()
 end
+if options.Keybind then
+local settings = if typeof(options.Keybind) == "EnumItem" then { Default = options.Keybind } else options.Keybind
+local problem = row.window:checkFlag(settings.Flag)
+if problem then
+handle:Destroy()
+error(problem, 4)
+end
+handle.Keybind = Keybind.control(row, { Default = settings.Default, Mode = "Press", Modifiers = settings.Modifiers }, function(pressed)
+if pressed then
+activate()
+end
+end)
+row.window:claimFlag(settings.Flag, handle.Keybind, row.scope)
+end
 return handle
 end
 return Button
@@ -10935,6 +11026,391 @@ handle.SearchText = string.lower((options.Title or "") .. " " .. handle.SearchEx
 return handle
 end
 return Buttons
+end
+modules["Elements/Chart"] = function()
+local Arc = import("Core/Arc")
+local Create = import("Core/Create")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local Chart = {}
+local ROLES = { "accent", "info", "success", "warning", "danger", "textMuted" }
+local TYPES = { Donut = true, Pie = true, Line = true, Bars = true }
+local INSET = 10
+local function format(options, value)
+if type(options.Format) == "function" then
+local ok, text = pcall(options.Format, value)
+if ok then
+return tostring(text)
+end
+end
+local rounded = if math.abs(value) >= 100 then math.round(value) else math.round(value * 10) / 10
+return tostring(rounded) .. (options.Suffix or "")
+end
+local function colourOf(entry, index)
+return entry.Role or ROLES[(index - 1) % #ROLES + 1]
+end
+function Chart.new(container, options)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local kind = if TYPES[options.Type] then options.Type else "Line"
+local round = kind == "Donut" or kind == "Pie"
+local height = math.clamp(tonumber(options.Height) or (if round then 132 else 140), 60, 320)
+local items = options.Items or {}
+local series = options.Series or {}
+local labels = options.Labels or {}
+local below = row.belowTitle()
+if not round then
+Create.list(below, "Vertical", 6)
+end
+local body = Create.new("Frame", { Name = "Chart", Size = UDim2.new(1, 0, 0, height), LayoutOrder = 1, Parent = below })
+local legend = Create.new("Frame", {
+Name = "Legend",
+Size = if round then UDim2.new(1, -height - 16, 1, 0) else UDim2.new(1, 0, 0, 0),
+Position = if round then UDim2.fromOffset(height + 16, 0) else UDim2.new(),
+AutomaticSize = if round then Enum.AutomaticSize.None else Enum.AutomaticSize.Y,
+Parent = if round then body else below,
+})
+Create.list(legend, if round then "Vertical" else "Horizontal", if round then 6 else 12, {
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Wraps = not round,
+})
+local legendRows = {}
+local function drawLegend(entries, withValues)
+legend:ClearAllChildren()
+Create.list(legend, if round then "Vertical" else "Horizontal", if round then 6 else 12, {
+VerticalAlignment = Enum.VerticalAlignment.Center,
+Wraps = not round,
+})
+table.clear(legendRows)
+local total = 0
+for _, entry in entries do
+total += tonumber(entry.Value) or 0
+end
+for index, entry in entries do
+local line = Create.new("Frame", { Name = "Entry", Size = UDim2.fromOffset(0, 18), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = index, Parent = legend })
+Create.list(line, "Horizontal", 6, { VerticalAlignment = Enum.VerticalAlignment.Center })
+local dot = Create.new("Frame", { Name = "Swatch", Size = UDim2.fromOffset(8, 8), Theme = { BackgroundColor3 = colourOf(entry, index) }, Parent = line })
+Create.corner(-1, dot)
+local share = if total > 0 then math.round((tonumber(entry.Value) or 0) / total * 100) else 0
+local text = Create.new("TextLabel", {
+Name = "Name",
+Size = UDim2.fromOffset(0, 18),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 12,
+LayoutOrder = 1,
+Text = if withValues then `{entry.Name or ""}  <font transparency="0.4">{format(options, tonumber(entry.Value) or 0)} · {share}%</font>` else tostring(entry.Name or ""),
+RichText = true,
+Theme = { TextColor3 = "text" },
+Parent = line,
+})
+legendRows[index] = text
+end
+end
+local ring, centre, arcs = nil, nil, {}
+if round then
+ring = Create.new("Frame", { Name = "Ring", Size = UDim2.fromOffset(height, height), Parent = body })
+centre = Create.new("TextLabel", {
+Name = "Centre",
+Size = UDim2.fromScale(1, 1),
+TextSize = 13,
+Weight = "bold",
+TextWrapped = true,
+TextXAlignment = Enum.TextXAlignment.Center,
+Visible = kind == "Donut",
+Theme = { TextColor3 = "text" },
+ZIndex = 3,
+Parent = ring,
+})
+end
+local thickness = if kind == "Pie" then math.floor(height / 2) - 1 else math.max(math.round(height / 9), 8)
+local function total()
+local sum = 0
+for _, item in items do
+sum += math.max(tonumber(item.Value) or 0, 0)
+end
+return sum
+end
+local function drawRound()
+for _, arc in arcs do
+arc:Destroy()
+end
+table.clear(arcs)
+local sum = total()
+local reach = {}
+local running = 0
+for index, item in items do
+running += math.max(tonumber(item.Value) or 0, 0)
+reach[index] = if sum > 0 then running / sum else 0
+end
+if sum <= 0 then
+local empty = Arc.new(ring, { Thickness = thickness, Role = "raised", Radius = -1, Even = false })
+table.insert(arcs, empty)
+end
+for index = #items, 1, -1 do
+local arc = Arc.new(ring, { Thickness = thickness, Role = colourOf(items[index], index), Radius = -1, Even = false, ZIndex = 2 })
+arc:Set(reach[index])
+table.insert(arcs, arc)
+end
+if centre then
+centre.Text = format(options, sum)
+end
+drawLegend(items, true)
+end
+if round then
+scope:connect(ring.MouseMoved, function(x, y)
+local sum = total()
+if sum <= 0 or not centre then
+return
+end
+local middle = ring.AbsolutePosition + ring.AbsoluteSize / 2
+local angle = math.deg(math.atan2(x - middle.X, -(y - middle.Y)))
+if angle < 0 then
+angle += 360
+end
+local running = 0
+for index, item in items do
+running += math.max(tonumber(item.Value) or 0, 0)
+if angle / 360 <= running / sum then
+centre.Text = `{item.Name or ""}\n{format(options, tonumber(item.Value) or 0)}`
+for other, label in legendRows do
+label.TextTransparency = if other == index then 0 else 0.5
+end
+return
+end
+end
+end)
+scope:connect(ring.MouseLeave, function()
+if centre then
+centre.Text = format(options, total())
+end
+for _, label in legendRows do
+label.TextTransparency = 0
+end
+end)
+end
+local plot, marks, guide, readout
+if not round then
+plot = Create.new("Frame", {
+Name = "Plot",
+Size = UDim2.fromScale(1, 1),
+ClipsDescendants = true,
+Theme = { BackgroundColor3 = row.controlRole },
+Parent = body,
+})
+Create.corner(8, plot)
+marks = Create.new("Frame", { Name = "Marks", Size = UDim2.fromScale(1, 1), Parent = plot })
+guide = Create.new("Frame", {
+Name = "Guide",
+Size = UDim2.new(0, 1, 1, -INSET * 2),
+Position = UDim2.fromOffset(0, INSET),
+Visible = false,
+ZIndex = 4,
+Theme = { BackgroundColor3 = "textMuted" },
+Parent = plot,
+})
+readout = Create.new("TextLabel", {
+Name = "Readout",
+Size = UDim2.fromOffset(0, 20),
+AutomaticSize = Enum.AutomaticSize.X,
+TextSize = 12,
+RichText = true,
+Visible = false,
+ZIndex = 5,
+Theme = { BackgroundColor3 = "surface", TextColor3 = "text" },
+Parent = plot,
+})
+Create.corner(6, readout)
+Create.padding(readout, 8, 0)
+Create.stroke("stroke", readout)
+end
+local function longest()
+local count = #labels
+for _, entry in series do
+count = math.max(count, #(entry.Values or {}))
+end
+return count
+end
+local function range()
+local low, high = math.huge, -math.huge
+for _, entry in series do
+for _, value in entry.Values or {} do
+if type(value) == "number" then
+low, high = math.min(low, value), math.max(high, value)
+end
+end
+end
+if kind == "Bars" or low == math.huge then
+low = math.min(if low == math.huge then 0 else low, 0)
+end
+if type(options.Min) == "number" then
+low = options.Min
+end
+if type(options.Max) == "number" then
+high = options.Max
+end
+if high == -math.huge or high - low < 1e-6 then
+high = low + 1
+end
+return low, high
+end
+local function drawPlot()
+marks:ClearAllChildren()
+local size = plot.AbsoluteSize / row.library.scale
+local count = longest()
+drawLegend(series, false)
+if size.X <= 0 or count == 0 then
+return
+end
+local low, high = range()
+local width, tall = size.X - INSET * 2, size.Y - INSET * 2
+local function y(value)
+return INSET + tall - (value - low) / (high - low) * tall
+end
+if kind == "Line" then
+local step = if count > 1 then width / (count - 1) else 0
+for index, entry in series do
+local role = colourOf(entry, index)
+local values = entry.Values or {}
+for point = 2, #values do
+local a, b = values[point - 1], values[point]
+if type(a) == "number" and type(b) == "number" then
+local x1, y1 = INSET + (point - 2) * step, y(a)
+local x2, y2 = INSET + (point - 1) * step, y(b)
+local dx, dy = x2 - x1, y2 - y1
+local segment = Create.new("Frame", {
+Name = "Segment",
+AnchorPoint = Vector2.new(0.5, 0.5),
+Position = UDim2.fromOffset((x1 + x2) / 2, (y1 + y2) / 2),
+Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy) + 1, 2),
+Rotation = math.deg(math.atan2(dy, dx)),
+ZIndex = 3,
+Theme = { BackgroundColor3 = role },
+Parent = marks,
+})
+Create.corner(-1, segment)
+end
+end
+end
+else
+local group = width / count
+local per = math.max((group - 6) / math.max(#series, 1), 2)
+local base = y(math.max(low, 0))
+for slot = 1, count do
+for index, entry in series do
+local value = (entry.Values or {})[slot]
+if type(value) == "number" then
+local top = y(value)
+local bar = Create.new("Frame", {
+Name = "Bar",
+Position = UDim2.fromOffset(INSET + (slot - 1) * group + 3 + (index - 1) * per, math.min(top, base)),
+Size = UDim2.fromOffset(math.max(per - 2, 1), math.max(math.abs(base - top), 1)),
+ZIndex = 2,
+Theme = { BackgroundColor3 = colourOf(entry, index) },
+Parent = marks,
+})
+Create.corner(3, bar)
+end
+end
+end
+end
+end
+if plot then
+scope:connect(plot.MouseMoved, function(x)
+local count = longest()
+local size = plot.AbsoluteSize
+if count == 0 or size.X <= 0 then
+return
+end
+local pointerX = (x - plot.AbsolutePosition.X) / row.library.scale
+local width = size.X / row.library.scale - INSET * 2
+local slot
+if kind == "Line" then
+slot = if count > 1 then math.clamp(math.round((pointerX - INSET) / width * (count - 1)) + 1, 1, count) else 1
+else
+slot = math.clamp(math.floor((pointerX - INSET) / width * count) + 1, 1, count)
+end
+local parts = { `<b>{labels[slot] or slot}</b>` }
+for index, entry in series do
+local value = (entry.Values or {})[slot]
+if type(value) == "number" then
+local colour = Theme.color(colourOf(entry, index)):ToHex()
+table.insert(parts, `<font color="#{colour}">{entry.Name or ""}</font> {format(options, value)}`)
+end
+end
+local guideX = if kind == "Line" then INSET + (if count > 1 then (slot - 1) * width / (count - 1) else 0) else INSET + (slot - 0.5) * width / count
+guide.Position = UDim2.fromOffset(guideX, INSET)
+guide.Visible = true
+readout.Text = table.concat(parts, "  ")
+readout.Visible = true
+readout.AnchorPoint = Vector2.new(if guideX > width / 2 then 1 else 0, 0)
+readout.Position = UDim2.fromOffset(guideX + (if guideX > width / 2 then -6 else 6), 4)
+end)
+scope:connect(plot.MouseLeave, function()
+guide.Visible = false
+readout.Visible = false
+end)
+scope:connect(plot:GetPropertyChangedSignal("AbsoluteSize"), drawPlot)
+end
+local function draw()
+if round then
+drawRound()
+else
+drawPlot()
+end
+end
+scope:connect(Theme.Changed, function()
+if not round then
+drawPlot()
+end
+end)
+function handle:Get()
+return if round then items else series
+end
+function handle:Set(data)
+if type(data) ~= "table" then
+return
+end
+if round then
+items = data
+else
+series = data
+end
+draw()
+row.fire(data)
+end
+handle.SetItems = handle.Set
+handle.SetSeries = handle.Set
+function handle:SetLabels(list)
+labels = list or {}
+draw()
+end
+function handle:Push(values, label, keep)
+if round or type(values) ~= "table" then
+return
+end
+for index, entry in series do
+entry.Values = entry.Values or {}
+table.insert(entry.Values, values[index] or values[entry.Name])
+if keep then
+while #entry.Values > keep do
+table.remove(entry.Values, 1)
+end
+end
+end
+if label ~= nil then
+table.insert(labels, label)
+if keep then
+while #labels > keep do
+table.remove(labels, 1)
+end
+end
+end
+draw()
+end
+draw()
+return handle
+end
+return Chart
 end
 modules["Elements/Choices"] = function()
 local Create = import("Core/Create")
@@ -11202,6 +11678,15 @@ return handle
 end
 return Code
 end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX3">
+<Properties>
+<string name="Name">Part03</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/ColorPicker"] = function()
 local Create = import("Core/Create")
 local Drag = import("Core/Drag")
@@ -11785,15 +12270,6 @@ return handle
 end
 return DatePicker
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX3">
-<Properties>
-<string name="Name">Part03</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Elements/Divider"] = function()
 local Create = import("Core/Create")
 local Hairline = import("Core/Hairline")
@@ -12254,6 +12730,170 @@ return handle
 end
 return Dropdown
 end
+modules["Elements/Gauge"] = function()
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
+local Arc = import("Core/Arc")
+local Create = import("Core/Create")
+local Drag = import("Core/Drag")
+local Motion = import("Core/Motion")
+local Row = import("Elements/Row")
+local Theme = import("Core/Theme")
+local Gauge = {}
+local KNOB_TRAVEL = 220
+local function format(options, value)
+if type(options.Format) == "function" then
+local ok, text = pcall(options.Format, value)
+if ok then
+return tostring(text)
+end
+end
+local rounded = if math.abs(value - math.round(value)) < 1e-6 then tostring(math.round(value)) else string.format("%.1f", value)
+return rounded .. (options.Suffix or "")
+end
+function Gauge.ring(row, options)
+local size = options.Size or 72
+local thickness = options.Thickness or math.max(math.round(size / 12), 4)
+local holder = Create.new("Frame", {
+Name = "Ring",
+Size = UDim2.fromOffset(size, size),
+Parent = row.slot,
+})
+local track = Arc.new(holder, { Thickness = thickness, Role = "raised", Radius = -1, Even = false })
+local fill = Arc.new(holder, { Thickness = thickness, Role = options.Role or "accent", Radius = -1, Even = false })
+local label = Create.new("TextLabel", {
+Name = "Value",
+Size = UDim2.fromScale(1, 1),
+TextSize = math.max(math.round(size / 5), 11),
+Weight = "bold",
+TextXAlignment = Enum.TextXAlignment.Center,
+Theme = { TextColor3 = "text" },
+Parent = holder,
+})
+track:Set(1)
+return { holder = holder, track = track, fill = fill, label = label }
+end
+function Gauge.new(container, options)
+local row = Row.new(container, options)
+local handle = row.handle
+local min, max = options.Min or 0, options.Max or 100
+local ring = Gauge.ring(row, options)
+local value = min
+local animation
+local shown = Instance.new("NumberValue")
+row.scope:add(shown)
+row.scope:connect(shown:GetPropertyChangedSignal("Value"), function()
+ring.fill:Set(shown.Value)
+end)
+local function roleFor(share)
+local chosen = options.Role or "accent"
+if type(options.Thresholds) == "table" then
+local best = math.huge
+for _, threshold in options.Thresholds do
+if type(threshold.At) == "number" and share <= threshold.At and threshold.At < best then
+best, chosen = threshold.At, threshold.Role or chosen
+end
+end
+end
+return chosen
+end
+function handle:Get()
+return value
+end
+function handle:Set(newValue)
+value = math.clamp(tonumber(newValue) or min, min, max)
+local share = if max > min then (value - min) / (max - min) else 0
+ring.label.Text = format(options, value)
+ring.fill:SetRole(roleFor(share))
+if animation then
+animation:Cancel()
+end
+animation = Motion.tween(shown, "base", { Value = share })
+ring.fill:Set(shown.Value)
+self.Changed:Fire(value)
+end
+handle:Set(options.Value or min)
+return handle
+end
+function Gauge.knob(container, options)
+local row = Row.new(container, options)
+local handle = row.handle
+local min, max, step = options.Min or 0, options.Max or 100, options.Step or 1
+local ring = Gauge.ring(row, { Size = options.Size or 64, Role = options.Role, Thickness = options.Thickness })
+local value = min
+local hovered = false
+local button = Create.new("TextButton", { Name = "Knob", Size = UDim2.fromScale(1, 1), Text = "", Parent = ring.holder })
+Create.corner(-1, button)
+local function snap(raw)
+return math.clamp(min + math.round((raw - min) / step) * step, min, max)
+end
+local function draw()
+local share = if max > min then (value - min) / (max - min) else 0
+ring.fill:Set(share)
+ring.label.Text = format(options, value)
+end
+local function change(newValue, call)
+newValue = snap(newValue)
+if newValue == value then
+return
+end
+value = newValue
+draw()
+if call then
+row.fire(value)
+else
+handle.Changed:Fire(value)
+end
+end
+local live = options.Live ~= false
+local start = value
+Drag.track(row.scope, button, function()
+start = value
+return not handle:IsLocked()
+end, function(position, origin)
+local travel = (position.X - origin.X) - (position.Y - origin.Y)
+change(start + travel / KNOB_TRAVEL * (max - min), live)
+end, function(moved)
+if moved and not live then
+row.fire(value)
+end
+end)
+row.scope:connect(button.MouseEnter, function()
+hovered = true
+Theme.bind(ring.label, "TextColor3", "accent")
+end)
+row.scope:connect(button.MouseLeave, function()
+hovered = false
+Theme.bind(ring.label, "TextColor3", "text")
+end)
+row.scope:connect(UserInputService.InputChanged, function(input)
+if hovered and input.UserInputType == Enum.UserInputType.MouseWheel and not handle:IsLocked() then
+change(value + math.sign(input.Position.Z) * step, true)
+end
+end)
+row.scope:connect(UserInputService.InputBegan, function(input)
+if GuiService.SelectedObject == button then
+if input.KeyCode == Enum.KeyCode.Right or input.KeyCode == Enum.KeyCode.Up then
+change(value + step, true)
+elseif input.KeyCode == Enum.KeyCode.Left or input.KeyCode == Enum.KeyCode.Down then
+change(value - step, true)
+end
+end
+end)
+function handle:Get()
+return value
+end
+function handle:Set(newValue)
+value = snap(tonumber(newValue) or min)
+draw()
+row.fire(value)
+end
+value = snap(options.Default or min)
+draw()
+return handle
+end
+return Gauge
+end
 modules["Elements/Graph"] = function()
 local Create = import("Core/Create")
 local Row = import("Elements/Row")
@@ -12450,6 +13090,7 @@ local Motion = import("Core/Motion")
 local Row = import("Elements/Row")
 local Styles = import("Core/Styles")
 local Theme = import("Core/Theme")
+local Strings = import("Core/Strings")
 Styles.register("Input", "Boxed", { fill = "control", stroke = true, corner = 6 })
 Styles.register("Input", "Underline", { underline = true, corner = 0 })
 Styles.register("Input", "Filled", { fill = "hover", corner = 6 })
@@ -12562,17 +13203,57 @@ box.Text = if password and not focused and not revealed then string.rep(MASK, ut
 writing = false
 decorate()
 end
+local errorLabel
+local function showError(message)
+if message == nil then
+if errorLabel then
+errorLabel.Visible = false
+end
+if outline then
+Theme.bind(outline, "Color", if focused then "accent" else "stroke")
+end
+return
+end
+if not errorLabel then
+errorLabel = Create.new("TextLabel", {
+Name = "InputError",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticSize = Enum.AutomaticSize.Y,
+TextWrapped = true,
+TextSize = 12,
+TextXAlignment = Enum.TextXAlignment.Left,
+LayoutOrder = 8,
+Theme = { TextColor3 = "danger" },
+Parent = row.content,
+})
+end
+errorLabel.Text = message
+errorLabel.Visible = true
+if outline then
+Theme.bind(outline, "Color", "danger")
+end
+end
 local function store(text)
+local candidate
 if numeric then
 local number = tonumber(text)
 if not number then
 return false
 end
-value = math.clamp(number, options.Min or -math.huge, options.Max or math.huge)
+candidate = math.clamp(number, options.Min or -math.huge, options.Max or math.huge)
 else
 text = tostring(text)
-value = if options.MaxLength then string.sub(text, 1, options.MaxLength) else text
+candidate = if options.MaxLength then string.sub(text, 1, options.MaxLength) else text
 end
+if type(options.Validate) == "function" then
+local ran, accepted, reason = pcall(options.Validate, candidate)
+if not ran or accepted == false then
+showError(if ran and type(reason) == "string" then reason else Strings.get("That value isn't allowed."))
+return false
+end
+end
+showError(nil)
+value = candidate
 return true
 end
 local function focusLook(active)
@@ -12586,6 +13267,9 @@ end
 end
 function handle:Get()
 return value
+end
+function handle:SetError(message)
+showError(if message == nil then nil else tostring(message))
 end
 function handle:Set(newValue)
 if store(newValue) then
@@ -12641,6 +13325,344 @@ return handle
 end
 return Input
 end
+modules["Elements/ItemGrid"] = function()
+local Create = import("Core/Create")
+local Icons = import("Core/Icons")
+local Motion = import("Core/Motion")
+local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
+local Theme = import("Core/Theme")
+local ItemGrid = {}
+local RARITIES = {
+{ Name = "Common", Role = "textMuted" },
+{ Name = "Uncommon", Role = "success" },
+{ Name = "Rare", Role = "info" },
+{ Name = "Epic", Color = Color3.fromRGB(168, 102, 255) },
+{ Name = "Legendary", Role = "warning" },
+{ Name = "Mythic", Role = "danger" },
+}
+local GAP = 8
+local CARD_WIDTH = 84
+function ItemGrid.new(container, options)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local multi = options.Multi == true
+local rarities = if type(options.Rarities) == "table" then options.Rarities else RARITIES
+local rank, rarityOf = {}, {}
+for index, rarity in rarities do
+rank[rarity.Name] = index
+rarityOf[rarity.Name] = rarity
+end
+local items = options.Items or {}
+local picked = {}
+local query = ""
+local cards = {}
+local area = row.belowTitle()
+Create.list(area, "Vertical", 8)
+local searchBox
+if options.Search == true or (options.Search ~= false and #items > 8) then
+searchBox = Create.new("TextBox", {
+Name = "Search",
+Size = UDim2.new(1, 0, 0, row.reach),
+PlaceholderText = Strings.get("Search"),
+Text = "",
+TextSize = 13,
+ClearTextOnFocus = false,
+TextXAlignment = Enum.TextXAlignment.Left,
+Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text", PlaceholderColor3 = "textMuted" },
+Parent = area,
+})
+Create.corner(8, searchBox)
+Create.padding(searchBox, 10, 0)
+Create.stroke("stroke", searchBox)
+end
+local scroller = Create.new("ScrollingFrame", {
+Name = "Items",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticCanvasSize = Enum.AutomaticSize.Y,
+CanvasSize = UDim2.new(),
+ScrollBarThickness = 3,
+ScrollingDirection = Enum.ScrollingDirection.Y,
+LayoutOrder = 1,
+Theme = { ScrollBarImageColor3 = "textMuted" },
+Parent = area,
+})
+local grid = Create.new("UIGridLayout", {
+CellPadding = UDim2.fromOffset(GAP, GAP),
+SortOrder = Enum.SortOrder.LayoutOrder,
+Parent = scroller,
+})
+Create.padding(scroller, 1, 1, 6, 1)
+local maxHeight = tonumber(options.Height) or 260
+local function fit()
+local width = scroller.AbsoluteSize.X / row.library.scale - 8
+if width <= 0 then
+return
+end
+local columns = tonumber(options.Columns) or math.max(math.floor((width + GAP) / (CARD_WIDTH + GAP)), 2)
+local cell = (width - GAP * (columns - 1)) / columns
+grid.CellSize = UDim2.fromOffset(math.floor(cell), math.floor(cell + 34))
+local content = grid.AbsoluteContentSize.Y / row.library.scale
+scroller.Size = UDim2.new(1, 0, 0, math.min(content + 2, maxHeight))
+end
+scope:connect(scroller:GetPropertyChangedSignal("AbsoluteSize"), fit)
+scope:connect(grid:GetPropertyChangedSignal("AbsoluteContentSize"), fit)
+local function roleOf(item)
+local rarity = rarityOf[item.Rarity]
+return rarity, if rarity then rarity.Role else nil
+end
+local function paint(card)
+local on = picked[card.value] == true
+local rarity, role = roleOf(card.item)
+local edgeRole = if on then "accent" elseif card.hovered then "textMuted" else "stroke"
+if rarity and not on and not card.hovered then
+edgeRole = role
+end
+if rarity and rarity.Color and not on and not card.hovered then
+Theme.unbind(card.edge, "Color")
+card.edge.Color = rarity.Color
+else
+Theme.bind(card.edge, "Color", edgeRole or "stroke")
+end
+card.edge.Transparency = if on or card.hovered then 0 else 0.4
+Motion.tween(card.edge, "fast", { Thickness = if on then 2 else 1 })
+card.tick.Visible = on
+end
+local function valueOf(item)
+if item.Value ~= nil then
+return item.Value
+end
+return item.Title or item.Name
+end
+local function order()
+local list = table.clone(items)
+if options.Sort == "Name" then
+table.sort(list, function(a, b)
+return string.lower(tostring(a.Title or a.Name or "")) < string.lower(tostring(b.Title or b.Name or ""))
+end)
+elseif options.Sort == "Count" then
+table.sort(list, function(a, b)
+return (tonumber(a.Count) or 0) > (tonumber(b.Count) or 0)
+end)
+elseif options.Sort == "Rarity" then
+table.sort(list, function(a, b)
+return (rank[a.Rarity] or 0) > (rank[b.Rarity] or 0)
+end)
+end
+return list
+end
+local function filter()
+for _, card in cards do
+local name = string.lower(tostring(card.item.Title or card.item.Name or ""))
+card.frame.Visible = query == "" or string.find(name, query, 1, true) ~= nil
+end
+end
+local function build()
+for _, card in cards do
+card.frame:Destroy()
+end
+table.clear(cards)
+for index, item in order() do
+local value = valueOf(item)
+local rarity, role = roleOf(item)
+local frame = Create.new("TextButton", {
+Name = "Item",
+Text = "",
+LayoutOrder = index,
+AutoButtonColor = false,
+Theme = { BackgroundColor3 = row.controlRole },
+Parent = scroller,
+})
+Create.corner(10, frame)
+local edge = Create.stroke("stroke", frame)
+if rarity then
+local wash = Create.new("Frame", {
+Name = "Rarity",
+Size = UDim2.fromScale(1, 1),
+BackgroundTransparency = 0.2,
+Parent = frame,
+}, {
+Create.new("UIGradient", {
+Rotation = 270,
+Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.82), NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(1, 1) }),
+}),
+})
+Create.corner(10, wash)
+if rarity.Color then
+wash.BackgroundColor3 = rarity.Color
+else
+Theme.bind(wash, "BackgroundColor3", role)
+end
+end
+local picture = Create.new("ImageLabel", {
+Name = "Picture",
+Size = UDim2.new(1, -28, 1, -58),
+AnchorPoint = Vector2.new(0.5, 0),
+Position = UDim2.new(0.5, 0, 0, 12),
+ScaleType = Enum.ScaleType.Fit,
+Theme = { ImageColor3 = if item.Image then nil else "textMuted" },
+Parent = frame,
+})
+Icons.apply(picture, item.Image or item.Icon or "package")
+Create.new("TextLabel", {
+Name = "Name",
+Size = UDim2.new(1, -12, 0, 16),
+Position = UDim2.new(0, 6, 1, -36),
+TextSize = 12,
+Weight = "medium",
+TextTruncate = Enum.TextTruncate.AtEnd,
+Text = tostring(item.Title or item.Name or ""),
+Theme = { TextColor3 = "text" },
+Parent = frame,
+})
+local rarityLabel = Create.new("TextLabel", {
+Name = "RarityName",
+Size = UDim2.new(1, -12, 0, 14),
+Position = UDim2.new(0, 6, 1, -19),
+TextSize = 11,
+TextTruncate = Enum.TextTruncate.AtEnd,
+Text = if item.Rarity then Strings.get(tostring(item.Rarity)) else "",
+Theme = { TextColor3 = role or "textMuted" },
+Parent = frame,
+})
+if rarity and rarity.Color then
+Theme.unbind(rarityLabel, "TextColor3")
+rarityLabel.TextColor3 = rarity.Color
+end
+if item.Count ~= nil then
+local count = Create.new("TextLabel", {
+Name = "Count",
+Size = UDim2.fromOffset(0, 18),
+AutomaticSize = Enum.AutomaticSize.X,
+AnchorPoint = Vector2.new(1, 0),
+Position = UDim2.new(1, -6, 0, 6),
+TextSize = 11,
+Weight = "bold",
+Text = "x" .. tostring(item.Count),
+Theme = { BackgroundColor3 = "surface", TextColor3 = "text" },
+Parent = frame,
+})
+Create.corner(-1, count)
+Create.padding(count, 6, 0)
+end
+local tick = Create.new("Frame", {
+Name = "Picked",
+Size = UDim2.fromOffset(18, 18),
+Position = UDim2.fromOffset(6, 6),
+Visible = false,
+Theme = { BackgroundColor3 = "accent" },
+Parent = frame,
+})
+Create.corner(-1, tick)
+local check = Create.icon("check", 12, "onAccent", tick)
+check.AnchorPoint, check.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+if item.Disabled then
+frame.Active = false
+picture.ImageTransparency = 0.6
+end
+local card = { frame = frame, edge = edge, tick = tick, item = item, value = value, hovered = false }
+table.insert(cards, card)
+scope:connect(frame.MouseEnter, function()
+card.hovered = true
+paint(card)
+end)
+scope:connect(frame.MouseLeave, function()
+card.hovered = false
+paint(card)
+end)
+scope:connect(frame.Activated, function()
+if item.Disabled or handle:IsLocked() then
+return
+end
+if multi then
+picked[value] = not picked[value] or nil
+elseif picked[value] then
+if options.AllowNone then
+picked[value] = nil
+end
+else
+table.clear(picked)
+picked[value] = true
+end
+for _, other in cards do
+paint(other)
+end
+row.fire(handle:Get())
+end)
+paint(card)
+end
+filter()
+fit()
+end
+if searchBox then
+scope:connect(searchBox:GetPropertyChangedSignal("Text"), function()
+query = string.lower(searchBox.Text)
+filter()
+end)
+end
+function handle:Get()
+local list = {}
+for _, item in items do
+local value = valueOf(item)
+if picked[value] then
+table.insert(list, value)
+end
+end
+if multi then
+return list
+end
+return list[1]
+end
+function handle:Set(value)
+table.clear(picked)
+if multi and type(value) == "table" then
+for _, one in value do
+picked[one] = true
+end
+elseif value ~= nil then
+picked[value] = true
+end
+for _, card in cards do
+paint(card)
+end
+row.fire(self:Get())
+end
+function handle:Refresh(newItems)
+items = newItems or {}
+local still = {}
+for _, item in items do
+local value = valueOf(item)
+if picked[value] then
+still[value] = true
+end
+end
+picked = still
+build()
+end
+function handle:SetCount(value, count)
+for _, card in cards do
+if card.value == value then
+card.item.Count = count
+local label = card.frame:FindFirstChild("Count")
+if label then
+label.Text = "x" .. tostring(count)
+end
+end
+end
+end
+local default = options.Default
+if multi and type(default) == "table" then
+for _, one in default do
+picked[one] = true
+end
+elseif default ~= nil then
+picked[default] = true
+end
+build()
+return handle
+end
+return ItemGrid
+end
 modules["Elements/Keybind"] = function()
 local UserInputService = game:GetService("UserInputService")
 local Create = import("Core/Create")
@@ -12664,10 +13686,39 @@ RightControl = "RCtrl",
 LeftAlt = "LAlt",
 RightAlt = "RAlt",
 }
+local MODIFIERS = {
+Ctrl = { Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl },
+Shift = { Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift },
+Alt = { Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt },
+}
+local MODIFIER_ORDER = { "Ctrl", "Shift", "Alt" }
+local function isModifier(keyCode)
+for _, keys in MODIFIERS do
+if table.find(keys, keyCode) then
+return true
+end
+end
+return false
+end
+local function heldModifiers()
+local held = {}
+for name, keys in MODIFIERS do
+held[name] = UserInputService:IsKeyDown(keys[1]) or UserInputService:IsKeyDown(keys[2])
+end
+return held
+end
+local function keyFromName(name)
+local ok, item = pcall(function()
+return Enum.KeyCode[name]
+end)
+return if ok then item else nil
+end
 local Keybind = {}
 function Keybind.control(row, options, onInput)
 local scope, library, window = row.scope, row.library, row.window
-local key = options.Default
+local key = if typeof(options.Default) == "EnumItem" then options.Default else nil
+local withModifiers = options.Modifiers == true
+local combo = { Ctrl = false, Shift = false, Alt = false }
 local listening, held = false, false
 local control = { Changed = Signal.new(), Active = false, Mode = options.Mode or "Press" }
 scope:add(control.Changed)
@@ -12699,8 +13750,23 @@ Parent = chip,
 })
 Create.corner(6, lip)
 end
+function control.Label()
+if not key then
+return nil
+end
+local parts = {}
+if withModifiers then
+for _, name in MODIFIER_ORDER do
+if combo[name] then
+table.insert(parts, name)
+end
+end
+end
+table.insert(parts, SHORT[key.Name] or key.Name)
+return table.concat(parts, " + ")
+end
 local function draw()
-local name = if listening then Strings.get("Press a key") elseif key then SHORT[key.Name] or key.Name else Strings.get("None")
+local name = if listening then Strings.get("Press a key") elseif key then control.Label() else Strings.get("None")
 chip.Text = if look.brackets then "[ " .. name .. " ]" else name
 if listening then
 Theme.bind(chip, "TextColor3", "accent")
@@ -12716,26 +13782,64 @@ library.listeningForKey = false
 end)
 end
 function control:Get()
+if withModifiers and key then
+return { Key = key, Ctrl = combo.Ctrl, Shift = combo.Shift, Alt = combo.Alt }
+end
 return key
 end
-function control:Set(newKey)
-key = if typeof(newKey) == "EnumItem" then newKey else nil
+function control:Set(value)
+combo = { Ctrl = false, Shift = false, Alt = false }
+if type(value) == "string" then
+value = self:Decode(value)
+end
+if type(value) == "table" and typeof(value) ~= "EnumItem" then
+for _, name in MODIFIER_ORDER do
+combo[name] = withModifiers and value[name] == true
+end
+value = value.Key
+end
+key = if typeof(value) == "EnumItem" then value else nil
 draw()
-self.Changed:Fire(key)
+local current = self:Get()
+self.Changed:Fire(current)
 window.KeybindsChanged:Fire()
-Env.call(row.handle.Title, options.ChangedCallback, key)
+Env.call(row.handle.Title, options.ChangedCallback, current)
 end
 function control:Encode()
-return if key then key.Name else ""
+if not key then
+return ""
 end
-function control:Decode(name)
-if type(name) ~= "string" or name == "" then
+if not withModifiers then
+return key.Name
+end
+local parts = {}
+for _, name in MODIFIER_ORDER do
+if combo[name] then
+table.insert(parts, name)
+end
+end
+table.insert(parts, key.Name)
+return table.concat(parts, "+")
+end
+function control:Decode(text)
+if type(text) ~= "string" or text == "" then
 return nil
 end
-local ok, item = pcall(function()
-return Enum.KeyCode[name]
-end)
-return if ok then item else nil
+if not withModifiers then
+return keyFromName(text)
+end
+local parts = string.split(text, "+")
+local found = keyFromName(table.remove(parts))
+if not found then
+return nil
+end
+local value = { Key = found }
+for _, name in parts do
+if MODIFIERS[name] then
+value[name] = true
+end
+end
+return value
 end
 scope:connect(chip.Activated, function()
 if control.longPressed then
@@ -12755,13 +13859,26 @@ if input.UserInputType ~= Enum.UserInputType.Keyboard then
 return
 end
 if listening then
+if withModifiers and isModifier(input.KeyCode) then
+return
+end
 stopListening()
 if input.KeyCode == Enum.KeyCode.Backspace then
 control:Set(nil)
 elseif input.KeyCode ~= Enum.KeyCode.Escape then
-control:Set(input.KeyCode)
+local value = if withModifiers then heldModifiers() else {}
+value.Key = input.KeyCode
+control:Set(value)
 end
 elseif not processed and not library.listeningForKey and key and input.KeyCode == key and not row.handle:IsLocked() then
+if withModifiers then
+local now = heldModifiers()
+for _, name in MODIFIER_ORDER do
+if now[name] ~= combo[name] then
+return
+end
+end
+end
 held = true
 onInput(true)
 end
@@ -12781,6 +13898,16 @@ end
 table.remove(window.keybinds, table.find(window.keybinds, listing))
 window.KeybindsChanged:Fire()
 end)
+local default = options.Default
+if type(default) == "string" then
+default = control:Decode(default)
+end
+if type(default) == "table" and typeof(default) ~= "EnumItem" then
+for _, name in MODIFIER_ORDER do
+combo[name] = withModifiers and default[name] == true
+end
+key = if typeof(default.Key) == "EnumItem" then default.Key else nil
+end
 draw()
 return control
 end
@@ -12793,6 +13920,7 @@ control = Keybind.control(row, {
 Default = options.Default,
 Mode = mode,
 Style = options.Style,
+Modifiers = options.Modifiers,
 ChangedCallback = options.ChangedCallback,
 }, function(pressed)
 if mode == "Hold" then
@@ -13914,6 +15042,7 @@ local Choices = import("Elements/Choices")
 local Env = import("Core/Env")
 local Menu = import("Components/Menu")
 local Spotlight = import("Components/Spotlight")
+local Gauge = import("Elements/Gauge")
 local Stat = import("Elements/Stat")
 local Strings = import("Core/Strings")
 local Tooltip = import("Components/Tooltip")
@@ -13956,6 +15085,12 @@ Graph = import("Elements/Graph"),
 Log = import("Elements/Log"),
 Banner = import("Elements/Banner"),
 Link = import("Elements/Link"),
+Viewport = import("Elements/Viewport"),
+Gauge = Gauge,
+Knob = { new = Gauge.knob },
+Chart = import("Elements/Chart"),
+ItemGrid = import("Elements/ItemGrid"),
+Waypoints = import("Elements/Waypoints"),
 }
 local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true, Stats = true }
 local Registry = { Kinds = {}, KindSet = {}, custom = {} }
@@ -16090,10 +17225,23 @@ Env.call(handle.Title .. " colour", settings.Callback, color, transparency)
 end)
 window:claimFlag(settings.Flag, handle.Color, row.scope)
 end
+local group
+if type(options.Exclusive) == "string" then
+window.exclusiveGroups = window.exclusiveGroups or {}
+group = window.exclusiveGroups[options.Exclusive] or {}
+window.exclusiveGroups[options.Exclusive] = group
+table.insert(group, handle)
+row.scope:add(function()
+local index = table.find(group, handle)
+if index then
+table.remove(group, index)
+end
+end)
+end
 if options.Keybind then
 local settings = options.Keybind
 local hold = settings.Mode == "Hold"
-handle.Keybind = Keybind.control(row, { Default = settings.Default, Mode = if hold then "Hold" else "Toggle" }, function(pressed)
+handle.Keybind = Keybind.control(row, { Default = settings.Default, Mode = if hold then "Hold" else "Toggle", Modifiers = settings.Modifiers }, function(pressed)
 if hold then
 handle:Set(pressed)
 elseif pressed then
@@ -16252,6 +17400,13 @@ end
 function handle:Set(newValue)
 local moved = value ~= (newValue == true)
 value = newValue == true
+if value and group then
+for _, other in group do
+if other ~= handle and other:Get() then
+other:Set(false)
+end
+end
+end
 draw("fast")
 if moved and knob then
 slide("fast")
@@ -16263,7 +17418,25 @@ end
 row.fire(value)
 end
 row.scope:connect(row.frame.Activated, function()
+if value or not options.Confirm then
 handle:Set(not value)
+return
+end
+window:Dialog({
+Title = Strings.get("Turn on {title}?", { title = handle.Title }),
+Content = if type(options.Confirm) == "string" then options.Confirm else nil,
+Dismissible = true,
+Buttons = {
+{ Title = Strings.get("Keep it off") },
+{
+Title = Strings.get("Turn on"),
+Variant = "Primary",
+Callback = function()
+handle:Set(true)
+end,
+},
+},
+})
 end)
 row.onHover(function(active)
 hovered = active
@@ -16284,6 +17457,410 @@ end
 return handle
 end
 return Toggle
+end
+modules["Elements/Viewport"] = function()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Create = import("Core/Create")
+local Drag = import("Core/Drag")
+local Row = import("Elements/Row")
+local Viewport = {}
+local TURN = 0.012
+local TIP = math.rad(60)
+local function copyOf(source)
+if typeof(source) ~= "Instance" then
+return nil
+end
+local archivable = source.Archivable
+source.Archivable = true
+local ok, copy = pcall(source.Clone, source)
+source.Archivable = archivable
+if not ok or not copy then
+return nil
+end
+for _, descendant in copy:GetDescendants() do
+if descendant:IsA("BaseScript") or descendant:IsA("Sound") then
+descendant:Destroy()
+end
+end
+if copy:IsA("BasePart") then
+local holder = Instance.new("Model")
+copy.Parent = holder
+return holder
+end
+return copy
+end
+function Viewport.new(container, options)
+local row = Row.new(container, options)
+local handle = row.handle
+local scope = row.scope
+local source = options.Model
+local model, size = nil, Vector3.one
+local yaw, pitch = math.rad(-25), math.rad(-10)
+local frame = Create.new("ViewportFrame", {
+Name = "Preview",
+Size = UDim2.new(1, 0, 0, options.Height or 180),
+Ambient = Color3.fromRGB(170, 170, 180),
+LightColor = Color3.fromRGB(255, 255, 255),
+LightDirection = Vector3.new(-1, -1, -1),
+Theme = { BackgroundColor3 = row.controlRole },
+Parent = row.belowTitle(),
+})
+Create.corner(8, frame)
+local camera = Create.new("Camera", { FieldOfView = options.FieldOfView or 40, Parent = frame })
+frame.CurrentCamera = camera
+local function place()
+if not model then
+return
+end
+local turned = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+pcall(model.PivotTo, model, turned)
+local radius = size.Magnitude / 2
+local distance = options.Distance or (radius / math.tan(math.rad(camera.FieldOfView / 2)) * 1.15)
+camera.CFrame = CFrame.new(0, 0, distance)
+end
+local function show(newSource)
+if model then
+model:Destroy()
+model = nil
+end
+source = newSource
+model = copyOf(source)
+if not model then
+return
+end
+local ok, box, extent = pcall(model.GetBoundingBox, model)
+if ok and box then
+size = extent
+pcall(function()
+model.WorldPivot = box
+end)
+end
+model.Parent = frame
+place()
+end
+local last = Vector2.zero
+Drag.track(scope, frame, function(position)
+last = position
+return true
+end, function(position)
+local travel = position - last
+last = position
+yaw += travel.X * TURN
+pitch = math.clamp(pitch + travel.Y * TURN, -TIP, TIP)
+place()
+end)
+if type(options.Spin) == "number" and options.Spin ~= 0 then
+local speed = math.rad(options.Spin)
+scope:connect(RunService.RenderStepped, function(step)
+local window = row.window
+if model and window.Visible and (handle.Tab == nil or window.selected == handle.Tab) then
+yaw += speed * step
+place()
+end
+end)
+end
+function handle:Get()
+return source
+end
+function handle:Set(newSource)
+if newSource == nil and options.Character then
+newSource = Players.LocalPlayer.Character
+end
+show(newSource)
+row.fire(source)
+end
+handle.SetModel = handle.Set
+function handle:ResetView()
+yaw, pitch = math.rad(-25), math.rad(-10)
+place()
+end
+if options.Character then
+show(Players.LocalPlayer.Character)
+scope:connect(Players.LocalPlayer.CharacterAdded, function(character)
+task.wait(0.5)
+if not scope.cleaned then
+show(character)
+end
+end)
+else
+show(source)
+end
+return handle
+end
+return Viewport
+end
+end
+]]></ProtectedString>
+</Properties>
+
+</Item>
+<Item class="ModuleScript" referent="RBX4">
+<Properties>
+<string name="Name">Part04</string>
+<ProtectedString name="Source"><![CDATA[return function(modules, import)
+modules["Elements/Waypoints"] = function()
+local Players = game:GetService("Players")
+local Create = import("Core/Create")
+local Env = import("Core/Env")
+local Row = import("Elements/Row")
+local Strings = import("Core/Strings")
+local Theme = import("Core/Theme")
+local Waypoints = {}
+local function characterPosition()
+local character = Players.LocalPlayer.Character
+local root = character and character:FindFirstChild("HumanoidRootPart")
+return if root then root.CFrame else nil
+end
+local function components(cframe)
+return { cframe:GetComponents() }
+end
+function Waypoints.new(container, options)
+local row = Row.new(container, options)
+local handle, scope = row.handle, row.scope
+local list = {}
+local max = tonumber(options.Max) or 50
+local area = row.belowTitle()
+Create.list(area, "Vertical", 6)
+local top = Create.new("Frame", { Name = "Add", Size = UDim2.new(1, 0, 0, row.reach), Parent = area })
+Create.list(top, "Horizontal", 8, { VerticalAlignment = Enum.VerticalAlignment.Center })
+local nameBox = Create.new("TextBox", {
+Name = "PlaceName",
+Size = UDim2.new(1, -120, 1, 0),
+PlaceholderText = Strings.get("Name this place"),
+Text = "",
+TextSize = 13,
+ClearTextOnFocus = false,
+TextXAlignment = Enum.TextXAlignment.Left,
+Theme = { BackgroundColor3 = row.controlRole, TextColor3 = "text", PlaceholderColor3 = "textMuted" },
+Parent = top,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+Create.corner(8, nameBox)
+Create.padding(nameBox, 10, 0)
+Create.stroke("stroke", nameBox)
+local saveButton = Create.new("TextButton", {
+Name = "SaveHere",
+Size = UDim2.fromOffset(0, row.reach),
+AutomaticSize = Enum.AutomaticSize.X,
+Text = Strings.get("Save here"),
+TextSize = 13,
+Weight = "medium",
+LayoutOrder = 1,
+Theme = { BackgroundColor3 = "accent", TextColor3 = "onAccent" },
+Parent = top,
+})
+Create.corner(8, saveButton)
+Create.padding(saveButton, 12, 0)
+local scroller = Create.new("ScrollingFrame", {
+Name = "Places",
+Size = UDim2.new(1, 0, 0, 0),
+AutomaticCanvasSize = Enum.AutomaticSize.Y,
+CanvasSize = UDim2.new(),
+ScrollBarThickness = 3,
+ScrollingDirection = Enum.ScrollingDirection.Y,
+LayoutOrder = 1,
+Theme = { ScrollBarImageColor3 = "textMuted" },
+Parent = area,
+})
+local layout = Create.list(scroller, "Vertical", 4)
+local empty = Create.new("TextLabel", {
+Name = "Empty",
+Size = UDim2.new(1, 0, 0, 28),
+Text = Strings.get("No places saved yet"),
+TextSize = 12,
+LayoutOrder = 2,
+Theme = { TextColor3 = "textMuted" },
+Parent = area,
+})
+local maxHeight = tonumber(options.Height) or 220
+scope:connect(layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+scroller.Size = UDim2.new(1, 0, 0, math.min(layout.AbsoluteContentSize.Y / row.library.scale, maxHeight))
+end)
+local function teleport(entry)
+if handle:IsLocked() then
+return
+end
+if type(options.Teleport) == "function" then
+Env.call(handle.Title, options.Teleport, entry.CFrame, entry.Name)
+return
+end
+local character = Players.LocalPlayer.Character
+if character then
+pcall(character.PivotTo, character, entry.CFrame)
+end
+end
+local draw
+local function changed()
+draw()
+row.fire(handle:Get())
+end
+local function iconButton(parent, icon, order, role)
+local button = Create.new("TextButton", {
+Name = icon,
+Size = UDim2.fromOffset(row.reach - 4, row.reach - 4),
+LayoutOrder = order,
+BackgroundTransparency = 1,
+Theme = { BackgroundColor3 = "hover" },
+Parent = parent,
+})
+Create.corner(6, button)
+local glyph = Create.icon(icon, 15, role or "textMuted", button)
+glyph.AnchorPoint, glyph.Position = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+scope:connect(button.MouseEnter, function()
+button.BackgroundTransparency = 0
+end)
+scope:connect(button.MouseLeave, function()
+button.BackgroundTransparency = 1
+end)
+return button
+end
+local lines = {}
+function draw()
+for _, line in lines do
+line:Destroy()
+end
+table.clear(lines)
+empty.Visible = #list == 0
+for index, entry in list do
+local line = Create.new("Frame", {
+Name = "Place",
+Size = UDim2.new(1, -6, 0, row.reach),
+LayoutOrder = index,
+Theme = { BackgroundColor3 = row.controlRole },
+Parent = scroller,
+})
+table.insert(lines, line)
+Create.corner(8, line)
+Create.padding(line, 10, 0, 4, 0)
+Create.list(line, "Horizontal", 2, { VerticalAlignment = Enum.VerticalAlignment.Center })
+local pin = Create.icon("map-pin", 14, "accent", line)
+pin.LayoutOrder = 0
+local label = Create.new("TextBox", {
+Name = "Name",
+Size = UDim2.new(0, 0, 1, 0),
+Text = entry.Name,
+TextSize = 13,
+ClearTextOnFocus = false,
+TextXAlignment = Enum.TextXAlignment.Left,
+TextTruncate = Enum.TextTruncate.AtEnd,
+LayoutOrder = 1,
+Theme = { TextColor3 = "text" },
+Parent = line,
+}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+Create.padding(label, 6, 0)
+scope:connect(label.FocusLost, function()
+local typed = string.match(label.Text, "^%s*(.-)%s*$")
+if typed ~= "" and typed ~= entry.Name then
+entry.Name = typed
+changed()
+else
+label.Text = entry.Name
+end
+end)
+local go = iconButton(line, "arrow-right", 2, "accent")
+scope:connect(go.Activated, function()
+teleport(entry)
+end)
+if index > 1 then
+scope:connect(iconButton(line, "chevron-up", 3).Activated, function()
+list[index], list[index - 1] = list[index - 1], list[index]
+changed()
+end)
+end
+if index < #list then
+scope:connect(iconButton(line, "chevron-down", 4).Activated, function()
+list[index], list[index + 1] = list[index + 1], list[index]
+changed()
+end)
+end
+scope:connect(iconButton(line, "trash-2", 5, "danger").Activated, function()
+table.remove(list, index)
+changed()
+end)
+end
+end
+local function save()
+if handle:IsLocked() then
+return
+end
+local read = if type(options.GetPosition) == "function" then options.GetPosition else characterPosition
+local ok, position = pcall(read)
+if not ok or typeof(position) ~= "CFrame" then
+row.window:Notify({ Title = Strings.get("Place not saved"), Content = Strings.get("Your character isn't in the game yet."), Kind = "warning" })
+return
+end
+if #list >= max then
+row.window:Notify({ Title = Strings.get("Place not saved"), Content = Strings.get("Delete a place to make room."), Kind = "warning" })
+return
+end
+local typed = string.match(nameBox.Text, "^%s*(.-)%s*$")
+local name = if typed ~= "" then typed else Strings.get("Place {number}", { number = #list + 1 })
+table.insert(list, { Name = name, CFrame = position })
+nameBox.Text = ""
+changed()
+end
+scope:connect(saveButton.Activated, save)
+scope:connect(nameBox.FocusLost, function(enter)
+if enter then
+save()
+end
+end)
+scope:connect(saveButton.MouseEnter, function()
+Theme.bind(saveButton, "BackgroundColor3", "accentHover")
+end)
+scope:connect(saveButton.MouseLeave, function()
+Theme.bind(saveButton, "BackgroundColor3", "accent")
+end)
+function handle:Get()
+local copy = {}
+for _, entry in list do
+table.insert(copy, { Name = entry.Name, CFrame = entry.CFrame })
+end
+return copy
+end
+function handle:Set(newList)
+list = {}
+for _, entry in (if type(newList) == "table" then newList else {}) do
+if type(entry) == "table" and typeof(entry.CFrame) == "CFrame" then
+table.insert(list, { Name = tostring(entry.Name or ""), CFrame = entry.CFrame })
+end
+end
+changed()
+end
+function handle:Teleport(which)
+for index, entry in list do
+if entry.Name == which or index == which then
+teleport(entry)
+return true
+end
+end
+return false
+end
+function handle:Encode()
+local saved = {}
+for _, entry in list do
+table.insert(saved, { name = entry.Name, at = components(entry.CFrame) })
+end
+return saved
+end
+function handle:Decode(saved)
+local decoded = {}
+for _, entry in (if type(saved) == "table" then saved else {}) do
+if type(entry) == "table" and type(entry.at) == "table" and #entry.at == 12 then
+table.insert(decoded, { Name = tostring(entry.name or ""), CFrame = CFrame.new(table.unpack(entry.at)) })
+end
+end
+return decoded
+end
+for _, entry in (if type(options.Default) == "table" then options.Default else {}) do
+if type(entry) == "table" and typeof(entry.CFrame) == "CFrame" then
+table.insert(list, { Name = tostring(entry.Name or ""), CFrame = entry.CFrame })
+end
+end
+draw()
+return handle
+end
+return Waypoints
 end
 modules["Halcyon"] = function()
 local UserInputService = game:GetService("UserInputService")
@@ -16787,6 +18364,23 @@ return {
 ["Language"] = "Langue",
 ["Language changed"] = "Langue modifiée",
 ["Run the hub again to see every part in the new language."] = "Relancez le hub pour tout voir dans la nouvelle langue.",
+["That value isn't allowed."] = "Cette valeur n'est pas acceptée.",
+["Turn on {title}?"] = "Activer {title} ?",
+["Keep it off"] = "Laisser désactivé",
+["Turn on"] = "Activer",
+["Name this place"] = "Nommez cet endroit",
+["Save here"] = "Enregistrer ici",
+["No places saved yet"] = "Aucun endroit enregistré",
+["Place not saved"] = "Endroit non enregistré",
+["Your character isn't in the game yet."] = "Votre personnage n'est pas encore en jeu.",
+["Delete a place to make room."] = "Supprimez un endroit pour faire de la place.",
+["Place {number}"] = "Endroit {number}",
+["Common"] = "Commun",
+["Uncommon"] = "Peu commun",
+["Rare"] = "Rare",
+["Epic"] = "Épique",
+["Legendary"] = "Légendaire",
+["Mythic"] = "Mythique",
 }
 end
 modules["Locales/German"] = function()
@@ -17025,6 +18619,23 @@ return {
 ["Language"] = "Sprache",
 ["Language changed"] = "Sprache geändert",
 ["Run the hub again to see every part in the new language."] = "Starte den Hub neu, um alles in der neuen Sprache zu sehen.",
+["That value isn't allowed."] = "Dieser Wert ist nicht erlaubt.",
+["Turn on {title}?"] = "{title} einschalten?",
+["Keep it off"] = "Aus lassen",
+["Turn on"] = "Einschalten",
+["Name this place"] = "Diesen Ort benennen",
+["Save here"] = "Hier speichern",
+["No places saved yet"] = "Noch keine Orte gespeichert",
+["Place not saved"] = "Ort nicht gespeichert",
+["Your character isn't in the game yet."] = "Dein Charakter ist noch nicht im Spiel.",
+["Delete a place to make room."] = "Lösche einen Ort, um Platz zu schaffen.",
+["Place {number}"] = "Ort {number}",
+["Common"] = "Gewöhnlich",
+["Uncommon"] = "Ungewöhnlich",
+["Rare"] = "Selten",
+["Epic"] = "Episch",
+["Legendary"] = "Legendär",
+["Mythic"] = "Mythisch",
 }
 end
 modules["Locales/Indonesian"] = function()
@@ -17263,6 +18874,23 @@ return {
 ["Language"] = "Bahasa",
 ["Language changed"] = "Bahasa diganti",
 ["Run the hub again to see every part in the new language."] = "Jalankan hub lagi untuk melihat semuanya dalam bahasa baru.",
+["That value isn't allowed."] = "Nilai itu tidak diizinkan.",
+["Turn on {title}?"] = "Nyalakan {title}?",
+["Keep it off"] = "Biarkan mati",
+["Turn on"] = "Nyalakan",
+["Name this place"] = "Beri nama tempat ini",
+["Save here"] = "Simpan di sini",
+["No places saved yet"] = "Belum ada tempat tersimpan",
+["Place not saved"] = "Tempat tidak disimpan",
+["Your character isn't in the game yet."] = "Karaktermu belum masuk game.",
+["Delete a place to make room."] = "Hapus satu tempat agar ada ruang.",
+["Place {number}"] = "Tempat {number}",
+["Common"] = "Biasa",
+["Uncommon"] = "Tidak biasa",
+["Rare"] = "Langka",
+["Epic"] = "Epik",
+["Legendary"] = "Legendaris",
+["Mythic"] = "Mitos",
 }
 end
 modules["Locales/Locales"] = function()
@@ -17317,15 +18945,6 @@ return list
 end
 return Locales
 end
-end
-]]></ProtectedString>
-</Properties>
-
-</Item>
-<Item class="ModuleScript" referent="RBX4">
-<Properties>
-<string name="Name">Part04</string>
-<ProtectedString name="Source"><![CDATA[return function(modules, import)
 modules["Locales/Portuguese"] = function()
 return {
 ["Jump to a tab or setting"] = "Ir para uma aba ou opção",
@@ -17562,6 +19181,23 @@ return {
 ["Language"] = "Idioma",
 ["Language changed"] = "Idioma alterado",
 ["Run the hub again to see every part in the new language."] = "Rode o hub de novo para ver tudo no novo idioma.",
+["That value isn't allowed."] = "Esse valor não é permitido.",
+["Turn on {title}?"] = "Ligar {title}?",
+["Keep it off"] = "Deixar desligado",
+["Turn on"] = "Ligar",
+["Name this place"] = "Dê um nome a este lugar",
+["Save here"] = "Salvar aqui",
+["No places saved yet"] = "Nenhum lugar salvo ainda",
+["Place not saved"] = "Lugar não salvo",
+["Your character isn't in the game yet."] = "Seu personagem ainda não está no jogo.",
+["Delete a place to make room."] = "Exclua um lugar para abrir espaço.",
+["Place {number}"] = "Lugar {number}",
+["Common"] = "Comum",
+["Uncommon"] = "Incomum",
+["Rare"] = "Raro",
+["Epic"] = "Épico",
+["Legendary"] = "Lendário",
+["Mythic"] = "Mítico",
 }
 end
 modules["Locales/Russian"] = function()
@@ -17800,6 +19436,23 @@ return {
 ["Language"] = "Язык",
 ["Language changed"] = "Язык изменён",
 ["Run the hub again to see every part in the new language."] = "Перезапустите хаб, чтобы всё было на новом языке.",
+["That value isn't allowed."] = "Такое значение недопустимо.",
+["Turn on {title}?"] = "Включить {title}?",
+["Keep it off"] = "Оставить выключенным",
+["Turn on"] = "Включить",
+["Name this place"] = "Назовите это место",
+["Save here"] = "Сохранить здесь",
+["No places saved yet"] = "Мест пока нет",
+["Place not saved"] = "Место не сохранено",
+["Your character isn't in the game yet."] = "Вашего персонажа ещё нет в игре.",
+["Delete a place to make room."] = "Удалите место, чтобы освободить ячейку.",
+["Place {number}"] = "Место {number}",
+["Common"] = "Обычный",
+["Uncommon"] = "Необычный",
+["Rare"] = "Редкий",
+["Epic"] = "Эпический",
+["Legendary"] = "Легендарный",
+["Mythic"] = "Мифический",
 }
 end
 modules["Locales/Spanish"] = function()
@@ -18038,6 +19691,23 @@ return {
 ["Language"] = "Idioma",
 ["Language changed"] = "Idioma cambiado",
 ["Run the hub again to see every part in the new language."] = "Ejecuta el hub otra vez para verlo todo en el nuevo idioma.",
+["That value isn't allowed."] = "Ese valor no está permitido.",
+["Turn on {title}?"] = "¿Activar {title}?",
+["Keep it off"] = "Dejar apagado",
+["Turn on"] = "Activar",
+["Name this place"] = "Ponle nombre a este lugar",
+["Save here"] = "Guardar aquí",
+["No places saved yet"] = "Aún no hay lugares guardados",
+["Place not saved"] = "Lugar no guardado",
+["Your character isn't in the game yet."] = "Tu personaje aún no está en el juego.",
+["Delete a place to make room."] = "Borra un lugar para hacer sitio.",
+["Place {number}"] = "Lugar {number}",
+["Common"] = "Común",
+["Uncommon"] = "Poco común",
+["Rare"] = "Raro",
+["Epic"] = "Épico",
+["Legendary"] = "Legendario",
+["Mythic"] = "Mítico",
 }
 end
 modules["Locales/Turkish"] = function()
@@ -18276,6 +19946,23 @@ return {
 ["Language"] = "Dil",
 ["Language changed"] = "Dil değişti",
 ["Run the hub again to see every part in the new language."] = "Her şeyi yeni dilde görmek için hub'ı yeniden çalıştır.",
+["That value isn't allowed."] = "Bu değere izin verilmiyor.",
+["Turn on {title}?"] = "{title} açılsın mı?",
+["Keep it off"] = "Kapalı kalsın",
+["Turn on"] = "Aç",
+["Name this place"] = "Bu yere bir ad ver",
+["Save here"] = "Buraya kaydet",
+["No places saved yet"] = "Henüz kayıtlı yer yok",
+["Place not saved"] = "Yer kaydedilmedi",
+["Your character isn't in the game yet."] = "Karakterin henüz oyunda değil.",
+["Delete a place to make room."] = "Yer açmak için bir yeri sil.",
+["Place {number}"] = "Yer {number}",
+["Common"] = "Sıradan",
+["Uncommon"] = "Nadir olmayan",
+["Rare"] = "Nadir",
+["Epic"] = "Destansı",
+["Legendary"] = "Efsanevi",
+["Mythic"] = "Mitik",
 }
 end
 modules["Locales/Vietnamese"] = function()
@@ -18514,6 +20201,23 @@ return {
 ["Language"] = "Ngôn ngữ",
 ["Language changed"] = "Đã đổi ngôn ngữ",
 ["Run the hub again to see every part in the new language."] = "Chạy lại hub để thấy mọi thứ bằng ngôn ngữ mới.",
+["That value isn't allowed."] = "Giá trị này không hợp lệ.",
+["Turn on {title}?"] = "Bật {title}?",
+["Keep it off"] = "Để tắt",
+["Turn on"] = "Bật",
+["Name this place"] = "Đặt tên cho nơi này",
+["Save here"] = "Lưu tại đây",
+["No places saved yet"] = "Chưa lưu nơi nào",
+["Place not saved"] = "Chưa lưu được nơi này",
+["Your character isn't in the game yet."] = "Nhân vật của bạn chưa vào trận.",
+["Delete a place to make room."] = "Xóa bớt một nơi để có chỗ.",
+["Place {number}"] = "Nơi {number}",
+["Common"] = "Thường",
+["Uncommon"] = "Không phổ biến",
+["Rare"] = "Hiếm",
+["Epic"] = "Sử thi",
+["Legendary"] = "Huyền thoại",
+["Mythic"] = "Thần thoại",
 }
 end
 modules["Themes/Palettes"] = function()

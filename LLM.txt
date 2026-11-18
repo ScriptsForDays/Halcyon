@@ -213,7 +213,7 @@ Each entry: what it is for, when not to use it, options with defaults, value and
 ### Toggle
 - For: an on/off feature (Fly, ESP, Auto farm).
 - Not for: actions that happen once (use Button); choosing between named modes (use Segmented/Radio).
-- Options: `Default` [false], `Style`, `Thumb` ("Circle" | "Oval" | "Square"), `Outline` [window], `OutlineColor`, `Keybind = { Default = Enum.KeyCode.X, Mode = "Toggle" | "Hold", Flag }`, `Color = { Default, Alpha, Flag, Callback }`.
+- Options: `Default` [false], `Style`, `Thumb` ("Circle" | "Oval" | "Square"), `Outline` [window], `OutlineColor`, `Keybind = { Default = Enum.KeyCode.X, Mode = "Toggle" | "Hold", Flag, Modifiers }`, `Color = { Default, Alpha, Flag, Callback }`, `Exclusive = "group"` (at most one toggle of that group is on; turning one on turns the others off), `Confirm` (true or a sentence: a press asks before turning on; turning off never asks).
 - Value: boolean. Callback(on) on every Set and once at start if `Default = true`.
 - Looks: Switch (default), Large, Slim, Square, Labelled, Icon, Glow, Checkbox, Circle, Chip.
 - Add-ons: `handle.Keybind` (key chip beside it), `handle.Color` (swatch beside it), each with its own Flag.
@@ -223,8 +223,8 @@ Each entry: what it is for, when not to use it, options with defaults, value and
 ### Button
 - For: an action now (Teleport, Rejoin, Collect all).
 - Not for: a setting that stays on (Toggle).
-- Options: `Variant`/`Style` ("Row" default: the whole row is the button; "Filled", "Outline", "Danger", "Soft", "Ghost", "Gradient", "Success"), `Icon` (inside a drawn button), `TrailingIcon` (row look), `Effect` ("Sweep", "Ripple", "Lift", "Glow", "Press", "Fill", "None"), `Hold` (seconds to hold), `Confirm` (true or wording of the confirming second press), `ShowDone` (tick or cross after the Callback).
-- Value: none. Callback() on press; `Press()` runs it. `SetLoading(bool, text)` blocks presses with a spinner; `IsLoading()`.
+- Options: `Variant`/`Style` ("Row" default: the whole row is the button; "Filled", "Outline", "Danger", "Soft", "Ghost", "Gradient", "Success"), `Icon` (inside a drawn button), `TrailingIcon` (row look), `Effect` ("Sweep", "Ripple", "Lift", "Glow", "Press", "Fill", "None"), `Hold` (seconds to hold), `Confirm` (true or wording of the confirming second press), `ShowDone` (tick or cross after the Callback), `Keybind` (Enum.KeyCode or `{ Default, Flag, Modifiers }`: a key chip on the row that presses the button).
+- Value: none. Callback() on press; `Press()` runs it. `SetLoading(bool, text)` blocks presses with a spinner; `IsLoading()`. A Callback that yields shows the spinner by itself until it returns.
 - Mistakes: Danger look without Confirm/Hold for destructive actions; many Filled buttons on one page (one primary per section reads best).
 
 ### Buttons
@@ -278,15 +278,15 @@ Each entry: what it is for, when not to use it, options with defaults, value and
 
 ### Input
 - For: free text or an unbounded number (a player name, a message, an amount).
-- Options: `Default`, `Placeholder`, `Numeric` (with `Min`, `Max`), `MaxLength`, `Counter`, `Live` [false: callback when typing ends], `Width` [150], `LeadingIcon`, `Clearable`, `Password` (dots while not typing), `MultiLine` (with `Lines` [4]).
-- Value: string, or number with Numeric. Invalid numeric text is rejected and the old value kept.
+- Options: `Default`, `Placeholder`, `Numeric` (with `Min`, `Max`), `MaxLength`, `Counter`, `Live` [false: callback when typing ends], `Width` [150], `LeadingIcon`, `Clearable`, `Password` (dots while not typing), `MultiLine` (with `Lines` [4]), `Validate = function(value) return false, "reason" end` (refuses a value; the reason shows under the field).
+- Value: string, or number with Numeric. Invalid numeric text or a refused value is rejected and the old value kept. `SetError(text)` shows the hub's own message under the field; `SetError(nil)` clears it.
 - Looks: Boxed (default), Underline, Filled, Pill.
 - Mistakes: Live = true for something that runs on every keystroke and is expensive.
 
 ### Keybind
 - For: a key the player chooses for an action.
-- Options: `Default` (Enum.KeyCode), `Mode` ("Press" default, "Toggle", "Hold"), `ModePicker` (right-click or long press to change mode), `ChangedCallback(key)`, `ModeChangedCallback(mode)`.
-- Value: Enum.KeyCode or nil. Callback() on press (Press), Callback(bool) for Toggle and Hold. `GetMode()`, `SetMode(name)`.
+- Options: `Default` (Enum.KeyCode; with Modifiers also "Ctrl+F" or `{ Key, Ctrl, Shift, Alt }`), `Mode` ("Press" default, "Toggle", "Hold"), `ModePicker` (right-click or long press to change mode), `Modifiers` (Ctrl, Shift and Alt combinations), `ChangedCallback(key)`, `ModeChangedCallback(mode)`.
+- Value: Enum.KeyCode or nil; with `Modifiers = true`, `{ Key, Ctrl, Shift, Alt }` or nil. Callback() on press (Press), Callback(bool) for Toggle and Hold. `GetMode()`, `SetMode(name)`.
 - Looks: Chip (default), Keycap, Brackets.
 - Notes: press the chip then a key; Escape cancels, Backspace clears. Keys typed into text boxes are ignored. A Toggle's own `Keybind` option is usually better than a separate Keybind row.
 
@@ -396,6 +396,32 @@ Each entry: what it is for, when not to use it, options with defaults, value and
 - Options: `Height` [180], `MaxLines` [200], `Timestamps` [true], `EmptyText`.
 - Methods: `Add(text, level)` with level "info" | "success" | "warn" | "error", `Info`, `Success`, `Warn`, `Error`, `Clear()`. Value: every line as text. Has level filters, copy and clear buttons.
 - Mistakes: logging every frame or every toggle.
+
+### Viewport
+- For: a 3D preview of a model (a pet, a weapon, the player's character).
+- Options: `Model` (any Model or BasePart; copied, never moved), `Character = true` (the local character, refreshed on respawn), `Height` [180], `Spin` (degrees a second, only while its tab shows), `Distance` (fitted when left out), `FieldOfView` [40].
+- Value: the source model. `Set(model)` swaps it; `ResetView()` turns it back. Drag to turn it.
+
+### Gauge and Knob
+- Gauge: a ring the hub fills (health, cooldown, progress to a goal). Options: `Value`, `Min` [0], `Max` [100], `Suffix`, `Format`, `Size` [72], `Thickness`, `Role` ["accent"], `Thresholds = { { At = 0.25, Role = "danger" } }` (the role at or below that share). `Set(n)` eases the ring.
+- Knob: a ring the player turns. Options: `Min`, `Max`, `Step` [1], `Default`, `Suffix`, `Format`, `Size` [64], `Live` [true]. Drag up or right, scroll, or arrow keys. Value: number.
+- Not for: a precise number the player types (Slider's value box or Stepper).
+
+### Chart
+- For: comparing numbers. `Type = "Donut" | "Pie"` with `Items = { { Name, Value, Role } }` (shares of a whole; hovering a slice shows it in the middle). `Type = "Line" | "Bars"` with `Labels` and `Series = { { Name, Values, Role } }` (hovering shows every series at that label).
+- Options: `Height`, `Min`, `Max`, `Suffix`, `Format`. Roles default to accent, info, success, warning, danger in turn; the legend names each colour.
+- Methods: `Set(itemsOrSeries)`, `SetLabels(list)`, `Push(values, label, keep)` (one value per series, trims to `keep`).
+- Not for: one number's recent history (Graph is lighter).
+
+### ItemGrid
+- For: picking from an inventory (pets, eggs, weapons) where the picture, count and rarity matter.
+- Options: `Items = { { Title, Image, Icon, Rarity, Count, Value, Disabled } }`, `Rarities = { { Name, Role or Color } }` lowest first [Common, Uncommon, Rare, Epic, Legendary, Mythic], `Multi`, `Default`, `AllowNone`, `Search` [on above 8 items], `Sort` ("Rarity" | "Name" | "Count"), `Columns` [fitted], `Height` [260].
+- Value: the picked Value (a list with Multi). `Refresh(items)` keeps picks that still exist; `SetCount(value, count)` updates one card.
+
+### Waypoints
+- For: places the player saves and teleports back to.
+- Options: `Flag` (keeps the list in configs and share codes), `Teleport = function(cframe, name) end` (without it the local character is moved with PivotTo), `GetPosition = function() return cframe end` [the character's root part], `Default`, `Max` [50], `Height` [220].
+- Value: `{ { Name, CFrame } }`. `Teleport(nameOrIndex)`. Names edit in place; rows reorder and delete.
 
 ### Banner
 - For: an announcement or a game's art at the top of a tab.

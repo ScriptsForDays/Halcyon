@@ -107,10 +107,25 @@ function Toggle.new(container, options)
 		window:claimFlag(settings.Flag, handle.Color, row.scope)
 	end
 
+	-- Exclusive = "name": at most one toggle with that name is on at a time.
+	local group
+	if type(options.Exclusive) == "string" then
+		window.exclusiveGroups = window.exclusiveGroups or {}
+		group = window.exclusiveGroups[options.Exclusive] or {}
+		window.exclusiveGroups[options.Exclusive] = group
+		table.insert(group, handle)
+		row.scope:add(function()
+			local index = table.find(group, handle)
+			if index then
+				table.remove(group, index)
+			end
+		end)
+	end
+
 	if options.Keybind then
 		local settings = options.Keybind
 		local hold = settings.Mode == "Hold"
-		handle.Keybind = Keybind.control(row, { Default = settings.Default, Mode = if hold then "Hold" else "Toggle" }, function(pressed)
+		handle.Keybind = Keybind.control(row, { Default = settings.Default, Mode = if hold then "Hold" else "Toggle", Modifiers = settings.Modifiers }, function(pressed)
 			if hold then
 				handle:Set(pressed)
 			elseif pressed then
@@ -291,6 +306,14 @@ function Toggle.new(container, options)
 	function handle:Set(newValue)
 		local moved = value ~= (newValue == true)
 		value = newValue == true
+		-- In an Exclusive group, turning this on turns the others off.
+		if value and group then
+			for _, other in group do
+				if other ~= handle and other:Get() then
+					other:Set(false)
+				end
+			end
+		end
 		draw("fast")
 		if moved and knob then
 			slide("fast")
@@ -302,8 +325,28 @@ function Toggle.new(container, options)
 		row.fire(value)
 	end
 
+	-- Confirm = true or a sentence: switching on from the row asks first.
+	-- Turning it off never asks.
 	row.scope:connect(row.frame.Activated, function()
-		handle:Set(not value)
+		if value or not options.Confirm then
+			handle:Set(not value)
+			return
+		end
+		window:Dialog({
+			Title = Strings.get("Turn on {title}?", { title = handle.Title }),
+			Content = if type(options.Confirm) == "string" then options.Confirm else nil,
+			Dismissible = true,
+			Buttons = {
+				{ Title = Strings.get("Keep it off") },
+				{
+					Title = Strings.get("Turn on"),
+					Variant = "Primary",
+					Callback = function()
+						handle:Set(true)
+					end,
+				},
+			},
+		})
 	end)
 	row.onHover(function(active)
 		hovered = active

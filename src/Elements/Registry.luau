@@ -6,6 +6,7 @@ local Choices = require("./Choices")
 local Env = require("../Core/Env")
 local Menu = require("../Components/Menu")
 local Spotlight = require("../Components/Spotlight")
+local Gauge = require("./Gauge")
 local Stat = require("./Stat")
 local Strings = require("../Core/Strings")
 local Tooltip = require("../Components/Tooltip")
@@ -49,6 +50,12 @@ local MODULES = {
 	Log = require("./Log"),
 	Banner = require("./Banner"),
 	Link = require("./Link"),
+	Viewport = require("./Viewport"),
+	Gauge = Gauge,
+	Knob = { new = Gauge.knob },
+	Chart = require("./Chart"),
+	ItemGrid = require("./ItemGrid"),
+	Waypoints = require("./Waypoints"),
 }
 local UNTITLED = { Divider = true, Code = true, Image = true, Buttons = true, Space = true, Table = true, Stats = true }
 

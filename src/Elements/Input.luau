@@ -4,6 +4,7 @@ local Motion = require("../Core/Motion")
 local Row = require("./Row")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
+local Strings = require("../Core/Strings")
 
 -- Input looks (kind "Input").
 --   fill        the field's colour ("control" is one step off the row's own)
@@ -143,18 +144,61 @@ function Input.new(container, options)
 		decorate()
 	end
 
-	-- Returns false when the text is not acceptable, leaving the value as it was.
+	-- A refused value's reason, under the field until the next good one.
+	local errorLabel
+	local function showError(message)
+		if message == nil then
+			if errorLabel then
+				errorLabel.Visible = false
+			end
+			if outline then
+				Theme.bind(outline, "Color", if focused then "accent" else "stroke")
+			end
+			return
+		end
+		if not errorLabel then
+			errorLabel = Create.new("TextLabel", {
+				Name = "InputError",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextWrapped = true,
+				TextSize = 12,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				LayoutOrder = 8,
+				Theme = { TextColor3 = "danger" },
+				Parent = row.content,
+			})
+		end
+		errorLabel.Text = message
+		errorLabel.Visible = true
+		if outline then
+			Theme.bind(outline, "Color", "danger")
+		end
+	end
+
+	-- Returns false when the text is not acceptable, leaving the value as it
+	-- was. Validate(value) may refuse a value by returning false and a reason.
 	local function store(text)
+		local candidate
 		if numeric then
 			local number = tonumber(text)
 			if not number then
 				return false
 			end
-			value = math.clamp(number, options.Min or -math.huge, options.Max or math.huge)
+			candidate = math.clamp(number, options.Min or -math.huge, options.Max or math.huge)
 		else
 			text = tostring(text)
-			value = if options.MaxLength then string.sub(text, 1, options.MaxLength) else text
+			candidate = if options.MaxLength then string.sub(text, 1, options.MaxLength) else text
 		end
+		if type(options.Validate) == "function" then
+			local ran, accepted, reason = pcall(options.Validate, candidate)
+			if not ran or accepted == false then
+				showError(if ran and type(reason) == "string" then reason else Strings.get("That value isn't allowed."))
+				return false
+			end
+		end
+		showError(nil)
+		value = candidate
 		return true
 	end
 
@@ -170,6 +214,12 @@ function Input.new(container, options)
 
 	function handle:Get()
 		return value
+	end
+
+	-- Shows a message under the field (nil clears it), for checks the hub
+	-- makes itself, such as a name the server turned down.
+	function handle:SetError(message)
+		showError(if message == nil then nil else tostring(message))
 	end
 
 	function handle:Set(newValue)

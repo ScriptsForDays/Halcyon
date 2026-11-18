@@ -195,7 +195,7 @@ function Hud.keybindList(window, options)
 					Size = UDim2.new(0, 66, 1, 0),
 					AnchorPoint = Vector2.new(1, 0),
 					Position = UDim2.fromScale(1, 0),
-					Text = key.Name,
+					Text = if listing.control.Label then listing.control.Label() else key.Name,
 					TextSize = 12,
 					TextXAlignment = Enum.TextXAlignment.Right,
 					Theme = { TextColor3 = if active then "accent" else "textMuted" },

@@ -29,13 +29,48 @@ local SHORT = {
 	RightAlt = "RAlt",
 }
 
+-- Keys that only count as part of a combination when Modifiers is on.
+local MODIFIERS = {
+	Ctrl = { Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl },
+	Shift = { Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift },
+	Alt = { Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt },
+}
+local MODIFIER_ORDER = { "Ctrl", "Shift", "Alt" }
+
+local function isModifier(keyCode)
+	for _, keys in MODIFIERS do
+		if table.find(keys, keyCode) then
+			return true
+		end
+	end
+	return false
+end
+
+local function heldModifiers()
+	local held = {}
+	for name, keys in MODIFIERS do
+		held[name] = UserInputService:IsKeyDown(keys[1]) or UserInputService:IsKeyDown(keys[2])
+	end
+	return held
+end
+
+local function keyFromName(name)
+	local ok, item = pcall(function()
+		return Enum.KeyCode[name]
+	end)
+	return if ok then item else nil
+end
+
 local Keybind = {}
 
 -- The key chip, usable on its own row or beside a Toggle. `onInput(pressed)`
 -- runs when the bound key goes down and again when it comes up.
 function Keybind.control(row, options, onInput)
 	local scope, library, window = row.scope, row.library, row.window
-	local key = options.Default
+	local key = if typeof(options.Default) == "EnumItem" then options.Default else nil
+	-- With Modifiers, the Ctrl, Shift and Alt that must be held with the key.
+	local withModifiers = options.Modifiers == true
+	local combo = { Ctrl = false, Shift = false, Alt = false }
 	local listening, held = false, false
 	local control = { Changed = Signal.new(), Active = false, Mode = options.Mode or "Press" }
 	scope:add(control.Changed)
@@ -70,8 +105,25 @@ function Keybind.control(row, options, onInput)
 		Create.corner(6, lip)
 	end
 
+	-- The key as the player reads it: "Ctrl + Shift + F", "RShift".
+	function control.Label()
+		if not key then
+			return nil
+		end
+		local parts = {}
+		if withModifiers then
+			for _, name in MODIFIER_ORDER do
+				if combo[name] then
+					table.insert(parts, name)
+				end
+			end
+		end
+		table.insert(parts, SHORT[key.Name] or key.Name)
+		return table.concat(parts, " + ")
+	end
+
 	local function draw()
-		local name = if listening then Strings.get("Press a key") elseif key then SHORT[key.Name] or key.Name else Strings.get("None")
+		local name = if listening then Strings.get("Press a key") elseif key then control.Label() else Strings.get("None")
 		chip.Text = if look.brackets then "[ " .. name .. " ]" else name
 		if listening then
 			Theme.bind(chip, "TextColor3", "accent")
@@ -90,31 +142,73 @@ function Keybind.control(row, options, onInput)
 		end)
 	end
 
+	-- With Modifiers the value is { Key, Ctrl, Shift, Alt }; otherwise the
+	-- KeyCode on its own.
 	function control:Get()
+		if withModifiers and key then
+			return { Key = key, Ctrl = combo.Ctrl, Shift = combo.Shift, Alt = combo.Alt }
+		end
 		return key
 	end
 
-	function control:Set(newKey)
-		key = if typeof(newKey) == "EnumItem" then newKey else nil
+	-- Takes a KeyCode, nil, a { Key, Ctrl, Shift, Alt } table, or text such
+	-- as "Ctrl+Shift+F".
+	function control:Set(value)
+		combo = { Ctrl = false, Shift = false, Alt = false }
+		if type(value) == "string" then
+			value = self:Decode(value)
+		end
+		if type(value) == "table" and typeof(value) ~= "EnumItem" then
+			for _, name in MODIFIER_ORDER do
+				combo[name] = withModifiers and value[name] == true
+			end
+			value = value.Key
+		end
+		key = if typeof(value) == "EnumItem" then value else nil
 		draw()
-		self.Changed:Fire(key)
+		local current = self:Get()
+		self.Changed:Fire(current)
 		window.KeybindsChanged:Fire()
-		Env.call(row.handle.Title, options.ChangedCallback, key)
+		Env.call(row.handle.Title, options.ChangedCallback, current)
 	end
 
 	function control:Encode()
-		return if key then key.Name else ""
+		if not key then
+			return ""
+		end
+		if not withModifiers then
+			return key.Name
+		end
+		local parts = {}
+		for _, name in MODIFIER_ORDER do
+			if combo[name] then
+				table.insert(parts, name)
+			end
+		end
+		table.insert(parts, key.Name)
+		return table.concat(parts, "+")
 	end
 
 	-- An unknown or empty name loads as no key.
-	function control:Decode(name)
-		if type(name) ~= "string" or name == "" then
+	function control:Decode(text)
+		if type(text) ~= "string" or text == "" then
 			return nil
 		end
-		local ok, item = pcall(function()
-			return Enum.KeyCode[name]
-		end)
-		return if ok then item else nil
+		if not withModifiers then
+			return keyFromName(text)
+		end
+		local parts = string.split(text, "+")
+		local found = keyFromName(table.remove(parts))
+		if not found then
+			return nil
+		end
+		local value = { Key = found }
+		for _, name in parts do
+			if MODIFIERS[name] then
+				value[name] = true
+			end
+		end
+		return value
 	end
 
 	scope:connect(chip.Activated, function()
@@ -136,13 +230,28 @@ function Keybind.control(row, options, onInput)
 			return
 		end
 		if listening then
+			-- Ctrl, Shift or Alt alone starts a combination; the key that
+			-- follows finishes it.
+			if withModifiers and isModifier(input.KeyCode) then
+				return
+			end
 			stopListening()
 			if input.KeyCode == Enum.KeyCode.Backspace then
 				control:Set(nil)
 			elseif input.KeyCode ~= Enum.KeyCode.Escape then
-				control:Set(input.KeyCode)
+				local value = if withModifiers then heldModifiers() else {}
+				value.Key = input.KeyCode
+				control:Set(value)
 			end
 		elseif not processed and not library.listeningForKey and key and input.KeyCode == key and not row.handle:IsLocked() then
+			if withModifiers then
+				local now = heldModifiers()
+				for _, name in MODIFIER_ORDER do
+					if now[name] ~= combo[name] then
+						return
+					end
+				end
+			end
 			held = true
 			onInput(true)
 		end
@@ -165,6 +274,18 @@ function Keybind.control(row, options, onInput)
 		window.KeybindsChanged:Fire()
 	end)
 
+	-- A default combination may be given as { Key, Ctrl, Shift, Alt } or as
+	-- text such as "Ctrl+F"; nothing is called while the row is made.
+	local default = options.Default
+	if type(default) == "string" then
+		default = control:Decode(default)
+	end
+	if type(default) == "table" and typeof(default) ~= "EnumItem" then
+		for _, name in MODIFIER_ORDER do
+			combo[name] = withModifiers and default[name] == true
+		end
+		key = if typeof(default.Key) == "EnumItem" then default.Key else nil
+	end
 	draw()
 	return control
 end
@@ -183,6 +304,7 @@ function Keybind.new(container, options)
 		Default = options.Default,
 		Mode = mode,
 		Style = options.Style,
+		Modifiers = options.Modifiers,
 		ChangedCallback = options.ChangedCallback,
 	}, function(pressed)
 		if mode == "Hold" then

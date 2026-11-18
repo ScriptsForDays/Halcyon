@@ -16,6 +16,7 @@ local Row = require("./Row")
 local Strings = require("../Core/Strings")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
+local Keybind = require("./Keybind")
 
 local CONFIRM_WINDOW = 3
 local FLASH = 1.2
@@ -261,6 +262,23 @@ function Button.new(container, options)
 
 	function handle:Press()
 		run()
+	end
+
+	-- Keybind = Enum.KeyCode.X or { Default, Flag, Modifiers }: a key chip on
+	-- the row; the key presses the button.
+	if options.Keybind then
+		local settings = if typeof(options.Keybind) == "EnumItem" then { Default = options.Keybind } else options.Keybind
+		local problem = row.window:checkFlag(settings.Flag)
+		if problem then
+			handle:Destroy()
+			error(problem, 4)
+		end
+		handle.Keybind = Keybind.control(row, { Default = settings.Default, Mode = "Press", Modifiers = settings.Modifiers }, function(pressed)
+			if pressed then
+				activate()
+			end
+		end)
+		row.window:claimFlag(settings.Flag, handle.Keybind, row.scope)
 	end
 
 	return handle
