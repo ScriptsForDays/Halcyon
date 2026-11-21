@@ -3,6 +3,7 @@
 -- window's preferences and never shown again.
 
 local Create = require("../Core/Create")
+local Translate = require("../Core/Translate")
 local Effects = require("../Core/Effects")
 local Mount = require("../Core/Mount")
 local Motion = require("../Core/Motion")
@@ -14,6 +15,7 @@ local Spotlight = {}
 
 -- Options: Title, Text, Id (what is remembered; defaults to the row's title).
 function Spotlight.attach(window, handle, options)
+	Translate.collect(options)
 	options = if type(options) == "table" then options else { Text = tostring(options) }
 	local id = tostring(options.Id or handle.Title)
 	if window.seenSpotlights[id] then

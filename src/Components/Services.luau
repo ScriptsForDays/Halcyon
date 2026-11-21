@@ -219,7 +219,7 @@ function Services.errorsPanel(window)
 					Variant = "Danger",
 					Callback = function()
 						window:ClearErrors()
-						Services.errorsPanel(window)
+						window:ErrorsPanel()
 					end,
 				},
 			},

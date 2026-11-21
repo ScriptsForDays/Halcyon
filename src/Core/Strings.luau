@@ -17,6 +17,9 @@ local overrides = {}
 local pack = {}
 -- Every key asked for so far, so GetStrings can list them.
 local seen = {}
+-- Every text handed out, so Translate can tell Halcyon's own words (already
+-- in the player's language) from the hub's.
+local given = {}
 
 local function fill(text, values)
 	if not values then
@@ -30,7 +33,14 @@ end
 
 function Strings.get(key, values)
 	seen[key] = true
-	return fill(overrides[key] or pack[key] or key, values)
+	local text = fill(overrides[key] or pack[key] or key, values)
+	given[text] = true
+	return text
+end
+
+-- Whether Halcyon wrote `text` itself.
+function Strings.isBuiltIn(text)
+	return given[text] == true
 end
 
 -- Picks a pack by code. "auto" follows the player's Roblox language and

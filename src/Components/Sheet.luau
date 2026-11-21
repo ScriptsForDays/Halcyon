@@ -4,6 +4,7 @@
 -- A press on the dimmed page behind it closes it.
 
 local Create = require("../Core/Create")
+local Translate = require("../Core/Translate")
 local Motion = require("../Core/Motion")
 local Registry = require("../Elements/Registry")
 local Section = require("./Section")
@@ -30,6 +31,7 @@ end
 
 -- Options: Title, Width (default 340).
 function Sheet.new(window, options)
+	Translate.collect(options)
 	options = options or {}
 	local scope = window.scope:child()
 	local self = setmetatable({ window = window, library = window.library, scope = scope, IsOpen = false, order = 0 }, Sheet)

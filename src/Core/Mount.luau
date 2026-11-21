@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 
 local Create = require("./Create")
 local Env = require("./Env")
+local Translate = require("./Translate")
 
 local Mount = {}
 
@@ -36,6 +37,8 @@ function Mount.overlay(library)
 	end
 	local overlay = { gui = gui, popups = layer("Popups", 1), dialogs = layer("Dialogs", 2), toasts = layer("Toasts", 3) }
 	library.overlay = overlay
+	-- Notices, dialogs and menus live here, so a translated hub watches it too.
+	Translate.watch(gui)
 	library.scope:add(function()
 		gui:Destroy()
 		if library.overlay == overlay then

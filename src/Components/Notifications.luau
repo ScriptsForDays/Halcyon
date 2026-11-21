@@ -18,6 +18,7 @@ local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Signal = require("../Core/Signal")
 local Strings = require("../Core/Strings")
+local Translate = require("../Core/Translate")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 local Schema = require("../Core/Schema")
@@ -911,6 +912,7 @@ function Notifications.push(library, options)
 		options = { Title = options }
 	end
 	Schema.check(`Notify "{options.Title or ""}"`, options, Schema.notify)
+	Translate.collect(options)
 	local defaults = Notifications.Defaults
 	local state = toastStack(library)
 	local style = if STYLES[options.Style] then options.Style else defaults.Style
@@ -1012,6 +1014,7 @@ function Notifications.push(library, options)
 	end
 
 	function toast.SetTitle(title)
+		Translate.add(title)
 		toast.title = tostring(title)
 		if toast.titleLabel then
 			toast.titleLabel.Text = toast.title
@@ -1019,6 +1022,7 @@ function Notifications.push(library, options)
 	end
 
 	function toast.SetContent(content)
+		Translate.add(content)
 		toast.content = tostring(content or "")
 		if toast.contentLabel then
 			toast.contentLabel.Text = toast.content

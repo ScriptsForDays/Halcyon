@@ -33,6 +33,7 @@ local Styles = require("./Core/Styles")
 local Switches = require("./Components/Switches")
 local Theme = require("./Core/Theme")
 local Tokens = require("./Core/Tokens")
+local Translate = require("./Core/Translate")
 local Window = require("./Components/Window")
 local Build = require("./Components/Build")
 local Registry = require("./Elements/Registry")
@@ -88,13 +89,13 @@ local Halcyon = {
 library.version = Halcyon.Version
 
 function Window:SettingsTab(options)
-	return SettingsTab.build(self, options)
+	return Translate.quietly(SettingsTab.build, self, options)
 end
 
 -- The config block (name, save, load, delete, load on start) on any tab
 -- or section.
 function Window:ConfigSection(target, options)
-	return ConfigSection.build(self, target, options)
+	return Translate.quietly(ConfigSection.build, self, target, options)
 end
 
 -- A panel that slides over the page from the right; see Sheet.luau.
@@ -171,6 +172,15 @@ function Halcyon:CreateWindow(options)
 	Strings.setLanguage(savedLanguage(folder, options) or options.Language or "en")
 	if type(options.Strings) == "table" then
 		Strings.set(options.Strings)
+	end
+	-- The hub's own text in the player's language, when it asks for that.
+	-- The window's Title is the hub's name and stays as written.
+	Translate.configure(options.Translate, Strings.language, folder, options.Title)
+	local wording = table.clone(options)
+	wording.Title = nil
+	Translate.collect(wording)
+	if library.overlay then
+		Translate.watch(library.overlay.gui)
 	end
 
 	-- Radius, Density and TextSize apply to everything built from here on.
@@ -354,7 +364,9 @@ end
 -- "de", or "auto" for the player's Roblox language. Text is read when a part
 -- is built, so set these before CreateWindow (or use its Language option).
 function Halcyon:SetLanguage(code)
-	return Strings.setLanguage(code)
+	local chosen = Strings.setLanguage(code)
+	Translate.setLanguage(chosen)
+	return chosen
 end
 
 function Halcyon:GetLanguage()

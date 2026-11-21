@@ -11,6 +11,7 @@ local Stat = require("./Stat")
 local Strings = require("../Core/Strings")
 local Tooltip = require("../Components/Tooltip")
 local Schema = require("../Core/Schema")
+local Translate = require("../Core/Translate")
 local Favourites = require("../Components/Favourites")
 local Row = require("./Row")
 
@@ -113,8 +114,10 @@ local function create(container, kind, options)
 		error(problem, 3)
 	end
 
+	Translate.collect(options)
 	local handle = MODULES[kind].new(container, options)
 	handle.Kind = kind
+	Translate.wrap(handle)
 	handle.ownerWindow = window
 	window:claimFlag(options.Flag, handle)
 

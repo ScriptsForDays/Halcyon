@@ -45,8 +45,10 @@ function Log.new(container, options)
 
 	local below = row.belowTitle()
 	Create.list(below, "Vertical", 6)
-	local chips = Create.new("Frame", { Name = "Levels", Size = UDim2.new(1, 0, 0, 24), Parent = below })
-	Create.list(chips, "Horizontal", 4)
+	-- Wraps, so longer words in another language move to a second line
+	-- instead of running past the row.
+	local chips = Create.new("Frame", { Name = "Levels", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = below })
+	Create.list(chips, "Horizontal", 4, { Wraps = true })
 	local chipButtons = {}
 	local box = Create.new("ScrollingFrame", {
 		Name = "Lines",

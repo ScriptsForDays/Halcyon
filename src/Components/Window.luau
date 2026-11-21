@@ -27,6 +27,7 @@ local Registry = require("../Elements/Registry")
 local Signal = require("../Core/Signal")
 local Resize = require("../Core/Resize")
 local Strings = require("../Core/Strings")
+local Translate = require("../Core/Translate")
 local Styles = require("../Core/Styles")
 local Switches = require("./Switches")
 local Tab = require("./Tab")
@@ -281,6 +282,7 @@ function Window.new(library, options, access)
 
 	self.gui = Create.new("ScreenGui", { Name = "Halcyon", DisplayOrder = library.displayOrder, Parent = Mount.parent() })
 	self.scope:add(self.gui)
+	Translate.watch(self.gui)
 	-- Active, so a press on the window never reaches the game underneath.
 	self.root = centred(Create.new("Frame", {
 		Name = "Window",
@@ -476,11 +478,11 @@ function Window:SetPersonal(key, value)
 end
 
 function Window:PersonaliseSection(tab, options)
-	return Personalise.section(self, tab, options)
+	return Translate.quietly(Personalise.section, self, tab, options)
 end
 
 function Window:ThemeBuilder(tab, options)
-	return Personalise.builder(self, tab, options)
+	return Translate.quietly(Personalise.builder, self, tab, options)
 end
 
 -- A loading screen over the window that moves only when the hub reports
@@ -2024,6 +2026,7 @@ end
 function Window:SetLanguage(code)
 	local chosen = Strings.setLanguage(code)
 	self.languagePicked = chosen
+	Translate.setLanguage(chosen)
 	-- Written now rather than batched: the pick only matters on the next
 	-- run, and the player may unload straight after making it.
 	if self.options.SavePreferences ~= false and Env.canSave then
@@ -2143,12 +2146,12 @@ end
 
 -- A panel listing what this executor offers and what is locked for it.
 function Window:SupportPanel()
-	return Services.supportPanel(self)
+	return Translate.quietly(Services.supportPanel, self)
 end
 
 -- A panel listing the callbacks that failed this session.
 function Window:ErrorsPanel()
-	return Services.errorsPanel(self)
+	return Translate.quietly(Services.errorsPanel, self)
 end
 
 function Window:ClearErrors()

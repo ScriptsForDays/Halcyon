@@ -7,6 +7,7 @@ local Create = require("../Core/Create")
 local Env = require("../Core/Env")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
+local Translate = require("../Core/Translate")
 local Popup = require("./Popup")
 local Theme = require("../Core/Theme")
 
@@ -68,6 +69,7 @@ end
 
 -- Opens the menu under `anchor`, or closes it when it is already open there.
 function Menu.open(library, anchor, items, width)
+	Translate.collectList(items)
 	local popup = Popup.toggle(library, anchor, { Width = width or 200 })
 	if not popup then
 		return nil
@@ -83,6 +85,7 @@ end
 -- Opens the menu at a point on screen (where a row was right-clicked),
 -- through a one-pixel anchor that leaves with the menu.
 function Menu.openAt(library, position, items, width)
+	Translate.collectList(items)
 	local overlay = Mount.overlay(library)
 	local origin = overlay.gui.AbsolutePosition
 	local anchor = Create.new("Frame", {

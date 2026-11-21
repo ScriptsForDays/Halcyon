@@ -39,17 +39,17 @@ local function tile(parent, settings, look, order, controlRole)
 	if settings.Icon then
 		Create.icon(settings.Icon, 13, "textMuted", head)
 	end
-	Create.new("TextLabel", {
+	Create.fit(Create.new("TextLabel", {
 		Name = "Label",
 		Size = UDim2.fromScale(0, 1),
-		AutomaticSize = Enum.AutomaticSize.X,
 		Text = settings.Title or "",
 		TextSize = 12,
 		Weight = "medium",
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		LayoutOrder = 1,
 		Theme = { TextColor3 = "textMuted" },
 		Parent = head,
-	})
+	}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) }), 10)
 	local line = Create.new("Frame", { Name = "Line", Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 1, Parent = frame })
 	Create.list(line, "Horizontal", 4, { VerticalAlignment = Enum.VerticalAlignment.Bottom })
 	local value = Create.new("TextLabel", {

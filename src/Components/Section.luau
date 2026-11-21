@@ -19,6 +19,7 @@ local Signal = require("../Core/Signal")
 local Styles = require("../Core/Styles")
 local Theme = require("../Core/Theme")
 local Tokens = require("../Core/Tokens")
+local Translate = require("../Core/Translate")
 local PopOut = require("./PopOut")
 local Background = require("../Core/Background")
 
@@ -57,6 +58,7 @@ end
 -- LockText, LockHint.
 function Section.new(tab, options)
 	options = options or {}
+	Translate.collect(options)
 	local window = tab.window
 	local look = Styles.pick("Section", options.Style or tab.sectionStyle, window)
 	local flat = look.flat == true
@@ -146,6 +148,7 @@ function Section.new(tab, options)
 			Theme = { TextColor3 = "text" },
 			Parent = header,
 		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+		Create.fit(self.label, 11)
 		self.header = header
 		if options.Badge ~= nil then
 			self:SetBadge(options.Badge)
@@ -515,11 +518,15 @@ function Section:buildTabs(names)
 			Text = name,
 			TextSize = 12,
 			Weight = "medium",
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			LayoutOrder = index,
 			BackgroundTransparency = 1,
 			Theme = { BackgroundColor3 = "raised", TextColor3 = "textMuted" },
 			Parent = strip,
 		}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+		-- The tabs share the strip equally, so a long name shrinks, then is cut.
+		Create.fit(button, 9)
+		Create.padding(button, 4, 0)
 		Create.corner(6, button)
 		local frame = Create.new("Frame", {
 			Name = "Rows",
@@ -672,6 +679,7 @@ function Section:SetBadge(value)
 end
 
 function Section:SetTitle(title)
+	Translate.add(title)
 	self.Title = title
 	self.searchTitle = string.lower(title)
 	if self.label then

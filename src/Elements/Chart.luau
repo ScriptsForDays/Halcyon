@@ -12,6 +12,7 @@ local Arc = require("../Core/Arc")
 local Create = require("../Core/Create")
 local Row = require("./Row")
 local Theme = require("../Core/Theme")
+local Translate = require("../Core/Translate")
 
 local Chart = {}
 
@@ -76,22 +77,40 @@ function Chart.new(container, options)
 			total += tonumber(entry.Value) or 0
 		end
 		for index, entry in entries do
-			local line = Create.new("Frame", { Name = "Entry", Size = UDim2.fromOffset(0, 18), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = index, Parent = legend })
+			local line = Create.new("Frame", {
+				Name = "Entry",
+				Size = if round then UDim2.new(1, 0, 0, 18) else UDim2.fromOffset(0, 18),
+				AutomaticSize = if round then Enum.AutomaticSize.None else Enum.AutomaticSize.X,
+				LayoutOrder = index,
+				Parent = legend,
+			})
 			Create.list(line, "Horizontal", 6, { VerticalAlignment = Enum.VerticalAlignment.Center })
 			local dot = Create.new("Frame", { Name = "Swatch", Size = UDim2.fromOffset(8, 8), Theme = { BackgroundColor3 = colourOf(entry, index) }, Parent = line })
 			Create.corner(-1, dot)
 			local share = if total > 0 then math.round((tonumber(entry.Value) or 0) / total * 100) else 0
 			local text = Create.new("TextLabel", {
 				Name = "Name",
-				Size = UDim2.fromOffset(0, 18),
-				AutomaticSize = Enum.AutomaticSize.X,
+				Size = if round then UDim2.fromScale(0, 1) else UDim2.fromOffset(0, 18),
+				AutomaticSize = if round then Enum.AutomaticSize.None else Enum.AutomaticSize.X,
 				TextSize = 12,
+				TextTruncate = Enum.TextTruncate.AtEnd,
 				LayoutOrder = 1,
-				Text = if withValues then `{entry.Name or ""}  <font transparency="0.4">{format(options, tonumber(entry.Value) or 0)} · {share}%</font>` else tostring(entry.Name or ""),
-				RichText = true,
+				Text = tostring(entry.Name or ""),
 				Theme = { TextColor3 = "text" },
 				Parent = line,
-			})
+			}, if round then { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) } else nil)
+			if withValues then
+				Create.new("TextLabel", {
+					Name = "Share",
+					Size = UDim2.fromOffset(0, 18),
+					AutomaticSize = Enum.AutomaticSize.X,
+					TextSize = 12,
+					LayoutOrder = 2,
+					Text = `{format(options, tonumber(entry.Value) or 0)} · {share}%`,
+					Theme = { TextColor3 = "textMuted" },
+					Parent = line,
+				})
+			end
 			legendRows[index] = text
 		end
 	end
@@ -169,7 +188,8 @@ function Chart.new(container, options)
 			for index, item in items do
 				running += math.max(tonumber(item.Value) or 0, 0)
 				if angle / 360 <= running / sum then
-					centre.Text = `{item.Name or ""}\n{format(options, tonumber(item.Value) or 0)}`
+					local name = tostring(item.Name or "")
+					centre.Text = `{Translate.on and Translate.lookup(name) or name}\n{format(options, tonumber(item.Value) or 0)}`
 					for other, label in legendRows do
 						label.TextTransparency = if other == index then 0 else 0.5
 					end

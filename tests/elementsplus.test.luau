@@ -48,8 +48,11 @@ local loot = section:Chart({ Title = "Loot", Type = "Donut", Items = { { Name = 
 Stub.flush()
 Stub.equal(Stub.byName(loot.Frame, "Centre").Text, "40", "a donut shows the total in the middle")
 Stub.check(Stub.find(loot.Frame, function(instance)
-	return instance.Name == "Name" and string.find(instance.Text, "75%", 1, true) ~= nil
+	return instance.Name == "Share" and string.find(instance.Text, "75%", 1, true) ~= nil
 end) ~= nil, "the legend gives each share")
+Stub.check(Stub.find(loot.Frame, function(instance)
+	return instance.Name == "Name" and instance.Text == "Coins"
+end) ~= nil, "beside the name, which is a label of its own")
 loot:Set({ { Name = "Coins", Value = 5 } })
 Stub.equal(Stub.byName(loot.Frame, "Centre").Text, "5", "Set replaces the items")
 local rate = section:Chart({ Title = "Per hour", Type = "Line", Labels = { "1", "2", "3" }, Series = { { Name = "Coins", Values = { 1, 4, 2 } }, { Name = "Gems", Values = { 0, 1, 3 } } } })

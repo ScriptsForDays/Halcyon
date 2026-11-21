@@ -14,6 +14,7 @@ local Env = require("../Core/Env")
 local Hairline = require("../Core/Hairline")
 local Motion = require("../Core/Motion")
 local Strings = require("../Core/Strings")
+local Translate = require("../Core/Translate")
 local Theme = require("../Core/Theme")
 
 local VERSION = 1
@@ -360,7 +361,7 @@ function KeySystem.prompt(library, options, context)
 			local top = Create.new("Frame", { Name = "Top", Size = UDim2.new(1, 0, 0, 18), Parent = button })
 			Create.list(top, "Horizontal", 6)
 			Create.icon(tier.Icon or (if paid then "crown" elseif tier.NoKey then "lock-open" else "key"), 16, if paid then "warning" else "accent", top)
-			Create.new("TextLabel", {
+			Create.fit(Create.new("TextLabel", {
 				Name = "Name",
 				Size = UDim2.fromScale(0, 1),
 				Text = tier.Name,
@@ -369,7 +370,7 @@ function KeySystem.prompt(library, options, context)
 				LayoutOrder = 1,
 				Theme = { TextColor3 = "text" },
 				Parent = top,
-			}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) })
+			}, { Create.new("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }) }), 10)
 			local check = Create.new("Frame", {
 				Name = "Check",
 				Size = UDim2.fromOffset(16, 16),
@@ -497,6 +498,8 @@ function KeySystem.prompt(library, options, context)
 
 	local function refresh()
 		local tier = tiers[selected]
+		-- Sentences that name the tier use its translated name, once known.
+		tier = setmetatable({ Name = Translate.text(tier.Name) }, { __index = tier })
 		-- The chosen card shows an accent outline, a light accent fill and a
 		-- check, so the choice never rests on colour alone.
 		for index, entry in cards do
@@ -621,6 +624,13 @@ function KeySystem.prompt(library, options, context)
 
 	setStatus("", nil)
 	refresh()
+	for _, tier in tiers do
+		Translate.whenReady(tier.Name, function()
+			if not done and verify.Parent then
+				refresh()
+			end
+		end)
+	end
 	if not done then
 		waiter = coroutine.running()
 		coroutine.yield()

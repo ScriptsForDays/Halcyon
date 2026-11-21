@@ -202,7 +202,7 @@ function ItemGrid.new(container, options)
 				Parent = frame,
 			})
 			Icons.apply(picture, item.Image or item.Icon or "package")
-			Create.new("TextLabel", {
+			Create.fit(Create.new("TextLabel", {
 				Name = "Name",
 				Size = UDim2.new(1, -12, 0, 16),
 				Position = UDim2.new(0, 6, 1, -36),
@@ -212,7 +212,7 @@ function ItemGrid.new(container, options)
 				Text = tostring(item.Title or item.Name or ""),
 				Theme = { TextColor3 = "text" },
 				Parent = frame,
-			})
+			}), 9)
 			local rarityLabel = Create.new("TextLabel", {
 				Name = "RarityName",
 				Size = UDim2.new(1, -12, 0, 14),
@@ -223,6 +223,7 @@ function ItemGrid.new(container, options)
 				Theme = { TextColor3 = role or "textMuted" },
 				Parent = frame,
 			})
+			Create.fit(rarityLabel, 8)
 			if rarity and rarity.Color then
 				Theme.unbind(rarityLabel, "TextColor3")
 				rarityLabel.TextColor3 = rarity.Color

@@ -95,7 +95,7 @@ function Tiles.new(container, options)
 				Icons.apply(card.icon, entry.image)
 			end
 		end
-		Create.new("TextLabel", {
+		Create.fit(Create.new("TextLabel", {
 			Name = "Title",
 			Size = UDim2.new(1, 0, 0, 16),
 			Text = entry.text,
@@ -106,7 +106,7 @@ function Tiles.new(container, options)
 			LayoutOrder = 1,
 			Theme = { TextColor3 = if entry.disabled then "textMuted" else "text" },
 			Parent = content,
-		})
+		}), 10)
 		if entry.description then
 			Create.new("TextLabel", {
 				Name = "Description",

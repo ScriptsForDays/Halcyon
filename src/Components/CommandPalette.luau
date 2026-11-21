@@ -9,6 +9,7 @@ local Create = require("../Core/Create")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Strings = require("../Core/Strings")
+local Translate = require("../Core/Translate")
 local SearchFocus = require("./SearchFocus")
 
 local WIDTH, RESULTS = 460, 8
@@ -39,7 +40,7 @@ local function catalogue(window)
 					title = handle.Title,
 					path = if section then `{tab.Title}  \u{203A}  {section}` else tab.Title,
 					icon = tab.Icon or "circle",
-					words = handle.SearchText or string.lower(handle.Title),
+					words = (handle.SearchText or string.lower(handle.Title)) .. " " .. Translate.searchable(handle),
 				})
 			end
 		end

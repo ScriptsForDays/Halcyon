@@ -9,6 +9,7 @@ local Env = require("../Core/Env")
 local Motion = require("../Core/Motion")
 local Mount = require("../Core/Mount")
 local Strings = require("../Core/Strings")
+local Translate = require("../Core/Translate")
 local Theme = require("../Core/Theme")
 
 local VARIANTS = {
@@ -152,6 +153,7 @@ end
 -- "Danger" | "Ghost", Delay (seconds before it can be pressed), Callback }.
 -- Name each button by its outcome ("Delete", "Keep"), not "Yes" or "OK".
 function Dialog.open(library, options)
+	Translate.collect(options)
 	local shell = Dialog.shell(library, options)
 	Dialog.heading(shell.card, options.Title, options.Icon)
 	if options.Content then

@@ -461,6 +461,7 @@ Schema.window = {
 	Debug = "boolean",
 	Language = "string",
 	Strings = "{ [string]: string }",
+	Translate = "boolean | { From: string?, Fixes: { [string]: { [string]: string } }?, Skip: { string }?, Service: ((lines: { string }, from: string, to: string) -> { string })? }",
 	-- Access
 	KeySystem = "{ [string]: any }",
 	Tiers = "{ string }",

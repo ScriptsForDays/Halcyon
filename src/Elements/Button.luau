@@ -88,10 +88,21 @@ function Button.new(container, options)
 			AutomaticSize = Enum.AutomaticSize.X,
 			Text = title,
 			Weight = "medium",
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			LayoutOrder = 2,
 			Theme = { TextColor3 = look.text },
 			Parent = inner,
 		})
+		-- Centred with its icon, but never wider than the button: a longer
+		-- title (another language) is cut at the end instead of spilling out.
+		local limit = Create.new("UISizeConstraint", { Parent = label })
+		local function fitLabel()
+			local scale = math.max(if row.window then row.window.scale or 1 else 1, 0.01)
+			local room = target.AbsoluteSize.X / scale - 24 - (if indicator.Visible then 24 else 0)
+			limit.MaxSize = Vector2.new(math.max(room, 24), math.huge)
+		end
+		row.scope:connect(target:GetPropertyChangedSignal("AbsoluteSize"), fitLabel)
+		fitLabel()
 		local function paint(hovered)
 			local role = if hovered then look.hover else look.fill
 			Theme.bind(target, "BackgroundColor3", role, true)

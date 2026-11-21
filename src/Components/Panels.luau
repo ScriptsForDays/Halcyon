@@ -7,6 +7,7 @@ local Dialog = require("./Dialog")
 local Env = require("../Core/Env")
 local Motion = require("../Core/Motion")
 local Strings = require("../Core/Strings")
+local Translate = require("../Core/Translate")
 
 local TAGS = {
 	New = "accent",
@@ -64,6 +65,7 @@ end
 -- moves when the hub reports progress; there is no pretend timer.
 -- Options: Title, Text, Icon. Returns { SetProgress(fraction, text), Done() }.
 function Panels.loading(window, options)
+	Translate.collect(options)
 	options = options or {}
 	local scope = window.scope:child()
 	local veil, card = cover(window, "Loading")
@@ -105,6 +107,7 @@ end
 -- "Improved" | "Fixed" | "Removed", Text } } or plain strings), Force
 -- (show even if seen). Returns the dialog, or nil when already seen.
 function Panels.changelog(window, options)
+	Translate.collect(options)
 	options = options or {}
 	local version = tostring(options.Version or window.options.Version or "")
 	if version == "" then
@@ -160,6 +163,7 @@ end
 -- copy. Options: Title, Description, Credits ({ { Name, Role } }), Discord
 -- (an invite link), Links ({ { Title, Url } }), Side.
 function Panels.about(window, tab, options)
+	Translate.collect(options)
 	options = options or {}
 	local section = tab:Section({ Title = options.Title or Strings.get("About"), Icon = "info", Side = options.Side })
 	section:Paragraph({ Title = window.Title, Content = options.Description or window.Subtitle or "", Icon = window.Icon })
@@ -196,6 +200,7 @@ end
 -- load. Options: Icon, Title, Text, Kind ("empty" or "error"), Button
 -- ({ Title, Callback }). Returns { Destroy }.
 function Panels.state(tab, options)
+	Translate.collect(options)
 	options = options or {}
 	local scope = tab.scope:child()
 	local failed = options.Kind == "error"
@@ -263,6 +268,7 @@ end
 -- a ban notice from the hub's own service. Options: Title, Text, Icon,
 -- Button ({ Title, Callback }). Window:Unlock() removes it.
 function Panels.lock(window, options)
+	Translate.collect(options)
 	options = if type(options) == "string" then { Text = options } else options or {}
 	Panels.unlock(window)
 	local scope = window.scope:child()

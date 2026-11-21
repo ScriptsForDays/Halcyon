@@ -161,6 +161,41 @@ function Create.new(className: string, properties: { [string]: any }, children: 
 	if properties.Icon then
 		Icons.apply(instance, properties.Icon)
 	end
+	-- A placeholder longer than its box (another language) first shrinks, down
+	-- to 11, then ends in an ellipsis, instead of running into the box's edge.
+	-- TextScaled can't do this: Roblox wraps scaled text onto a second line
+	-- whenever the box is tall enough. Typed text keeps the box's own size.
+	if className == "TextBox" and not instance.MultiLine and instance.AutomaticSize ~= Enum.AutomaticSize.X and instance.AutomaticSize ~= Enum.AutomaticSize.XY then
+		instance.TextWrapped = false
+		instance.TextTruncate = Enum.TextTruncate.AtEnd
+		local base = instance.TextSize
+		local function placeholderFits()
+			if instance.Text ~= "" or instance.PlaceholderText == "" then
+				if instance.TextSize ~= base then
+					instance.TextSize = base
+				end
+				return
+			end
+			local padding = instance:FindFirstChildOfClass("UIPadding")
+			local room = instance.AbsoluteSize.X - (if padding then padding.PaddingLeft.Offset + padding.PaddingRight.Offset else 0)
+			if room <= 0 then
+				return
+			end
+			-- TextBounds measures the placeholder while the box is empty; with
+			-- the cut off it is the whole line's width.
+			instance.TextTruncate = Enum.TextTruncate.None
+			instance.TextSize = base
+			local whole = instance.TextBounds.X
+			instance.TextTruncate = Enum.TextTruncate.AtEnd
+			if whole > room then
+				instance.TextSize = math.max(11, math.floor(base * room / whole))
+			end
+		end
+		for _, property in { "Text", "PlaceholderText", "AbsoluteSize" } do
+			instance:GetPropertyChangedSignal(property):Connect(placeholderFits)
+		end
+		placeholderFits()
+	end
 	if children then
 		for _, child in children do
 			child.Parent = instance
@@ -168,6 +203,15 @@ function Create.new(className: string, properties: { [string]: any }, children: 
 	end
 	instance.Parent = properties.Parent
 	return instance
+end
+
+-- Lets a label in a fixed-size spot shrink its text, down to `smallest`,
+-- before the end is cut off, so a longer word in another language still
+-- reads whole. The label keeps its TextTruncate for anything longer still.
+function Create.fit(label, smallest)
+	Create.new("UITextSizeConstraint", { MaxTextSize = label.TextSize, MinTextSize = smallest or 9, Parent = label })
+	label.TextScaled = true
+	return label
 end
 
 -- A radius of -1 rounds fully, for pills and circles. The Radius setting

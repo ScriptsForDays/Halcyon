@@ -10,6 +10,7 @@ local Panels = require("./Panels")
 local Registry = require("../Elements/Registry")
 local Section = require("./Section")
 local Styles = require("../Core/Styles")
+local Translate = require("../Core/Translate")
 local Theme = require("../Core/Theme")
 local Schema = require("../Core/Schema")
 
@@ -38,6 +39,7 @@ Tab.__index = Tab
 -- SectionStyle, Tier or PaidOnly (lock every row inside), LockText,
 -- Description (a heading with this line at the top of the page).
 function Tab.new(window, options)
+	Translate.collect(options)
 	local self = setmetatable({
 		library = window.library,
 		window = window,
@@ -177,6 +179,7 @@ end
 -- Options: Title, Content, Kind ("info", "success", "warning", "danger"),
 -- Dismissible (a cross that removes it). Returns { SetContent, Destroy }.
 function Tab:Notice(options)
+	Translate.collect(options)
 	if type(options) == "string" then
 		options = { Content = options }
 	end
@@ -250,6 +253,7 @@ function Tab:filter(query)
 		local match = query == ""
 			or named
 			or string.find(handle.SearchText or "", query, 1, true) ~= nil
+			or (Translate.on and string.find(Translate.searchable(handle), query, 1, true) ~= nil)
 			or (section.searchTitle ~= nil and string.find(section.searchTitle, query, 1, true) ~= nil)
 		handle.Frame.Visible = match and not handle.Hidden
 		handle.searchMatched = query ~= "" and match and not handle.Hidden
@@ -475,6 +479,7 @@ function Tab:Select()
 end
 
 function Tab:SetTitle(title)
+	Translate.add(title)
 	self.Title = title
 	if self.buttonLabel then
 		self.buttonLabel.Text = title
