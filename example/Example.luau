@@ -37,6 +37,17 @@ local Halcyon = loadLibrary()
 -- the newest one as a What's new card.
 local UPDATES: { { [string]: any } } = {
 	{
+		Version = "2.3.1",
+		Date = "21 Nov 2026",
+		Title = "Your hub in the player's language",
+		Summary = "Translate = true shows a hub's own text in the player's language, and longer words stay inside their boxes.",
+		Entries = {
+			{ Kind = "New", Text = "Translate = true translates a hub's tabs, rows, options and notices into the player's language." },
+			{ Kind = "Fixed", Text = "Longer words stay inside log filters, chart legends, stat cards and buttons." },
+			{ Kind = "Improved", Text = "Item names, tier names, section titles and input placeholders shrink a little before they are cut off." },
+		},
+	},
+	{
 		Version = "2.3.0",
 		Date = "18 Nov 2026",
 		Title = "Pages, favourites and moving backgrounds",
@@ -350,8 +361,8 @@ local function buildPlayer(hub)
 		end,
 	})
 	Character:Paragraph({
-		Title = "Client side",
-		Content = "These change your own character from your client. A game's server can still undo them.",
+		Title = "Only on your screen",
+		Content = "These change your own character for you alone. The game's server can still undo them.",
 		Icon = "info",
 	})
 	Character:Viewport({ Title = "Your character", Character = true, Height = 170, Spin = 25 })
@@ -1020,8 +1031,10 @@ function start(look)
 		TopbarImage = if look.TopbarImage == false then false else "https://i.insider.com/602ee9ced3ad27001837f2ac?width=700",
 		Title = "Halcyon",
 		Subtitle = "Example hub",
-		Version = "v2.3.0",
+		Version = "v2.3.1",
 		Folder = "HalcyonExample",
+		-- Pick a language in Settings and this hub's own text follows it.
+		Translate = true,
 		-- A slow aurora behind everything; the Looks tab can turn it off.
 		Background = if look.Background == false then nil else { Kind = "Aurora", Sheen = true },
 		-- A Favourites tab; players star rows from a row's right-click or
@@ -1030,7 +1043,7 @@ function start(look)
 		TabReorder = true,
 		Notifications = { Countdown = "Edge" },
 		-- package.json on GitHub carries the newest version number.
-		UpdateCheck = { Url = "https://raw.githubusercontent.com/ScriptsForDays/Halcyon/main/package.json", Current = "2.3.0" },
+		UpdateCheck = { Url = "https://raw.githubusercontent.com/ScriptsForDays/Halcyon/main/package.json", Current = "2.3.1" },
 		Theme = "Midnight",
 		TabStyle = "Sidebar",
 		CommandPalette = true,

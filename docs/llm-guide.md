@@ -159,7 +159,7 @@ These help players without the hub doing more:
 
 - `Favourites = true` on hubs with more than about 40 rows: players keep their shortlist in one tab.
 - `TabReorder = true` when tabs are many and players' habits differ.
-- The Settings tab's Language row and `Language = "auto"` when the hub's own text is short or also translated.
+- The Settings tab's Language row and `Language = "auto"`, with `Translate = true` so the hub's own text follows the player's language too. Write that text as plain sentences, one per label, with numbers inside the sentence; put game and item names in `Translate.Skip`.
 - `UpdateCheck` when the hub has releases and a place to host a version file.
 
 ## 13. What to leave out

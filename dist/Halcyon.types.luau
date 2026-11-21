@@ -1576,6 +1576,7 @@ export type WindowOptions = {
 	TopbarControls: string?,
 	TopbarImage: (Image | boolean)?,
 	TopbarImageStyle: string?,
+	Translate: (boolean | { From: string?, Fixes: { [string]: { [string]: string } }?, Skip: { string }?, Service: ((lines: { string }, from: string, to: string) -> { string })? })?,
 	Transparency: number?,
 	UpdateCheck: ({ Url: string, Current: string?, Notify: boolean?, OnUpdate: ((string, string?) -> ())? })?,
 	UpdateLog: (boolean | { [string]: any })?,

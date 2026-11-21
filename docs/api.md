@@ -458,6 +458,22 @@ Farm:Section({ Title = "Session", Background = { Kind = "Glow", Intensity = 0.55
 
 `Language = "auto"` (or "pt-br", "es", "vi", "id", "ru", "tr", "fr", "de") and `Strings = { ["English text"] = "yours" }`.
 
+`Translate = true` also shows the hub's own text in the player's language, with nothing else to write:
+
+```lua
+Halcyon:CreateWindow({ Title = "Farm", Folder = "Farm", Language = "auto", Translate = true })
+
+-- or
+Translate = {
+	From = "en", -- the language the hub is written in
+	Fixes = { de = { ["Auto farm"] = "Auto-Farmen" } }, -- your wording wins
+	Skip = { "Blox Fruits" }, -- names left as written
+	Service = function(lines, from, to) return translated end, -- another translator
+}
+```
+
+Tab and section names, row titles and descriptions, options, placeholders, menus, dialogs and notices are translated; the window's Title is the hub's name and stays. Values, flags and callbacks keep the text as written. Translations are saved to `Halcyon/<Folder>/translations/`, and until a line arrives, or if the service fails, it shows as written. Roblox Studio can't make web requests from a LocalScript, so test there with your own `Service`.
+
 ### Building, extending, checking
 
 - `Halcyon:Build(spec)` makes a whole hub from one table.

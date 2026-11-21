@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.1
+
+- `Translate = true` on CreateWindow shows the hub's own text in the player's language: tab and section names, row titles and descriptions, options, placeholders, menus, dialogs and notices. Lines go to Google's free translate service about forty at a time, with numbers swapped for markers, and are saved per language in the workspace, so each is fetched once. `Fixes` sets your own wording, `Skip` leaves names as written and `Service` plugs in another translator. Values, flags and callbacks keep the text as written, search matches both, and a failing service leaves the text as it was. The hub's name, `Skip` entries, gaming terms such as Ping and Keyless, acronyms and code-like words stay as written, a few common hub words (Dashboard, Memory, News, Features, Free, Paid) have set translations, and Halcyon's own Settings rows are never sent.
+- Switching language in Settings now re-translates a translated hub's text at once.
+- Longer words in other languages no longer run out of their boxes: log filters and bar-chart legends wrap, a donut's legend keeps to its column, stat labels keep to their card, and a filled button's label keeps to the button.
+- Item names, rarities, key tier names, tile titles, section titles and a section's inner tabs shrink a little before they are cut off.
+- A placeholder longer than its input box shrinks, then ends in an ellipsis, instead of running into the box's edge.
+- A typo's suggested option name no longer depends on table order, and two swapped letters count as one slip.
+
 ## 2.3.0
 
 - The resize grip keeps the window's bottom-right corner under the pointer. It grew the window by twice the pointer's travel, which only held while the window was centred; after a drag, or with a saved position, the corner ran away at double speed.
